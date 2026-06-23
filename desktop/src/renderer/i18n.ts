@@ -37,7 +37,6 @@ interface LocaleStrings {
     stepCompleted: string;
     stepFailed: string;
     stepPending: string;
-    typeCommand: string;
     typeMessage: string;
     noMessages: string;
     askAurora: string;
@@ -124,7 +123,6 @@ const zhCN: LocaleStrings = {
     stepCompleted: "已完成",
     stepFailed: "失败",
     stepPending: "待处理",
-    typeCommand: "输入命令...",
     typeMessage: "输入消息...",
     noMessages: "开始新对话",
     askAurora: "问 Aurora 任何事...",
@@ -256,7 +254,6 @@ const en: LocaleStrings = {
     searching: "Searching...",
     results: "results",
     noCommandsFound: "No commands found",
-    typeCommand: "Type a command...",
     skins: "Skins",
     noPlanYet: "No plan yet",
     unnamed: "Unnamed",

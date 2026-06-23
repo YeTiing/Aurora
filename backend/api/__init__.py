@@ -43,6 +43,7 @@ class SettingsUpdate(BaseModel):
     base_url: str | None = None; max_context_tokens: int | None = None
     max_turn_iter: int | None = None; temperature: float | None = None
     system_prompt: str | None = None
+    vision_fallback: dict | None = None
 
 class LLMTestRequest(BaseModel):
     message: str = "Hello, say connected in one short sentence."
@@ -386,6 +387,7 @@ async def get_settings():
         "temperature": _cfg.get("llm.temperature", 0.3),
         "context_window": _cfg.model_context_window,
         "compaction_threshold": _cfg.get("context.compaction_threshold", 0.85),
+        "vision_fallback": _cfg.get("vision_fallback", {"enabled": True, "model": "gpt-4o-mini", "provider": "openai"}),
     }
 
 @app.post("/settings")
@@ -407,6 +409,7 @@ async def update_settings(req: SettingsUpdate):
     if req.max_context_tokens: existing.setdefault("context", {}).update({"max_tokens": req.max_context_tokens})
     if req.max_turn_iter: existing.setdefault("agent", {}).update({"max_turn_iter": req.max_turn_iter})
     if req.system_prompt is not None: existing["system_prompt_custom"] = req.system_prompt
+    if req.vision_fallback is not None: existing["vision_fallback"] = req.vision_fallback
     config_path.write_text(json.dumps(existing, indent=2, ensure_ascii=False), encoding="utf-8")
     global _cfg, _llm, _graph
     _cfg = None; _llm = None; _graph = None

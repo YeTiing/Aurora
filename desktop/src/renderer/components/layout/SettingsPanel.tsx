@@ -38,7 +38,30 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     const [testResult, setTestResult] = useState<{ok?:boolean;response?:string;error?:string} | null>(null);
     const [saving, setSaving] = useState(false);
 
-    const [activeTab, setActiveTab] = useState<"general" | "llm" | "editor" | "terminal" | "shortcuts">("llm");
+    // Vision fallback state
+    const [visionEnabled, setVisionEnabled] = useState(true);
+    const [visionModel, setVisionModel] = useState("gpt-4o-mini");
+    const [visionApiKey, setVisionApiKey] = useState("");
+    const [visionBaseUrl, setVisionBaseUrl] = useState("");
+    const [visionLoaded, setVisionLoaded] = useState(false);
+
+    // Load vision settings
+    useEffect(() => {
+        if (visionLoaded) return;
+        fetch("http://127.0.0.1:9876/settings")
+            .then(r => r.json())
+            .then(data => {
+                const vf = data.vision_fallback || {};
+                if (vf.model) setVisionModel(vf.model);
+                if (vf.api_key) setVisionApiKey(vf.api_key);
+                if (vf.base_url) setVisionBaseUrl(vf.base_url);
+                if (vf.enabled !== undefined) setVisionEnabled(vf.enabled);
+                setVisionLoaded(true);
+            })
+            .catch(() => setVisionLoaded(true));
+    }, [visionLoaded]);
+
+    const [activeTab, setActiveTab] = useState<"general" | "llm" | "vision" | "editor" | "terminal" | "shortcuts">("llm");
     const [shortcutBindings, setShortcutBindings] = useState<
         Array<{ id: string; label: string; display: string; defaultDisplay: string; isCustom: boolean }>
     >([]);
@@ -84,6 +107,15 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             if (baseUrl) body.base_url = baseUrl;
             if (maxContext) body.max_context_tokens = maxContext;
             if (temperature !== undefined) body.temperature = temperature;
+            if (visionModel || visionApiKey || visionBaseUrl || !visionEnabled) {
+                body.vision_fallback = {
+                    enabled: visionEnabled,
+                    model: visionModel || "gpt-4o-mini",
+                    provider: "openai",
+                };
+                if (visionApiKey.trim()) body.vision_fallback.api_key = visionApiKey.trim();
+                if (visionBaseUrl.trim()) body.vision_fallback.base_url = visionBaseUrl.trim();
+            }
 
             const r = await fetch("http://127.0.0.1:9876/settings", {
                 method: "POST",
@@ -334,6 +366,70 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                         </span>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === "vision" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <div style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 1.5 }}>
+                                When main model can&apos;t see images, auto-fallback to a vision-capable model.
+                                Zero-config: reuses your LLM API key by default.
+                            </div>
+
+                            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: colors.text }}>
+                                <input type="checkbox" checked={visionEnabled} onChange={e => setVisionEnabled(e.target.checked)} />
+                                Enable Vision Fallback
+                            </label>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <label style={{ fontSize: 11, color: colors.textSecondary }}>Vision Model</label>
+                                <select
+                                    value={visionModel}
+                                    onChange={e => setVisionModel(e.target.value)}
+                                    style={{
+                                        background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                                        borderRadius: 6, padding: "6px 10px", fontSize: 12, outline: "none",
+                                    }}
+                                >
+                                    <option value="gpt-4o-mini">gpt-4o-mini (cheapest)</option>
+                                    <option value="gpt-4o">gpt-4o (best multimodal)</option>
+                                    <option value="gpt-4-turbo">gpt-4-turbo</option>
+                                    <option value="claude-3-haiku">claude-3-haiku</option>
+                                    <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <label style={{ fontSize: 11, color: colors.textSecondary }}>
+                                    Vision API Key <span style={{ color: colors.textMuted || colors.textSecondary }}>(optional — reuses main LLM key)</span>
+                                </label>
+                                <input
+                                    type="password"
+                                    value={visionApiKey}
+                                    onChange={e => setVisionApiKey(e.target.value)}
+                                    placeholder="Leave empty to use main API key"
+                                    style={{
+                                        background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                                        borderRadius: 6, padding: "6px 10px", fontSize: 12, outline: "none",
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <label style={{ fontSize: 11, color: colors.textSecondary }}>
+                                    Vision Base URL <span style={{ color: colors.textMuted || colors.textSecondary }}>(optional)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={visionBaseUrl}
+                                    onChange={e => setVisionBaseUrl(e.target.value)}
+                                    placeholder="Leave empty to use main base URL"
+                                    style={{
+                                        background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                                        borderRadius: 6, padding: "6px 10px", fontSize: 12, outline: "none",
+                                    }}
+                                />
                             </div>
                         </div>
                     )}

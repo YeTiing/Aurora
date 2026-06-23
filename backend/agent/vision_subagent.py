@@ -140,16 +140,37 @@ class VisionAnalyzer:
 
 
 def get_vision_analyzer() -> VisionAnalyzer:
-    """Factory: create analyzer from aurora.json config or auto-detect."""
-    from backend.config import config
+    """Factory: auto-reuse main LLM config, zero setup needed.
+    
+    Priority: dedicated vision_fallback config > main LLM config > env vars > auto-detect.
+    """
+    from backend.config import config as cfg
+
+    # 1. Try dedicated vision_fallback config
     vision_cfg = {}
-    if config is not None:
-        vision_cfg = config.get("vision_fallback", {})
+    if cfg is not None:
+        vision_cfg = cfg.get("vision_fallback", {})
+
+    model = vision_cfg.get("model") or None
+    api_key = vision_cfg.get("api_key") or None
+    base_url = vision_cfg.get("base_url") or None
+    provider = vision_cfg.get("provider", "openai")
+
+    # 2. If no dedicated config, auto-reuse main LLM config
+    if not api_key and cfg is not None:
+        api_key = cfg.get("llm.api_key") or cfg.get("api_key") or os.environ.get("OPENAI_API_KEY")
+    if not base_url and cfg is not None:
+        base_url = cfg.get("llm.base_url") or cfg.get("base_url") or ""
+
+    # 3. Auto-detect best vision model if not specified
+    if not model:
+        model = VisionAnalyzer._auto_detect_vision_model()
+
     return VisionAnalyzer(
-        model=vision_cfg.get("model"),
-        api_key=vision_cfg.get("api_key") or None,
-        base_url=vision_cfg.get("base_url") or None,
-        provider=vision_cfg.get("provider", "openai"),
+        model=model,
+        api_key=api_key or None,
+        base_url=base_url or None,
+        provider=provider,
     )
 
 

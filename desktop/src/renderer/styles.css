@@ -394,3 +394,17 @@ button:disabled, .disabled {
   background: var(--aurora-warning);
   color: #000;
 }
+
+
+/* RE Panel */
+.re-panel .toolbar-btn {
+  background: var(--aurora-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--aurora-radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+}
+.re-panel .toolbar-btn:hover {
+  opacity: 0.85;
+}

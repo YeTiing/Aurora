@@ -7,9 +7,11 @@ interface ToolbarProps {
     showMemory?: boolean;
     onToggleSkins?: () => void;
     showSkins?: boolean;
+    onToggleRe?: () => void;
+    showRe?: boolean;
 }
 
-export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins }: ToolbarProps) {
+export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, onToggleRe, showRe }: ToolbarProps) {
     const colors = useStore((s) => s.themeColors);
     const createSession = useStore((s) => s.createSession);
     const showRightPanel = useStore((s) => s.showRightPanel);
@@ -24,6 +26,12 @@ export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins }
                 <button className="toolbar-btn" onClick={() => { createSession(); }} title={t("newChat")}>
                     + {t("newChat")}
                 </button>
+                {onToggleRe && (
+                    <button className={`toolbar-btn ${showRe ? "active" : ""}`}
+                        onClick={onToggleRe} title="RE Workspace">
+                        🔍
+                    </button>
+                )}
                 {onToggleSkins && (
                     <button className={`toolbar-btn ${showSkins ? "active" : ""}`}
                         onClick={onToggleSkins} title="Skins">

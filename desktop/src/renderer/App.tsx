@@ -18,7 +18,6 @@ import { MemoryDashboard } from "./components/layout/MemoryDashboard";
 import { SkinBrowser } from "./components/layout/SkinBrowser";
 import { RePanel } from "./components/layout/RePanel";
 import { DetectivePanel } from "./components/layout/DetectivePanel";
-import { DocGhostPanel } from "./components/layout/DocGhostPanel";
 import { t, setLang } from "./i18n";
 import { useGlobalShortcuts, getShortcutManager } from "./shortcuts";
 import { useInitializeTheme } from "./theme";
@@ -42,7 +41,6 @@ export default function App() {
     const [showSkins, setShowSkins] = useState(false);
     const [showRe, setShowRe] = useState(false);
     const [showDetective, setShowDetective] = useState(false);
-    const [showDocGhost, setShowDocGhost] = useState(false);
     const createSession = useStore((s) => s.createSession);
     const setActiveSession = useStore((s) => s.setActiveSession);
     const setTerminalOpen = useStore((s) => s.setTerminalOpen);
@@ -136,9 +134,7 @@ export default function App() {
             onToggleRe={() => setShowRe(!showRe)}
             showRe={showRe}
             onToggleDetective={() => setShowDetective(!showDetective)}
-            showDetective={showDetective}
-            onToggleDocGhost={() => setShowDocGhost(!showDocGhost)}
-            showDocGhost={showDocGhost} />
+            showDetective={showDetective} />
 
             <div className="aurora-main">
                 {/* Left: Session list */}
@@ -217,7 +213,6 @@ export default function App() {
             {showSearch && <SearchPanel />
             {showMemory && <MemoryDashboard />}}
             {showDetective && <DetectivePanel onClose={() => setShowDetective(false)} />}
-            {showDocGhost && <DocGhostPanel onClose={() => setShowDocGhost(false)} />}
             {showRe && <RePanel onClose={() => setShowRe(false)} />}
             {showSkins && <SkinBrowser onClose={() => setShowSkins(false)} />}
             {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}

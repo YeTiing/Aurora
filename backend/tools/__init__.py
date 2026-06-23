@@ -21,7 +21,6 @@ from .cron_tool import CRON_SPEC, cron_handler
 from .skin_tool import SKIN_SPEC, skin_handler
 from .re_tool import RE_SPEC, re_handler
 from .detective_tool import DETECTIVE_SPEC, detective_handler
-from .doc_ghost_tool import DOC_GHOST_SPEC, doc_ghost_handler
 
 def register_all_tools():
     tool_registry.register(SHELL_SPEC, shell_handler)
@@ -45,7 +44,6 @@ tool_registry.register(CRON_SPEC, cron_handler)
 tool_registry.register(SKIN_SPEC, skin_handler)
 tool_registry.register(RE_SPEC, re_handler)
 tool_registry.register(DETECTIVE_SPEC, detective_handler)
-tool_registry.register(DOC_GHOST_SPEC, doc_ghost_handler)
 
 register_all_tools()
 
@@ -75,5 +73,4 @@ __all__ = [
     "SKIN_SPEC", "skin_handler",
     "RE_SPEC", "re_handler",
     "DETECTIVE_SPEC", "detective_handler",
-    "DOC_GHOST_SPEC", "doc_ghost_handler",
 ]

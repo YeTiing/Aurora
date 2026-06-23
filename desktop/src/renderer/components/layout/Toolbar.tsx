@@ -11,8 +11,6 @@ interface ToolbarProps {
     showRe?: boolean;
     onToggleDetective?: () => void;
     showDetective?: boolean;
-    onToggleDocGhost?: () => void;
-    showDocGhost?: boolean;
 }
 
 export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, onToggleRe, showRe, onToggleDetective, showDetective, onToggleDocGhost, showDocGhost }: ToolbarProps) {
@@ -34,12 +32,6 @@ export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, 
                     <button className={`toolbar-btn ${showDetective ? "active" : ""}`}
                         onClick={onToggleDetective} title="Diff Detective">
                         🕵
-                    </button>
-                )}
-                {onToggleDocGhost && (
-                    <button className={`toolbar-btn ${showDocGhost ? "active" : ""}`}
-                        onClick={onToggleDocGhost} title="Doc Ghost">
-                        📝
                     </button>
                 )}
                 {onToggleRe && (

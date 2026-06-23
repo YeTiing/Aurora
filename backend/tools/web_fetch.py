@@ -79,7 +79,7 @@ async def web_fetch_handler(arguments: dict, workspace: str = ".") -> str:
                 if "application/json" in content_type:
                     try:
                         data = json.loads(text)
-                        return json.dumps(data, indent=2, ensure_ascii=False)[:16000]
+                        return truncate_output(json.dumps(data, indent=2, ensure_ascii=False), 16000)
                     except json.JSONDecodeError:
                         pass
 

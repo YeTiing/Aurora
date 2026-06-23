@@ -69,6 +69,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     const tabs: Array<{ id: typeof activeTab; label: string }> = [
         { id: "general", label: "设置" },
         { id: "llm", label: "LLM API" },
+        { id: "vision", label: "Vision" },
         { id: "editor", label: "编辑器" },
         { id: "terminal", label: "终端" },
         { id: "shortcuts", label: "快捷键" },

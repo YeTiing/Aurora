@@ -103,7 +103,7 @@ async def list_files_handler(arguments: dict, workspace: str = ".") -> ToolCallR
 
     output = "\n".join(output_lines[:200])
     return ToolCallResult(
-        id="", name="list_files", output=output[:8192], success=True,
+        id="", name="list_files", output=truncate_output(output, 8192), success=True,
         metadata={
             "path": str(target), "depth": depth,
             "files": total_files, "dirs": total_dirs,

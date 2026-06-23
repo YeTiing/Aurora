@@ -66,6 +66,26 @@ interface LocaleStrings {
         welcomeTitle: string;
         welcomeSubtitle: string;
         continueTyping: string;
+    noSessionsYet: string;
+    newSession: string;
+    searchSessions: string;
+    rename: string;
+    duplicate: string;
+    unpin: string;
+    pin: string;
+    archive: string;
+    delete: string;
+    yesterday: string;
+    msgCount: string;
+    openFileToBegin: string;
+    noResults: string;
+    searching: string;
+    results: string;
+    noCommandsFound: string;
+    typeCommand: string;
+    skins: string;
+    noPlanYet: string;
+    unnamed: string;
 }
 
 const zhCN: LocaleStrings = {
@@ -133,6 +153,26 @@ const zhCN: LocaleStrings = {
         welcomeTitle: "✦ Aurora",
         welcomeSubtitle: "你的 AI 智能编程助手",
         continueTyping: "输入消息 (Enter换行 Ctrl+Enter发送)...",
+    noSessionsYet: "暂无会话",
+    newSession: "新建会话",
+    searchSessions: "搜索会话...",
+    rename: "重命名",
+    duplicate: "复制",
+    unpin: "取消置顶",
+    pin: "置顶",
+    archive: "归档",
+    delete: "删除",
+    yesterday: "昨天",
+    msgCount: "条消息",
+    openFileToBegin: "打开文件或开始对话",
+    noResults: "无结果",
+    searching: "搜索中...",
+    results: "个结果",
+    noCommandsFound: "未找到命令",
+    typeCommand: "输入命令...",
+    skins: "皮肤",
+    noPlanYet: "暂无计划",
+    unnamed: "未命名",
 };
 
 const en: LocaleStrings = {
@@ -200,6 +240,26 @@ const en: LocaleStrings = {
         welcomeTitle: "✦ Aurora",
         welcomeSubtitle: "Your AI coding companion",
         continueTyping: "Type a message (Enter newline, Ctrl+Enter send)...",
+    noSessionsYet: "No sessions yet",
+    newSession: "New session",
+    searchSessions: "Search sessions...",
+    rename: "Rename",
+    duplicate: "Duplicate",
+    unpin: "Unpin",
+    pin: "Pin",
+    archive: "Archive",
+    delete: "Delete",
+    yesterday: "Yesterday",
+    msgCount: "msgs",
+    openFileToBegin: "Open a file or start a chat to begin",
+    noResults: "No results",
+    searching: "Searching...",
+    results: "results",
+    noCommandsFound: "No commands found",
+    typeCommand: "Type a command...",
+    skins: "Skins",
+    noPlanYet: "No plan yet",
+    unnamed: "Unnamed",
 };
 
 const locales: Record<Lang, LocaleStrings> = { "zh-CN": zhCN, en };

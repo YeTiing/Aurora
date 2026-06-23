@@ -37,7 +37,7 @@ export function SearchPanel() {
             if (result && Array.isArray(result)) {
                 setResults(result.slice(0, 100));
             }
-        } catch { setResults([]); }
+        } catch (e) { console.warn("Search failed:", e); setResults([]); }
         setSearching(false);
     }
 
@@ -63,7 +63,7 @@ export function SearchPanel() {
             <div style={{ display: "flex", alignItems: "center", padding: "8px 12px", gap: 8, borderBottom: `1px solid ${colors.border}` }}>
                 <span style={{ color: colors.textSecondary }}>🔍</span>
                 <input ref={inputRef} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleKeyDown} placeholder="Search in files..."
+                    onKeyDown={handleKeyDown} placeholder=t("searchFiles")
                     style={{
                         flex: 1, border: "none", background: "transparent", color: colors.text,
                         fontSize: 13, outline: "none", fontFamily: "inherit",

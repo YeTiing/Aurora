@@ -66,7 +66,7 @@ async def web_search_handler(arguments: dict, workspace: str = ".") -> ToolCallR
             output += "\n"
 
         return ToolCallResult(
-            id="", name="web_search", output=output[:8192], success=True,
+            id="", name="web_search", output=truncate_output(output, 8192), success=True,
             metadata={"query": query, "results_count": len(results), "search_type": search_type}
         )
     except Exception as e:

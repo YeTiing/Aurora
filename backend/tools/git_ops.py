@@ -71,7 +71,7 @@ async def _handle_read_op(op: str, args: str, workspace: str) -> str:
         result += f"\n[stderr]\n{stderr[:1000]}"
     if code != 0:
         return f"Git {op} failed (exit {code}):\n{result[:4000]}"
-    return result[:8000]
+    return truncate_output(result, 8000)
 
 async def _handle_write_op(op: str, args: str, message: str, files: list, workspace: str) -> str:
     if op == "add":

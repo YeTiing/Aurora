@@ -173,7 +173,7 @@ async def computer_use_handler(arguments: dict, workspace: str = ".") -> ToolCal
             output += f"Accessibility ({d['accessibility'].get('element_count',0)} elements):\n"
             output += d["accessibility"].get("tree", "")
             return ToolCallResult(id="", name="computer_use",
-                output=output[:8000], success=True, metadata=d)
+                output=truncate_output(output, 8000), success=True, metadata=d)
 
         else:
             return ToolCallResult(id="", name="computer_use",

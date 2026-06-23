@@ -89,7 +89,7 @@ export const SessionPanel: React.FC = () => {
         const now = new Date();
         const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
         if (diffDays === 0) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-        if (diffDays === 1) return "Yesterday";
+        if (diffDays === 1) return t("yesterday");
         if (diffDays < 7) return `${diffDays}d ago`;
         return d.toLocaleDateString();
     };
@@ -113,7 +113,7 @@ export const SessionPanel: React.FC = () => {
                         border: `1px solid ${colors.accent}`, borderRadius: 4, cursor: "pointer",
                         fontWeight: 600,
                     }}
-                    title="New session"
+                    title=t("newSession")
                 >
                     +
                 </button>
@@ -122,7 +122,7 @@ export const SessionPanel: React.FC = () => {
             <div style={{ padding: "6px 8px" }}>
                 <input
                     type="text"
-                    placeholder="Search sessions..."
+                    placeholder=t("searchSessions")
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={{
@@ -238,10 +238,10 @@ export const SessionPanel: React.FC = () => {
                         <span className="ctx-icon">📋</span> Duplicate
                     </button>
                     <button className="ctx-menu-item" onClick={() => { togglePinSession(ctxSession.id); setContextMenu((c) => ({ ...c, open: false })); }}>
-                        <span className="ctx-icon">📌</span> {ctxSession.pinned ? "Unpin" : "Pin"}
+                        <span className="ctx-icon">📌</span> {ctxSession.pinned ? t("unpin") : t("pin")}
                     </button>
                     <button className="ctx-menu-item" onClick={() => { toggleArchiveSession(ctxSession.id); setContextMenu((c) => ({ ...c, open: false })); }}>
-                        <span className="ctx-icon">📦</span> {ctxSession.archived ? "Unarchive" : "Archive"}
+                        <span className="ctx-icon">📦</span> {ctxSession.archived ? "Unarchive" : t("archive")}
                     </button>
                     <div className="ctx-divider" />
                     <button

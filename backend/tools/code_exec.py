@@ -102,7 +102,7 @@ async def code_exec_handler(arguments: dict, workspace: str = ".") -> ToolCallRe
         output = await _execute_code(language, code, timeout)
         return ToolCallResult(
             id="", name="code_exec",
-            output=output[:16384] if len(output) > 16384 else output,
+            output=truncate_output(output, 16384) if len(output) > 16384 else output,
             success=True,
             metadata={"language": language, "truncated": len(output) > 16384}
         )

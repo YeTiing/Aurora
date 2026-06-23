@@ -251,7 +251,9 @@ async def search_files(req: dict):
     try:
         r = subprocess.run(["rg","--line-number","--max-count",str(req.get("max_results",50)),req.get("query",""),str(req.get("path","."))], capture_output=True, text=True, timeout=10)
         return {"results":r.stdout[:10000],"count":len(r.stdout.splitlines())}
-    except: return {"results":"","count":0}
+    except Exception as e:
+        import logging; logging.getLogger("aurora").warning(f"search_files failed: {e}")
+        return {"results":"","count":0,"error":f"Search failed: {type(e).__name__}"}
 
 # RAG
 @app.post("/rag/index")
@@ -398,7 +400,11 @@ async def update_settings(req: SettingsUpdate):
     existing = {}
     if config_path.exists():
         try: existing = json.loads(config_path.read_text(encoding="utf-8"))
-        except: pass
+        except Exception as e:
+            import logging; logging.getLogger("aurora").warning(f"Failed to read config, backing up: {e}")
+            try: config_path.rename(config_path.with_suffix(".toml.bak"))
+            except: pass
+            existing = {}
     llm_updates = {}
     if req.provider: llm_updates["provider"] = req.provider
     if req.model: llm_updates["model"] = req.model

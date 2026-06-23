@@ -65,7 +65,7 @@ async def browser_use_handler(arguments: dict, workspace: str = ".") -> ToolCall
             await bu.ensure_browser()
             html = await bu.get_html()
             return ToolCallResult(id="", name="browser_use",
-                output=html[:5000], success=True,
+                output=truncate_output(html, 5000), success=True,
                 metadata={"length": len(html)})
 
         elif method == "list_pages":

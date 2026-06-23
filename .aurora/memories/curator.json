@@ -1,0 +1,11 @@
+{
+  "last_run_at": 1782180989.5356917,
+  "run_count": 4,
+  "last_summary": "{\"agent\": {\"removed\": 1}, \"user\": {\"removed\": 0}, \"skills\": {\"staled\": [], \"archived\": []}}",
+  "paused": false,
+  "archive_days": 30,
+  "stale_days": 14,
+  "interval_hrs": 168,
+  "min_idle_hrs": 2,
+  "prune_builtins": true
+}

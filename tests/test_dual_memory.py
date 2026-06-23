@@ -6,8 +6,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 os.chdir(str(Path(__file__).parent.parent))
 
 from dual_memory import (
-    MemoryStore, MemoryCurator, UserTraitExtractor,
-    DualMemoryManager, get_dual_memory,
+    MemoryStore, Curator, HonchoDialectic,
+    ClosedLoopMemory, get_closed_loop,
+    SkillManager, MemoryNudge, FTSSessions,
     MAX_AGENT_MEMORY_CHARS, MAX_USER_PROFILE_CHARS,
 )
 
@@ -69,58 +70,72 @@ class TestMemoryCurator:
         store.add("User prefers Python for backend work", source="agent")  # near duplicate
         store.add("Node.js is used for frontend", source="agent")
 
-        curator = MemoryCurator(store, MemoryStore("USER", tmp_path / "user.md", 500).load())
-        result = curator.run_lightweight()
+        curator = Curator(store, MemoryStore("USER", tmp_path / "user.md", 500).load(), SkillManager(tmp_path / "skills"))
+        result = curator.light()
 
         assert "agent" in result
-        assert result["agent"]["removed_count"] >= 1  # Should deduplicate
+        assert result["agent"]["removed"] >= 1  # Should deduplicate
 
 
-class TestUserTraitExtractor:
-    def test_extract_language_pref(self, tmp_path):
-        profile = MemoryStore("USER", tmp_path / "user.md", 500).load()
-        extractor = UserTraitExtractor()
-        found = extractor.extract("以后我们都说中文吧", profile)
-        assert len(found) > 0
+class TestHonchoDialectic:
+    def test_record_facts(self, tmp_path):
+        h = HonchoDialectic()
+        h.record("我觉得以后我们还是都用中文比较好英文太麻烦了", "")
+        assert len(h._facts) >= 1
 
-    def test_extract_style_pref(self, tmp_path):
-        profile = MemoryStore("USER", tmp_path / "user.md", 500).load()
-        extractor = UserTraitExtractor()
-        found = extractor.extract("回答简洁一点别啰嗦", profile)
-        assert len(found) > 0
+    def test_turn_counting(self, tmp_path):
+        h = HonchoDialectic(ctx_cadence=2, dial_cadence=3)
+        for i in range(5):
+            h.record(f"this is turn number {i} with enough text to exceed minimum ok", "")
+        assert h._turns == 5
 
-    def test_no_duplicates(self, tmp_path):
-        profile = MemoryStore("USER", tmp_path / "user.md", 500).load()
-        extractor = UserTraitExtractor()
-        extractor.extract("用中文", profile)
-        count1 = len(profile.entries)
-        extractor.extract("用中文说", profile)
-        count2 = len(profile.entries)
-        assert count1 == count2  # No duplicate added
+    def test_peer_card_context(self, tmp_path):
+        h = HonchoDialectic()
+        h.peer.traits.append("prefers Chinese")
+        h.peer.preferences.append("concise answers")
+        ctx = h.peer.context()
+        assert "prefers Chinese" in ctx
+        assert "concise answers" in ctx
 
+    def test_dialectic_depth_scaling(self, tmp_path):
+        h = HonchoDialectic(dial_depth=2)
+        assert h.depth_for(100) == 1
+        assert h.depth_for(300) == 2
+        assert h.depth_for(600) == 3
 
-class TestDualMemoryManager:
+    def test_cold_warm_prompts(self, tmp_path):
+        h = HonchoDialectic()
+        h.record("I think we should use Python for the backend because it is fast enough for our use case", "")
+        cold = h.cold_prompt()
+        assert "Build user model" in cold or "user model" in cold.lower()
+        warm = h.warm_prompt()
+        assert "Update user model" in warm or "user model" in warm.lower()
+
+class TestClosedLoopMemory:
     def test_singleton(self, tmp_path):
-        manager = DualMemoryManager(tmp_path)
+        manager = ClosedLoopMemory(tmp_path)
         assert manager.agent_memory is not None
         assert manager.user_profile is not None
         assert manager.curator is not None
 
     def test_system_prompt_injection(self, tmp_path):
-        manager = DualMemoryManager(tmp_path)
-        prompt = manager.get_system_prompt_injection()
+        manager = ClosedLoopMemory(tmp_path)
+        prompt = manager.system_prompt()
         assert "MEMORY" in prompt
         assert "USER PROFILE" in prompt
 
-    def test_process_conversation(self, tmp_path):
-        manager = DualMemoryManager(tmp_path)
-        result = manager.process_conversation_turn(
+    def test_process_turn(self, tmp_path):
+        manager = ClosedLoopMemory(tmp_path)
+        r = manager.process_turn("用 Python 写后端，简洁点", "好的，我会用 Python 简洁实现")
+        assert isinstance(r, dict)
+        manager = ClosedLoopMemory(tmp_path)
+        result = manager.process_turn(
             "用 Python 写后端，简洁点", "好的，我会用 Python 简洁实现"
         )
         assert isinstance(result, dict)
 
     def test_stats(self, tmp_path):
-        manager = DualMemoryManager(tmp_path)
+        manager = ClosedLoopMemory(tmp_path)
         stats = manager.stats()
         assert "agent_memory" in stats
         assert "user_profile" in stats

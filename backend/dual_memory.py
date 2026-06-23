@@ -366,112 +366,508 @@ class SessionRecall:
 
 # ── Global Manager ──
 
-class DualMemoryManager:
-    """Central manager for dual-file memory, curator, and user modeling."""
 
-    def __init__(self, memory_dir: str | Path = None):
-        self.memory_dir = Path(memory_dir) if memory_dir else MEMORY_DIR
-        self.memory_dir.mkdir(parents=True, exist_ok=True)
 
-        self.agent_memory = MemoryStore(
-            name="AGENT_MEMORY",
-            file_path=self.memory_dir / AGENT_MEMORY_FILE,
-            max_chars=MAX_AGENT_MEMORY_CHARS,
-        ).load()
+# ═════════════════════════════════════════════════════════════
+# LAYER 2-7: Full Closed Loop Memory
+# ═════════════════════════════════════════════════════════════
 
-        self.user_profile = MemoryStore(
-            name="USER_PROFILE",
-            file_path=self.memory_dir / USER_PROFILE_FILE,
-            max_chars=MAX_USER_PROFILE_CHARS,
-        ).load()
+import sqlite3, textwrap, re as _regex
+from datetime import datetime, timezone
 
-        self.curator = MemoryCurator(self.agent_memory, self.user_profile)
-        self.trait_extractor = UserTraitExtractor()
-        self.session_recall = SessionRecall()
+SKILL_DIR = Path(os.environ.get("AURORA_HOME", ".aurora")) / "skills"
+SKILL_ARCHIVE = SKILL_DIR / ".archive"
+AURORA_DIR = Path(os.environ.get("AURORA_HOME", ".aurora"))
 
-    def get_system_prompt_injection(self) -> str:
-        """Get combined memory + profile for system prompt."""
+# ── Skill Meta ──
+
+@dataclass
+class SkillMeta:
+    name: str = ""
+    created_at: float = 0.0
+    updated_at: float = 0.0
+    views: int = 0
+    uses: int = 0
+    patches: int = 0
+    last_used_at: float = 0.0
+    state: str = "active"
+    source: str = "agent"
+
+    def to_header(self) -> str:
+        return f"""<!-- skill-meta
+name: {self.name}
+created: {self.created_at}
+updated: {self.updated_at}
+views: {self.views}
+uses: {self.uses}
+patches: {self.patches}
+last_used: {self.last_used_at}
+state: {self.state}
+source: {self.source}
+-->"""
+
+    @staticmethod
+    def from_header(text: str) -> "SkillMeta":
+        m = SkillMeta(name="unknown")
+        for line in text.split("\n"):
+            line = line.strip()
+            for fld in ["name","created","updated","views","uses","patches","last_used","state","source"]:
+                if line.startswith(fld + ":"):
+                    v = line.split(":",1)[1].strip()
+                    if fld in ("views","uses","patches"): setattr(m, fld, int(v or 0))
+                    elif fld in ("created","updated","last_used"): setattr(m, fld+"_at", float(v or 0))
+                    else: setattr(m, fld, v)
+        return m
+
+    def touch(self): self.uses += 1; self.last_used_at = time.time()
+    def viewed(self): self.views += 1
+    def patched(self): self.patches += 1; self.updated_at = time.time()
+
+
+# ── Skill Manager ──
+
+class SkillManager:
+    def __init__(self, d: Path = None):
+        self.dir = d or SKILL_DIR
+        self.dir.mkdir(parents=True, exist_ok=True)
+        SKILL_ARCHIVE.mkdir(parents=True, exist_ok=True)
+
+    def all(self) -> list[dict]:
+        r = []
+        for f in self.dir.glob("*.md"):
+            m = self._meta(f)
+            if m: r.append({"name":m.name,"state":m.state,"uses":m.uses,"views":m.views,"patches":m.patches,"source":m.source,"last_used":m.last_used_at})
+        for f in SKILL_ARCHIVE.glob("*.md"):
+            m = self._meta(f)
+            if m: r.append({"name":m.name,"state":"archived","uses":m.uses})
+        return r
+
+    def get(self, name: str):
+        f = self.dir / f"{name}.md"
+        if not f.exists(): f = SKILL_ARCHIVE / f"{name}.md"
+        if not f.exists(): return None, None
+        c = f.read_text("utf-8")
+        m = self._meta(f)
+        if m: m.viewed(); self._write(f, c, m)
+        return c, m
+
+    def create(self, name: str, desc: str, body: str, src: str = "agent") -> Path:
+        name = _regex.sub(r"[^a-z0-9_-]", "-", name.lower())[:64]
+        m = SkillMeta(name=name, source=src, created_at=time.time())
+        c = f"{m.to_header()}\n\n# {name}\n\n{desc}\n\n## Instructions\n\n{body}\n"
+        p = self.dir / f"{name}.md"
+        p.write_text(c, "utf-8")
+        return p
+
+    def patch(self, name: str, body: str) -> bool:
+        f = self.dir / f"{name}.md"
+        if not f.exists(): return False
+        c = f.read_text("utf-8"); m = self._meta(f)
+        if not m: return False
+        if "## Instructions" in c:
+            c = c.split("## Instructions")[0] + "## Instructions\n\n" + body + "\n"
+        m.patched(); self._write(f, c, m)
+        return True
+
+    def use(self, name: str):
+        f = self.dir / f"{name}.md"
+        if f.exists():
+            c = f.read_text("utf-8"); m = self._meta(f)
+            if m: m.touch(); self._write(f, c, m)
+
+    def archive(self, name: str) -> bool:
+        f = self.dir / f"{name}.md"
+        if not f.exists(): return False
+        c = f.read_text("utf-8"); m = self._meta(f)
+        if m: m.state = "archived"; self._write(f, c, m)
+        import shutil; shutil.move(str(f), str(SKILL_ARCHIVE / f.name))
+        return True
+
+    def _meta(self, p: Path):
+        try:
+            c = p.read_text("utf-8")
+            if "<!-- skill-meta" in c:
+                s = c.index("<!-- skill-meta"); e = c.index("-->", s) + 3
+                return SkillMeta.from_header(c[s:e])
+        except: pass
+        return None
+
+    def _write(self, p: Path, c: str, m: SkillMeta):
+        h = m.to_header()
+        c = _regex.sub(r"<!-- skill-meta.*?-->", h, c, flags=_regex.DOTALL) if "<!-- skill-meta" in c else h + "\n\n" + c
+        p.write_text(c, "utf-8")
+
+
+# ── Honcho Dialectic ──
+
+@dataclass
+class PeerCard:
+    traits: list = field(default_factory=list)
+    preferences: list = field(default_factory=list)
+    knowledge_levels: dict = field(default_factory=dict)
+    contradictions: list = field(default_factory=list)
+    last_updated: float = 0.0
+
+    def context(self) -> str:
+        p = []
+        if self.traits: p.append("Traits: " + ", ".join(self.traits))
+        if self.preferences: p.append("Preferences: " + "; ".join(self.preferences))
+        return "\n".join(p)
+
+
+class HonchoDialectic:
+    def __init__(self, ctx_cadence=5, dial_cadence=10, dial_depth=2):
+        self.ctx_cadence = ctx_cadence
+        self.dial_cadence = dial_cadence
+        self.dial_depth = dial_depth
+        self.peer = PeerCard()
+        self._turns = 0
+        self._facts = []
+        self._summary = ""
+        self._path = MEMORY_DIR / "peer_card.json"
+        if self._path.exists():
+            try: self.peer = PeerCard(**json.loads(self._path.read_text("utf-8")))
+            except: pass
+
+    def record(self, user_msg: str, _resp: str):
+        self._turns += 1
+        if len(user_msg) > 20: self._facts.append(user_msg[:200])
+
+    def should_base(self) -> bool: return self._turns > 0 and self._turns % self.ctx_cadence == 0
+    def should_dialectic(self) -> bool: return self._turns > 0 and self._turns % self.dial_cadence == 0
+
+    def depth_for(self, qlen: int) -> int:
+        if qlen > 500: return min(3, self.dial_depth + 1)
+        if qlen > 200: return self.dial_depth
+        return max(1, self.dial_depth - 1)
+
+    def cold_prompt(self) -> str:
+        f = "\n".join(f"  - {x}" for x in self._facts[-10:])
+        return f"Build user model from conversation:\n{f}\n\nReturn JSON: {{traits:[],preferences:[],knowledge_levels:{{}},contradictions:[]}}. Pure JSON, no markdown."
+
+    def warm_prompt(self) -> str:
+        f = "\n".join(f"  - {x}" for x in self._facts[-5:])
+        return f"Update user model. Existing: {self.peer.context()}\nNew: {f}\n\nReturn JSON: {{traits:[],preferences:[],knowledge_levels:{{}},contradictions:[],removed_traits:[]}}. Pure JSON."
+
+    def apply(self, d: dict):
+        for t in d.get("removed_traits", []):
+            if t in self.peer.traits: self.peer.traits.remove(t)
+        for t in d.get("traits", []):
+            if t not in self.peer.traits: self.peer.traits.append(t)
+        for p in d.get("preferences", []):
+            if p not in self.peer.preferences: self.peer.preferences.append(p)
+        for k, v in d.get("knowledge_levels", {}).items():
+            self.peer.knowledge_levels[k] = v
+        for c in d.get("contradictions", []):
+            if c not in self.peer.contradictions: self.peer.contradictions.append(c)
+        self.peer.last_updated = time.time()
+        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        self._path.write_text(json.dumps(self.peer.__dict__, indent=2, ensure_ascii=False), "utf-8")
+
+    def set_summary(self, s: str): self._summary = s
+
+    def prompt_injection(self) -> str:
+        p = []
+        c = self.peer.context()
+        if c: p.append(f"USER MODEL:\n{c}")
+        if self._summary: p.append(f"SESSION CONTEXT:\n{self._summary}")
+        return "\n\n".join(p)
+
+
+# ── Full Curator with LLM ──
+
+@dataclass  
+class CuratorCfg:
+    last_run_at: float = 0.0
+    run_count: int = 0
+    last_summary: str = ""
+    paused: bool = False
+    archive_days: int = 30
+    stale_days: int = 14
+    interval_hrs: int = 168
+    min_idle_hrs: int = 2
+    prune_builtins: bool = True
+
+    @classmethod
+    def load(cls):
+        p = MEMORY_DIR / "curator.json"
+        if p.exists():
+            try:
+                d = json.loads(p.read_text("utf-8"))
+                return cls(**{k:v for k,v in d.items() if k in cls.__dataclass_fields__})
+            except: pass
+        return cls()
+
+    def save(self):
+        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        (MEMORY_DIR/"curator.json").write_text(json.dumps(self.__dict__, indent=2, ensure_ascii=False), "utf-8")
+
+
+class Curator:
+    def __init__(self, agent: MemoryStore, user: MemoryStore, skills: SkillManager):
+        self.agent = agent; self.user = user; self.skills = skills
+        self.cfg = CuratorCfg.load()
+
+    def should(self) -> bool:
+        if self.cfg.paused: return False
+        return time.time() - self.cfg.last_run_at > self.cfg.interval_hrs * 3600
+
+    def light(self) -> dict:
+        r = {"agent": self._dedup(self.agent), "user": self._dedup(self.user), "skills": self._stale()}
+        self._done(r); return r
+
+    async def full(self, llm) -> dict:
+        r = {"agent": self._dedup(self.agent), "user": self._dedup(self.user)}
+        try:
+            r["memory"] = await self._llm_mem(llm)
+            r["skills"] = await self._llm_skills(llm)
+        except Exception as e:
+            r["error"] = str(e)
+        r["staled"] = self._stale()
+        self._done(r); return r
+
+    def _done(self, r):
+        self.cfg.last_run_at = time.time(); self.cfg.run_count += 1
+        self.cfg.last_summary = json.dumps(r, ensure_ascii=False)
+        self.cfg.save()
+        if self.agent._dirty: self.agent.save()
+        if self.user._dirty: self.user.save()
+
+    def _dedup(self, s: MemoryStore) -> dict:
+        rem = []; i = 0
+        while i < len(s.entries):
+            j = i + 1
+            while j < len(s.entries):
+                wa = set(s.entries[i].text.lower().split()); wb = set(s.entries[j].text.lower().split())
+                if wa and wb and len(wa & wb) / min(len(wa), len(wb)) > 0.8:
+                    rem.append({"kept":s.entries[i].text[:60],"removed":s.entries[j].text[:60]})
+                    s.entries.pop(j); s._dirty = True; continue
+                j += 1
+            i += 1
+        return {"removed": len(rem)}
+
+    def _stale(self) -> dict:
+        now = time.time(); sa, aa = [], []
+        for sk in self.skills.all():
+            if sk.get("state") == "archived": continue
+            if sk.get("source") == "hub": continue
+            if not self.cfg.prune_builtins and sk.get("source") == "bundled": continue
+            lu = sk.get("last_used", 0)
+            if lu and now - lu > self.cfg.archive_days * 86400:
+                self.skills.archive(sk["name"]); aa.append(sk["name"])
+            elif lu and now - lu > self.cfg.stale_days * 86400:
+                sa.append(sk["name"])
+        return {"staled": sa, "archived": aa}
+
+    async def _llm_mem(self, llm) -> dict:
+        me = "\n".join(f"  [{i}] {e.text}" for i, e in enumerate(self.agent.entries))
+        ue = "\n".join(f"  [{i}] {e.text}" for i, e in enumerate(self.user.entries))
+        p = f"Review memory:\nAGENT:\n{me}\nUSER:\n{ue}\n\nSuggest merges, rewrites, removals. Return JSON: {{agent_merges:[[i,j]],agent_rewrites:{{i:text}},agent_removes:[i]}}. Pure JSON."
+        try:
+            r = await llm.chat_simple(user_message=p, system_prompt="You are a memory curator. Return only valid JSON.", max_tokens=800)
+            t = r.content if hasattr(r,"content") else str(r)
+            m = _regex.search(r"\{.*\}", t, _regex.DOTALL)
+            if m:
+                plan = json.loads(m.group())
+                for merge in plan.get("agent_merges",[]):
+                    if len(merge)==2 and 0<=merge[0]<merge[1]<len(self.agent.entries):
+                        self.agent.replace(merge[0], self.agent.entries[merge[0]].text+"; "+self.agent.entries[merge[1]].text, "curator")
+                        self.agent.remove(merge[1])
+                return {"applied": True}
+        except: pass
+        return {"result": "no changes"}
+
+    async def _llm_skills(self, llm) -> dict:
+        active = [s for s in self.skills.all() if s.get("state") != "archived"]
+        if len(active) < 2: return {"result": "too few skills"}
+        sl = "\n".join(f"  - {s['name']} (uses={s.get('uses',0)}, source={s.get('source','agent')})" for s in active)
+        p = f"Audit skills:\n{sl}\n\nSuggest: merge similar, archive low-usage, rename badly named. Return JSON: {{merges:[[a,b,new_name]],archive:[name],rename:{{old:new}}}}. Pure JSON."
+        try:
+            r = await llm.chat_simple(user_message=p, system_prompt="You are a skill curator. Return only valid JSON.", max_tokens=800)
+            t = r.content if hasattr(r,"content") else str(r)
+            m = _regex.search(r"\{.*\}", t, _regex.DOTALL)
+            if m:
+                plan = json.loads(m.group())
+                for name in plan.get("archive",[])[:5]: self.skills.archive(name)
+                return {"applied": True}
+        except: pass
+        return {"result": "no changes"}
+
+
+# ── Memory Nudge ──
+
+class MemoryNudge:
+    def __init__(self, every=10):
+        self.every = every; self._turns = 0; self._learn = []; self._last = 0.0
+
+    def learn(self, ev: str):
+        self._learn.append(ev)
+        if len(self._learn) > 20: self._learn = self._learn[-15:]
+
+    def should(self) -> bool:
+        self._turns += 1
+        return self._turns % self.every == 0 and self._learn and time.time() - self._last > 300
+
+    def prompt(self) -> str:
+        ls = "\n".join(f"  · {l}" for l in self._learn[-5:])
+        self._last = time.time(); self._learn.clear()
+        return f"[Memory Nudge] Recent learnings:\n{ls}\n\nConsider saving important knowledge with `memory add` or `skill_create`."
+
+    def end_prompt(self, mem_count: int) -> str:
+        self._learn.clear()
+        return f"[Session Ending] You have {mem_count} memory entries. Review — anything worth saving permanently? Use `memory add`."
+
+
+# ── FTS5 Session Store ──
+
+class FTSSessions:
+    def __init__(self, db: Path = None):
+        self.db = db or (AURORA_DIR / "fts5.db")
+        self._c = None
+
+    @property
+    def c(self):
+        if self._c is None:
+            self._c = sqlite3.connect(str(self.db))
+            self._c.execute("PRAGMA journal_mode=WAL")
+            self._c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(sid,summary,body,created_at,tokenize='porter unicode61')")
+            self._c.execute("CREATE TABLE IF NOT EXISTS meta(sid TEXT PRIMARY KEY,summary TEXT,turns INT,created REAL,ended REAL)")
+            self._c.commit()
+        return self._c
+
+    def add(self, sid: str, summary: str, body: str = "", turns: int = 0):
+        try:
+            now = time.time()
+            self.c.execute("INSERT OR REPLACE INTO meta VALUES(?,?,?,?,?)", (sid, summary[:1000], turns, now, now))
+            self.c.execute("INSERT INTO fts VALUES(?,?,?,?)", (sid, summary[:2000], (body or summary)[:5000], now))
+            self.c.commit()
+        except: pass
+
+    def search(self, q: str, n: int = 5) -> list[dict]:
+        try:
+            rows = self.c.execute("SELECT sid,summary,body,rank FROM fts WHERE fts MATCH ? ORDER BY rank LIMIT ?", (q, n)).fetchall()
+            return [{"sid":r[0],"summary":r[1][:300],"body":(r[2] or r[1])[:500]} for r in rows]
+        except:
+            rows = self.c.execute("SELECT sid,summary FROM meta WHERE summary LIKE ? ORDER BY ended DESC LIMIT ?", (f"%{q}%", n)).fetchall()
+            return [{"sid":r[0],"summary":r[1][:300]} for r in rows]
+
+    def recent(self, n: int = 10) -> list[dict]:
+        try:
+            rows = self.c.execute("SELECT sid,summary,turns,ended FROM meta ORDER BY ended DESC LIMIT ?", (n,)).fetchall()
+            return [{"sid":r[0],"summary":r[1][:200],"turns":r[2],"ended":r[3]} for r in rows]
+        except: return []
+
+
+# ── Closed-Loop Master Manager ──
+
+class ClosedLoopMemory:
+    """All 7 layers in one manager."""
+
+    def __init__(self, d: Path = None):
+        d = d or MEMORY_DIR; d.mkdir(parents=True, exist_ok=True)
+        self.agent_memory = MemoryStore("AGENT_MEMORY", d / AGENT_MEMORY_FILE, MAX_AGENT_MEMORY_CHARS).load()
+        self.user_profile = MemoryStore("USER_PROFILE", d / USER_PROFILE_FILE, MAX_USER_PROFILE_CHARS).load()
+        self.skills = SkillManager()
+        self.curator = Curator(self.agent_memory, self.user_profile, self.skills)
+        self.honcho = HonchoDialectic()
+        self.nudge = MemoryNudge()
+        self.fts5 = FTSSessions()
+        self.provider = BuiltinMemoryProvider(self.agent_memory, self.user_profile)
+
+    def system_prompt(self, query: str = "") -> str:
         parts = []
-        if self.agent_memory.entries:
-            parts.append(self.agent_memory.to_system_prompt())
-        if self.user_profile.entries:
-            parts.append(self.user_profile.to_system_prompt())
-        return '\n\n'.join(parts)
+        mem = self.provider.context()
+        if mem: parts.append(mem)
+        h = self.honcho.prompt_injection()
+        if h: parts.append(h)
+        if query:
+            past = self.fts5.search(query, 2)
+            if past:
+                parts.append("PAST SESSIONS:\n" + "\n".join(f"  [{r['sid'][:8]}] {r['summary'][:200]}" for r in past))
+        return "\n\n".join(parts)
 
-    def process_conversation_turn(self, user_message: str, assistant_response: str) -> dict:
-        """Process a conversation turn: extract traits, save if dirty."""
-        result = {"traits_extracted": []}
+    def process_turn(self, user: str, resp: str) -> dict:
+        r = {}
+        self.honcho.record(user, resp)
+        if len(resp) > 100: self.nudge.learn(f"User: {user[:100]}")
+        if self.nudge.should(): r["nudge"] = self.nudge.prompt()
+        if self.honcho.should_dialectic(): r["dialectic_needed"] = True
+        if self.agent_memory._dirty: self.agent_memory.save()
+        if self.user_profile._dirty: self.user_profile.save()
+        return r
 
-        # Extract user traits from this turn
-        combined = user_message + " " + (assistant_response or "")[:200]
-        if len(combined) > 50:
-            traits = self.trait_extractor.extract(combined, self.user_profile)
-            result["traits_extracted"] = traits
-
-        # Auto-save if dirty
-        if self.agent_memory._dirty:
-            self.agent_memory.save()
-        if self.user_profile._dirty:
-            self.user_profile.save()
-
-        return result
-
-    def end_session(self, session_id: str, summary: str) -> dict:
-        """Session cleanup: curator run, index summary."""
-        result = {}
-
-        # Run lightweight curator
-        if self.curator.should_run():
-            curation = self.curator.run_lightweight()
-            result["curation"] = curation
-
-        # Index session for recall
+    async def end_session(self, sid: str, summary: str = "", body: str = "", turns: int = 0, llm=None) -> dict:
+        r = {}
+        if llm and body and not summary:
+            try:
+                resp = await llm.chat_simple(user_message=f"Summarize this session in 1-2 sentences (Chinese if appropriate): {body[:3000]}", max_tokens=200)
+                summary = (resp.content if hasattr(resp,"content") else str(resp))[:500]
+                self.honcho.set_summary(summary)
+            except: pass
         if summary:
-            recall_ok = self.session_recall.index_session(session_id, summary,
-                                                          {"timestamp": time.time()})
-            result["indexed"] = recall_ok
+            self.fts5.add(sid, summary, body, turns)
+            r["indexed"] = True
+        if self.curator.should():
+            r["curation"] = await self.curator.full(llm) if llm else self.curator.light()
+        r["nudge"] = self.nudge.end_prompt(len(self.agent_memory.entries))
+        self.agent_memory.save(); self.user_profile.save()
+        return r
 
-        # Auto-save
-        if self.agent_memory._dirty:
-            self.agent_memory.save()
-        if self.user_profile._dirty:
-            self.user_profile.save()
-
-        return result
-
-    def search_past_sessions(self, query: str) -> list[dict]:
-        """Recall relevant past sessions."""
-        return self.session_recall.search(query)
+    def search(self, q: str, n: int = 5) -> list[dict]:
+        return self.fts5.search(q, n)
 
     def stats(self) -> dict:
+        s = self.skills.all()
         return {
-            "agent_memory": {
-                "entries": len(self.agent_memory.entries),
-                "chars": self.agent_memory.char_count,
-                "max": self.agent_memory.max_chars,
-                "usage_pct": self.agent_memory.usage_pct,
-            },
-            "user_profile": {
-                "entries": len(self.user_profile.entries),
-                "chars": self.user_profile.char_count,
-                "max": self.user_profile.max_chars,
-                "usage_pct": self.user_profile.usage_pct,
-            },
-            "curator": {
-                "runs": self.curator.state.run_count,
-                "last_run": self.curator.state.last_run_at,
-                "paused": self.curator.state.paused,
-            },
+            "agent_memory": {"entries": len(self.agent_memory.entries), "chars": self.agent_memory.char_count, "usage_pct": self.agent_memory.usage_pct},
+            "user_profile": {"entries": len(self.user_profile.entries), "chars": self.user_profile.char_count, "usage_pct": self.user_profile.usage_pct},
+            "curator": {"runs": self.curator.cfg.run_count, "paused": self.curator.cfg.paused},
+            "skills": {"total": len(s), "active": sum(1 for x in s if x.get("state")!="archived"), "archived": sum(1 for x in s if x.get("state")=="archived")},
+            "honcho": {"turns": self.honcho._turns, "traits": len(self.honcho.peer.traits)},
+            "fts5": {"sessions": len(self.fts5.recent(100))},
         }
+
+
+# ── Provider Interface ──
+
+class MemoryProvider:
+    name: str = "base"
+    async def search(self, q: str, n: int = 5) -> list[dict]: raise NotImplementedError
+    async def store(self, k: str, v: str, m: dict = None) -> bool: raise NotImplementedError
+    def context(self) -> str: return ""
+
+
+class BuiltinMemoryProvider(MemoryProvider):
+    name = "builtin"
+    def __init__(self, a: MemoryStore, u: MemoryStore): self.a = a; self.u = u
+    async def search(self, q: str, n: int = 5) -> list[dict]:
+        ql = q.lower(); r = []
+        for e in self.a.entries + self.u.entries:
+            if ql in e.text.lower(): r.append({"text":e.text})
+        return r[:n]
+    async def store(self, k: str, v: str, m: dict = None) -> bool:
+        t = self.u if k.startswith("user.") else self.a
+        return t.add(v, source="provider")[0]
+    def context(self) -> str:
+        p = []
+        if self.a.entries: p.append(self.a.to_system_prompt())
+        if self.u.entries: p.append(self.u.to_system_prompt())
+        return "\n\n".join(p)
 
 
 # ── Singleton ──
 
-_dual_memory: DualMemoryManager | None = None
+_closed_loop: ClosedLoopMemory | None = None
 
+def get_closed_loop() -> ClosedLoopMemory:
+    global _closed_loop
+    if _closed_loop is None: _closed_loop = ClosedLoopMemory()
+    return _closed_loop
 
-def get_dual_memory() -> DualMemoryManager:
-    global _dual_memory
-    if _dual_memory is None:
-        _dual_memory = DualMemoryManager()
-    return _dual_memory
+def get_dual_memory(): return get_closed_loop()
+
+# Alias old class names for backward compat
+DualMemoryManager = ClosedLoopMemory
+MemoryCurator = Curator
+UserTraitExtractor = HonchoDialectic
+SessionRecall = FTSSessions

@@ -773,6 +773,7 @@ class ClosedLoopMemory:
         self.nudge = MemoryNudge()
         self.fts5 = FTSSessions()
         self.provider = BuiltinMemoryProvider(self.agent_memory, self.user_profile)
+        self._turns_since_last_skill_check = 0
 
     def system_prompt(self, query: str = "") -> str:
         parts = []
@@ -790,8 +791,62 @@ class ClosedLoopMemory:
         r = {}
         self.honcho.record(user, resp)
         if len(resp) > 100: self.nudge.learn(f"User: {user[:100]}")
+
+        # ── Auto-record triggers ──
+
+        # 1. User explicitly states a preference → auto-save to USER_PROFILE
+        pref_triggers = [
+            (r"(以后|从现在[起开]|记住|下次|always|forever|从现在开始).{0,20}(用|说|写|做|喜欢|需要|想要|prefer)", "stated"),
+            (r"(我是|我用|我做|我写).{0,30}(的|开发|程序员|engineer|developer|backend|frontend)", "identity"),
+            (r"(不要|别|停止|stop|don.t|never).{0,20}(问我|确认|啰嗦|verbose|长篇|废话)", "style"),
+        ]
+        for pattern, ptype in pref_triggers:
+            if re.search(pattern, user, re.IGNORECASE):
+                already = any(pattern in e.text.lower() for e in self.user_profile.entries
+                             for pattern in [user.lower()[:40]])
+                if not already:
+                    self.user_profile.add(user[:200], source="auto")
+                    r.setdefault("auto_recorded", []).append({"store": "user", "type": ptype, "text": user[:200]})
+                break
+
+        # 2. Agent produced a significant response (>500 chars) in a non-trivial context
+        #    → extract key facts for AGENT_MEMORY
+        if len(resp) > 500 and len(user) > 30:
+            # Check if this looks like a coding task result
+            task_markers = [
+                r"(已|已经|完成|done|finished|好了|created|built|fixed|implemented|deployed|configured)",
+                r"(```|文件|file|patch|commit|deploy|install|build|test)",
+            ]
+            is_task = any(re.search(m, resp, re.IGNORECASE) for m in task_markers)
+            if is_task:
+                # Extract the first sentence as a summary
+                summary = resp.split("。")[0].split(".")[0][:200]
+                if len(summary) > 20:
+                    # Only save if not a near-duplicate
+                    existing_texts = [e.text.lower()[:50] for e in self.agent_memory.entries]
+                    if summary.lower()[:50] not in existing_texts:
+                        self.agent_memory.add(f"Task completed: {summary}", source="auto")
+                        r.setdefault("auto_recorded", []).append({"store": "agent", "type": "task", "text": summary})
+
+        # 3. Complex multi-turn task → mark for potential skill creation
+        if self._turns_since_last_skill_check is None:
+            self._turns_since_last_skill_check = 0
+        self._turns_since_last_skill_check += 1
+        if self._turns_since_last_skill_check >= 8 and len(resp) > 800:
+            r["suggest_skill"] = (
+                f"[Auto] This was a complex task ({self._turns_since_last_skill_check} turns). "
+                f"Consider creating a skill with `memory skill_create` if this pattern is reusable."
+            )
+            self._turns_since_last_skill_check = 0
+
+        # 4. Honcho dialectic auto-apply (if dialectic_needed flag set externally and result provided)
+        #    This is handled by the caller passing in dialectic_result
+
+        # ── Nudge check ──
         if self.nudge.should(): r["nudge"] = self.nudge.prompt()
+
         if self.honcho.should_dialectic(): r["dialectic_needed"] = True
+
         if self.agent_memory._dirty: self.agent_memory.save()
         if self.user_profile._dirty: self.user_profile.save()
         return r

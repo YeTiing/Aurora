@@ -380,7 +380,23 @@ class AgentGraph:
 
 
 
+        from backend.dual_memory import get_closed_loop
+        try:
+            _mem = get_closed_loop()
+        except Exception:
+            _mem = None
+
         state.add_message(Message.user(user_input))
+
+        # Inject closed-loop memory into stream context
+        if _mem:
+            try:
+                mem_ctx = _mem.system_prompt(user_input)
+                if mem_ctx:
+                    state.add_message(Message.system(f"MEMORY CONTEXT:\n{mem_ctx}"))
+            except Exception:
+                pass
+
 
 
 
@@ -522,6 +538,13 @@ class AgentGraph:
 
             self.checkpoints.save(state, f"post_turn_{state.total_turns}")
 
+            # Mid-stream process turn
+            if _mem:
+                try:
+                    _mem.process_turn(user_input, state.final_response if state.final_response else "")
+                except Exception:
+                    pass
+
         state.done = True
 
 
@@ -536,6 +559,16 @@ class AgentGraph:
         yield {"type": "codex/event/task_complete", "data": {"result": state.final_response[:200]}, "session_id": session_id}
 
         yield {"type": "done", "response": state.final_response, "plan": final_plan}
+
+        # Close memory loop
+        if _mem:
+            try:
+                r = _mem.process_turn(user_input, state.final_response)
+                summary = state.final_response[:500] if state.final_response else user_input[:200]
+                await _mem.end_session(session_id, summary, "", 0)
+            except Exception:
+                pass
+
 
 
 

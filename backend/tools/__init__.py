@@ -19,6 +19,7 @@ from .browser_use import BROWSER_USE_SPEC, browser_use_handler
 from .memory import MEMORY_SPEC, memory_handler
 from .cron_tool import CRON_SPEC, cron_handler
 from .skin_tool import SKIN_SPEC, skin_handler
+from .session_export_tool import SESSION_EXPORT_SPEC, session_export_handler
 from .re_tool import RE_SPEC, re_handler
 from .detective_tool import DETECTIVE_SPEC, detective_handler
 
@@ -44,6 +45,7 @@ tool_registry.register(CRON_SPEC, cron_handler)
 tool_registry.register(SKIN_SPEC, skin_handler)
 tool_registry.register(RE_SPEC, re_handler)
 tool_registry.register(DETECTIVE_SPEC, detective_handler)
+tool_registry.register(SESSION_EXPORT_SPEC, session_export_handler)
 
 register_all_tools()
 
@@ -73,4 +75,5 @@ __all__ = [
     "SKIN_SPEC", "skin_handler",
     "RE_SPEC", "re_handler",
     "DETECTIVE_SPEC", "detective_handler",
+    "SESSION_EXPORT_SPEC", "session_export_handler",
 ]

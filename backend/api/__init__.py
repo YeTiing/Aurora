@@ -1679,3 +1679,18 @@ async def detective_blame(file: str, lines: str = ""):
         "hypothesis": report.root_cause_hypothesis,
     }
 
+# ═══════════ Session Export ═══════════
+
+@app.post("/sessions/export")
+async def session_export_markdown(req: dict):
+    from backend.session_export import export_session, export_session_json, ExportConfig
+    fmt = req.get("format", "md")
+    config = ExportConfig(
+        include_tool_calls=req.get("include_tool_calls", True),
+        include_plan=req.get("include_plan", True),
+        include_timestamps=req.get("include_timestamps", True),
+        include_system_messages=req.get("include_system_messages", False),
+    )
+    if fmt == "json":
+        return {"format": "json", "content": export_session_json(req.get("session", req))}
+    return {"format": "markdown", "content": export_session(req.get("session", req), config)}

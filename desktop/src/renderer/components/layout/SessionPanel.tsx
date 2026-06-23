@@ -78,7 +78,27 @@ export const SessionPanel: React.FC = () => {
         setRenaming(null);
     };
 
-    const handleDuplicate = (id: string) => {
+    const handleExport = async (id: string) => {
+        const s = sessions.find((x: Session) => x.id === id);
+        if (!s) return;
+        setContextMenu((c: ContextMenuState) => ({ ...c, open: false }));
+        try {
+            const r = await fetch("http://127.0.0.1:9876/sessions/export", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ format: "md", session: s }),
+            });
+            const data = await r.json();
+            const blob = new Blob([data.content], { type: "text/markdown" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            const slug = (s.title || "session").replace(/[^a-zA-Z0-9_\u4e00-\u9fff]/g, "_").slice(0, 50);
+            a.download = slug + ".md";
+            a.click();
+        } catch (e: any) { console.warn("Export failed:", e); }
+    };
+
+    handleDuplicate = (id: string) => {
         const newId = duplicateSession(id);
         if (newId) setActiveSession(newId);
         setContextMenu((c) => ({ ...c, open: false }));
@@ -242,6 +262,9 @@ export const SessionPanel: React.FC = () => {
                     </button>
                     <button className="ctx-menu-item" onClick={() => { toggleArchiveSession(ctxSession.id); setContextMenu((c) => ({ ...c, open: false })); }}>
                         <span className="ctx-icon">📦</span> {ctxSession.archived ? "Unarchive" : t("archive")}
+                    </button>
+                    <button className="ctx-menu-item" onClick={() => handleExport(ctxSession.id)}>
+                        <span className="ctx-icon">馃搫</span> Export
                     </button>
                     <div className="ctx-divider" />
                     <button

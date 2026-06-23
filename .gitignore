@@ -36,3 +36,7 @@ desktop/node_modules/
 # Aurora runtime (but track memory templates)
 .aurora/*.db
 .aurora/memories/curator_state.json
+
+# SQLite WAL
+*.db-shm
+*.db-wal

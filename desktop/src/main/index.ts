@@ -102,6 +102,7 @@ function createWindow() {
             preload: path.join(__dirname, "preload.js"),
             nodeIntegration: false,
             contextIsolation: true,
+            webSecurity: false, // 允许本地图片加载作为二次元壁纸
         },
     });
 
@@ -113,7 +114,7 @@ function createWindow() {
         console.error("[Aurora] PAGE LOAD FAILED:", code, desc, url);
     });
     mainWindow.webContents.on("console-message", (_e, _lvl, msg) => {
-        console.log("[Renderer]", msg);
+        // Do nothing to avoid EPIPE crashes
     });
 
     if (process.env.NODE_ENV === "development" || process.argv.includes("--dev")) {

@@ -23,6 +23,7 @@ import { useGlobalShortcuts, getShortcutManager } from "./shortcuts";
 import { useInitializeTheme } from "./theme";
 import "./styles.css";
 
+
 export default function App() {
     const colors = useStore((s) => s.themeColors);
     const { sendMessage, cancelRequest } = useAgent();
@@ -41,6 +42,62 @@ export default function App() {
     const [showSkins, setShowSkins] = useState(false);
     const [showRe, setShowRe] = useState(false);
     const [showDetective, setShowDetective] = useState(false);
+        const [bgImage, setBgImage] = useState<string>('');
+    const [panelOpacityL, setPanelOpacityL] = useState<number>(0.6);
+    const [panelBgL, setPanelBgL] = useState<string>('');
+    const [panelOpacityC, setPanelOpacityC] = useState<number>(0.6);
+    const [panelBgC, setPanelBgC] = useState<string>('');
+    const [panelOpacityR, setPanelOpacityR] = useState<number>(0.6);
+    const [panelBgR, setPanelBgR] = useState<string>('');
+
+    useEffect(() => {
+        // Core initialization
+        const savedBg = localStorage.getItem('aurora_anime_bg'); 
+        if (savedBg) setBgImage(savedBg); 
+        
+        // Opacity
+        const oL = localStorage.getItem('aurora_opacity_L'); if (oL) document.documentElement.style.setProperty('--deleted-op-l', oL);
+        const oC = localStorage.getItem('aurora_opacity_C'); if (oC) document.documentElement.style.setProperty('--deleted-op-c', oC);
+        const oR = localStorage.getItem('aurora_opacity_R'); if (oR) document.documentElement.style.setProperty('--deleted-op-r', oR);
+        
+        // Position
+        const pL = localStorage.getItem('aurora_pos_L'); if (pL) document.documentElement.style.setProperty('--pos-l', pL);
+        const pC = localStorage.getItem('aurora_pos_C'); if (pC) document.documentElement.style.setProperty('--pos-c', pC);
+        const pR = localStorage.getItem('aurora_pos_R'); if (pR) document.documentElement.style.setProperty('--pos-r', pR);
+        const pMain = localStorage.getItem('aurora_pos_Main'); if (pMain) document.documentElement.style.setProperty('--pos-main', pMain);
+        
+        // Blur
+        const blL = localStorage.getItem('aurora_blur_L'); if (blL) document.documentElement.style.setProperty('--blur-l', blL + 'px');
+        const blC = localStorage.getItem('aurora_blur_C'); if (blC) document.documentElement.style.setProperty('--blur-c', blC + 'px');
+        const blR = localStorage.getItem('aurora_blur_R'); if (blR) document.documentElement.style.setProperty('--blur-r', blR + 'px');
+
+        // Safe DOM Background bindings & Intelligent Theme Fallback
+        try {
+            const parseUrl = (p: string) => p.startsWith('http') || p.startsWith('data:') ? `url('${p}')` : `url('file:///${p.split('\\').join('/').replace(/^file:\/\/\//, '')}')`;
+            const globalBg = localStorage.getItem('aurora_anime_bg');
+                        if (globalBg) {
+                document.documentElement.style.setProperty('--bg-main', parseUrl(globalBg));
+                document.documentElement.style.setProperty('--app-bg', 'transparent');
+            } else {
+                document.documentElement.style.setProperty('--bg-main', 'none');
+                document.documentElement.style.setProperty('--app-bg', 'var(--aurora-bg)'); // RESTORE THEME INTEGRATION
+            }
+            
+            const bindPanel = (k: string, id: string) => {
+                const v = localStorage.getItem(id);
+                if (v) document.documentElement.style.setProperty(`--bg-${k}`, parseUrl(v));
+                else document.documentElement.style.setProperty(`--bg-${k}`, 'none');
+                
+                if (v || globalBg) document.documentElement.style.setProperty(`--panel-bg-${k}`, 'transparent');
+                else document.documentElement.style.setProperty(`--panel-bg-${k}`, 'var(--aurora-surface)'); // RESTORE THEME INTEGRATION
+            };
+            bindPanel('l', 'aurora_bg_L');
+            bindPanel('c', 'aurora_bg_C');
+            bindPanel('r', 'aurora_bg_R');
+        } catch(e) {
+            console.error(e);
+        }
+    }, []);
     const createSession = useStore((s) => s.createSession);
     const setActiveSession = useStore((s) => s.setActiveSession);
     const setTerminalOpen = useStore((s) => s.setTerminalOpen);
@@ -125,7 +182,7 @@ export default function App() {
     };
 
     return (
-        <div className="aurora-app" style={{ backgroundColor: colors.bg, color: colors.text }}>
+        <div className="aurora-app" style={{ backgroundColor: colors.bg, color: colors.text } as React.CSSProperties}>
             <Toolbar
             onToggleMemory={() => setShowMemory(!showMemory)}
             showMemory={showMemory}
@@ -137,8 +194,8 @@ export default function App() {
             showDetective={showDetective} />
 
             <div className="aurora-main">
-                {/* Left: Session list */}
-                <div className="aurora-left-sidebar" style={{ borderRight: `1px solid ${colors.border}`, backgroundColor: colors.bgSecondary }}>
+                {/* Left: Session list - NOW ABSOLUTE */}
+                <div className="aurora-left-sidebar" style={{ borderRight: `none` }}>
                     <SessionPanel />
                 </div>
 
@@ -184,12 +241,12 @@ export default function App() {
                     )}
                 </div>
 
-                {/* Right: File tree + Plan */}
+                {/* Right: File tree + Plan - NOW ABSOLUTE */}
                 <div className={`aurora-right-sidebar ${!showRightPanel ? "collapsed" : ""}`}
-                    style={{ borderLeft: `1px solid ${colors.border}`, backgroundColor: colors.bgSecondary }}>
+                    style={{ borderLeft: `none` }}>
                     <div style={{ flex: "1 1 60%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
                         <div className="aurora-right-header" style={{ borderBottom: `1px solid ${colors.border}` }}>
-                            <span>📁 {t("files")}</span>
+                            <span><span style={{marginRight:"8px", fontSize:"15px"}}>📁</span>{t("files")}</span>
                             <button className="aurora-right-close" onClick={toggleRightPanel} title={t("closePanel")}>✕</button>
                         </div>
                         <div style={{ flex: 1, overflow: "hidden" }}>
@@ -198,15 +255,15 @@ export default function App() {
                     </div>
                     <div style={{ flex: "0 0 auto", maxHeight: "40%", overflow: "auto", borderTop: `1px solid ${colors.border}` }}>
                         <div className="aurora-right-header" style={{ borderBottom: `1px solid ${colors.border}` }}>
-                            <span>📋 {t("plan")}</span>
+                            <span><span style={{marginRight:"8px", fontSize:"15px"}}>📋</span>{t("plan")}</span>
                         </div>
                         <PlanPanel plan={plan} />
                     </div>
                 </div>
             </div>
 
-            <StatusBar />
-            <TerminalPanel />
+            {/* <StatusBar /> */}
+            {/* <TerminalPanel /> */}
 
             {showMonitor && <MonitorPanel onClose={toggleMonitor} />}
             {showSettings && <SettingsPanel onClose={toggleSettings} />}

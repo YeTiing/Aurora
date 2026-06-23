@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useStore } from "../../store";
 
-interface StatsData {
+interface 雷达实况Data {
     tokens: { used: number; limit: number; pct: number };
     latency: { avg: number; p50: number; p95: number; max: number; recent: number[] };
     errors: { count: number; rate: number };
@@ -10,7 +10,7 @@ interface StatsData {
     rate_limits: { count: number; current_delay: number };
 }
 
-const API_BASE = "http://127.0.0.1:2728";
+const API_BASE = "http://127.0.0.1:9876";
 
 function TokenGauge({ pct, used, limit }: { pct: number; used: number; limit: number }) {
     const angle = Math.min((pct / 100) * 360, 360);
@@ -168,16 +168,16 @@ function SessionTimeline({ turns, total, avgDuration }: {
 
 export function MonitorPanel({ onClose }: { onClose: () => void }) {
     const colors = useStore((s) => s.themeColors);
-    const [stats, setStats] = useState<StatsData | null>(null);
+    const [stats, set雷达实况] = useState<雷达实况Data | null>(null);
     const [error, setError] = useState<string | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const fetchStats = useCallback(async () => {
+    const fetch雷达实况 = useCallback(async () => {
         try {
             const res = await fetch(`${API_BASE}/observability/stats`, { signal: AbortSignal.timeout(3000) });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            setStats(data);
+            set雷达实况(data);
             setError(null);
         } catch (e: any) {
             if (e.name !== "TimeoutError" && e.name !== "AbortError") {
@@ -187,12 +187,12 @@ export function MonitorPanel({ onClose }: { onClose: () => void }) {
     }, []);
 
     useEffect(() => {
-        fetchStats();
-        intervalRef.current = setInterval(fetchStats, 2000);
+        fetch雷达实况();
+        intervalRef.current = setInterval(fetch雷达实况, 2000);
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
-    }, [fetchStats]);
+    }, [fetch雷达实况]);
 
     return (
         <div style={{
@@ -210,7 +210,7 @@ export function MonitorPanel({ onClose }: { onClose: () => void }) {
                 flexShrink: 0,
             }}>
                 <span style={{ fontWeight: 700, fontSize: 14 }}>
-                    <span style={{ color: colors.accent }}>📊</span> Agent Monitor
+                    <span style={{ color: colors.accent }}>📊</span> Agent 任务监听器
                 </span>
                 <button
                     onClick={onClose}
@@ -275,12 +275,12 @@ export function MonitorPanel({ onClose }: { onClose: () => void }) {
                             />
                         </div>
 
-                        {/* Rate Limit Status */}
+                        {/* Rate Limit 运行状态 */}
                         <div style={{
                             padding: "10px", backgroundColor: "#1f2937", borderRadius: 6,
                         }}>
                             <div style={{ fontSize: 10, color: "#9ca3af", marginBottom: 4 }}>
-                                Rate Limit Status
+                                Rate Limit 运行状态
                             </div>
                             <div style={{
                                 display: "flex", justifyContent: "space-between",
@@ -306,7 +306,7 @@ export function MonitorPanel({ onClose }: { onClose: () => void }) {
                         display: "flex", alignItems: "center", justifyContent: "center",
                         height: 200, color: "#6b7280", fontSize: 13,
                     }}>
-                        {error ? "Backend unavailable" : "Loading metrics..."}
+                        {error ? "后端节点离线或无响应 😥" : "Loading metrics..."}
                     </div>
                 )}
             </div>

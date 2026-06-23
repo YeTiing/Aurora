@@ -10,7 +10,7 @@ interface RETrace { sign_functions?: any[]; key_variables?: any[]; call_chain?: 
 
 export function RePanel({ onClose }: { onClose: () => void }) {
     const colors = useStore((s) => s.themeColors);
-    const [sessions, setSessions] = useState<RESession[]>([]);
+    const [sessions, set所有抓包会话] = useState<RESession[]>([]);
     const [activeSession, setActiveSession] = useState("");
     const [requests, setRequests] = useState<RERequest[]>([]);
     const [analysis, setAnalysis] = useState<REAnalysis | null>(null);
@@ -35,18 +35,18 @@ export function RePanel({ onClose }: { onClose: () => void }) {
 
     const API = "http://127.0.0.1:9876";
 
-    const fetchSessions = useCallback(async () => {
-        try { const r = await fetch(API+"/re/sessions"); setSessions(await r.json()); } catch(e:any) { setError(e.message); }
+    const fetch所有抓包会话 = useCallback(async () => {
+        try { const r = await fetch(API+"/re/sessions"); set所有抓包会话(await r.json()); } catch(e:any) { setError(e.message); }
     }, []);
 
-    useEffect(() => { fetchSessions(); }, [fetchSessions]);
-    useEffect(() => { if (capturing) { const i = setInterval(fetchSessions, 2000); return () => clearInterval(i); } }, [capturing, fetchSessions]);
+    useEffect(() => { fetch所有抓包会话(); }, [fetch所有抓包会话]);
+    useEffect(() => { if (capturing) { const i = setInterval(fetch所有抓包会话, 2000); return () => clearInterval(i); } }, [capturing, fetch所有抓包会话]);
 
     const startCapture = async () => {
         setLoading(true);
         try {
             const r = await fetch(API+"/re/capture/start", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url:captureUrl}) });
-            const d = await r.json(); setCapturing(true); setActiveSession(d.session_id); fetchSessions();
+            const d = await r.json(); setCapturing(true); setActiveSession(d.session_id); fetch所有抓包会话();
         } catch(e:any) { setError(e.message); }
         setLoading(false);
     };
@@ -97,7 +97,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
             const d = await r.json();
             setActiveSession(d.session_id);
             setActiveTab("requests");
-            fetchSessions();
+            fetch所有抓包会话();
             loadRequests(d.session_id);
         } catch(e:any) { setError(e.message); }
         setLoading(false);
@@ -113,22 +113,22 @@ export function RePanel({ onClose }: { onClose: () => void }) {
     };
 
     const copyCurl = () => { if(curlCmd) navigator.clipboard.writeText(curlCmd); };
-    const deleteSession = async (sid: string) => { await fetch(API+"/re/sessions/"+sid, {method:"DELETE"}); setDetail(null); fetchSessions(); };
+    const deleteSession = async (sid: string) => { await fetch(API+"/re/sessions/"+sid, {method:"DELETE"}); setDetail(null); fetch所有抓包会话(); };
 
     const statusColors: Record<number,string> = {2:"#3fb950",3:"#d29922",4:"#f85149",5:"#f85149"};
-    const getStatusColor = (s: number) => statusColors[Math.floor(s/100)]||colors.textSecondary;
+    const get运行状态Color = (s: number) => statusColors[Math.floor(s/100)]||colors.textSecondary;
 
     return (
         <div className="aurora-overlay">
             <div className="aurora-panel re-panel" style={{backgroundColor:colors.surface,borderColor:colors.border,color:colors.text,width:900,maxWidth:"96vw",maxHeight:"88vh",display:"flex",flexDirection:"column"}}>
                 {/* Header */}
                 <div className="aurora-panel-header" style={{borderColor:colors.border}}>
-                    <span>RE Workspace</span>
+                    <span>逆向工作台</span>
                     <div style={{display:"flex",gap:8}}>
                         {!capturing ? (
-                            <button onClick={startCapture} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer"}}>+ Capture</button>
+                            <button onClick={startCapture} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer"}}>+ 开始抓包</button>
                         ) : (
-                            <button onClick={async()=>{await fetch(API+"/re/capture/stop",{method:"POST"});setCapturing(false);fetchSessions();}} style={{background:colors.error,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer"}}>Stop</button>
+                            <button onClick={async()=>{await fetch(API+"/re/capture/stop",{method:"POST"});setCapturing(false);fetch所有抓包会话();}} style={{background:colors.error,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",fontSize:11,cursor:"pointer"}}>Stop</button>
                         )}
                         <button onClick={onClose} style={{color:colors.textSecondary,background:"none",border:"none",cursor:"pointer",fontSize:16}}>X</button>
                     </div>
@@ -145,7 +145,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                     {["sessions","requests","analysis","deobfuscate"].map(tab=>(
                         <button key={tab} onClick={()=>{setActiveTab(tab as any);if(tab==="requests"&&activeSession)loadRequests(activeSession);setDetail(null);setReplayResult(null);}}
                             style={{padding:"8px 16px",fontSize:12,border:"none",background:activeTab===tab?colors.accent:"transparent",color:activeTab===tab?"#fff":colors.textSecondary,cursor:"pointer",borderBottom:activeTab===tab?`2px solid ${colors.accent}`:"2px solid transparent"}}>
-                            {tab==="sessions"?"Sessions":tab==="requests"?"APIs":tab==="analysis"?"Analysis":"Deobfuscate"}
+                            {tab==="sessions"?"所有抓包会话":tab==="requests"?"APIs":tab==="analysis"?"Analysis":"Deobfuscate"}
                         </button>
                     ))}
                 </div>
@@ -154,26 +154,26 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                 <div style={{flex:1,overflow:"auto",padding:12}}>
                     {error && <div style={{color:colors.error,marginBottom:8,fontSize:12,padding:6,background:colors.bg,borderRadius:4}}>{error}<button onClick={()=>setError("")} style={{marginLeft:8,background:"none",border:"none",color:colors.textSecondary,cursor:"pointer"}}>X</button></div>}
 
-                    {/* Sessions */}
+                    {/* 所有抓包会话 */}
                     {activeTab==="sessions" && (
                         <div>
                             <div style={{marginBottom:10}}>
-                                <div style={{fontSize:11,color:colors.textSecondary,marginBottom:4}}>Import HAR</div>
+                                <div style={{fontSize:11,color:colors.textSecondary,marginBottom:4}}>导入 HAR 数据</div>
                                 <div style={{display:"flex",gap:6}}>
-                                    <textarea value={harFile} onChange={e=>setHarFile(e.target.value)} placeholder='Paste HAR JSON here...' style={{flex:1,minHeight:50,background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:6,fontSize:11,resize:"vertical",fontFamily:"monospace"}} />
-                                    <button onClick={importHar} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:6,padding:"4px 12px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>Import</button>
+                                    <textarea value={harFile} onChange={e=>setHarFile(e.target.value)} placeholder='在此粘贴以导入 HAR 抓包数据 (JSON 格式)...' style={{flex:1,minHeight:50,background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:6,fontSize:11,resize:"vertical",fontFamily:"monospace"}} />
+                                    <button onClick={importHar} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:6,padding:"4px 12px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>立刻导入</button>
                                 </div>
                             </div>
                             {sessions.length===0 ? (
-                                <div style={{color:colors.textSecondary,fontSize:12,textAlign:"center",padding:20}}>No RE sessions. Start capture or import HAR.</div>
+                                <div style={{color:colors.textSecondary,fontSize:12,textAlign:"center",padding:20}}>暂无任何抓包记录。立刻开启顶部抓包或导入 HAR 格式包。</div>
                             ) : sessions.map(s=>(
                                 <div key={s.id} style={{padding:"10px 12px",margin:"4px 0",borderRadius:8,background:s.id===activeSession?colors.accent+"18":colors.bgSecondary,border:`1px solid ${s.id===activeSession?colors.accent:colors.border}`}}>
                                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                                        <div style={{fontWeight:600,fontSize:12,maxWidth:300,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.url||"Manual capture"}</div>
+                                        <div style={{fontWeight:600,fontSize:12,maxWidth:300,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.url||"手动抓包记录"}</div>
                                         <div style={{display:"flex",gap:4}}>
-                                            <button onClick={()=>loadRequests(s.id)} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>APIs</button>
-                                            <button onClick={()=>runAnalysis(s.id)} style={{background:"transparent",color:colors.accent,border:`1px solid ${colors.accent}`,borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>Analyze</button>
-                                            <button onClick={()=>exportHar(s.id)} style={{background:"transparent",color:colors.textSecondary,border:`1px solid ${colors.border}`,borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>Export</button>
+                                            <button onClick={()=>loadRequests(s.id)} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>提取接口</button>
+                                            <button onClick={()=>runAnalysis(s.id)} style={{background:"transparent",color:colors.accent,border:`1px solid ${colors.accent}`,borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>分析</button>
+                                            <button onClick={()=>exportHar(s.id)} style={{background:"transparent",color:colors.textSecondary,border:`1px solid ${colors.border}`,borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>导出</button>
                                             <button onClick={()=>deleteSession(s.id)} style={{background:"transparent",color:colors.error,border:"none",fontSize:13,cursor:"pointer"}}>X</button>
                                         </div>
                                     </div>
@@ -191,7 +191,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                             ) : requests.map(req=>(
                                 <div key={req.id}>
                                     <div onClick={()=>{viewDetail(req.id);setReplayResult(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",fontSize:11,borderBottom:`1px solid ${colors.border}`,cursor:"pointer",background:detail?.id===req.id?colors.accent+"12":"transparent"}}>
-                                        <span style={{fontWeight:600,color:getStatusColor(req.response_status),minWidth:36}}>{req.method}</span>
+                                        <span style={{fontWeight:600,color:get运行状态Color(req.response_status),minWidth:36}}>{req.method}</span>
                                         <span style={{color:colors.textSecondary,minWidth:28,textAlign:"right"}}>{req.response_status}</span>
                                         <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{req.path}</span>
                                         {req.is_js&&<span style={{color:"#F7DF1E",fontSize:10}}>JS</span>}
@@ -204,7 +204,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                             <div style={{display:"flex",gap:6,marginBottom:8}}>
                                                 <button onClick={copyCurl} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>Copy cURL</button>
                                                 <button onClick={()=>replayRequest(req.id)} style={{background:"transparent",color:colors.accent,border:`1px solid ${colors.accent}`,borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>Replay</button>
-                                                <button onClick={()=>{setDetail(null);setReplayResult(null);}} style={{background:"transparent",color:colors.textSecondary,border:"none",fontSize:11,cursor:"pointer"}}>Close</button>
+                                                <button onClick={()=>{setDetail(null);setReplayResult(null);}} style={{background:"transparent",color:colors.textSecondary,border:"none",fontSize:11,cursor:"pointer"}}>关闭</button>
                                             </div>
                                             {curlCmd && (
                                                 <div style={{marginBottom:8}}>
@@ -231,7 +231,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                             {replayResult && (
                                                 <div style={{marginTop:8,padding:8,background:replayResult.replayed?colors.success+"12":colors.error+"12",borderRadius:4}}>
                                                     <div style={{fontWeight:600,fontSize:11}}>{replayResult.replayed?"Replay OK":"Replay Failed"}</div>
-                                                    {replayResult.status && <span style={{fontSize:10}}>Status: {replayResult.status}</span>}
+                                                    {replayResult.status && <span style={{fontSize:10}}>运行状态: {replayResult.status}</span>}
                                                     {replayResult.error && <span style={{fontSize:10,color:colors.error}}>{replayResult.error}</span>}
                                                 </div>
                                             )}

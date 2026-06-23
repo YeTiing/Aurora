@@ -28,7 +28,7 @@ interface CronTask {
 export function MemoryDashboard() {
   const [stats, setStats] = useState<MemoryStats | null>(null);
   const [honcho, setHoncho] = useState<HonchoData | null>(null);
-  const [cronTasks, setCronTasks] = useState<CronTask[]>([]);
+  const [cron任务列表, setCron任务列表] = useState<CronTask[]>([]);
   const [soul, setSoul] = useState("");
   const [editingSoul, setEditingSoul] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "skills" | "soul" | "cron">("overview");
@@ -51,7 +51,7 @@ export function MemoryDashboard() {
       ]);
       if (s) setStats(s);
       if (h) setHoncho(h);
-      if (Array.isArray(c)) setCronTasks(c);
+      if (Array.isArray(c)) setCron任务列表(c);
       if (so?.content) setSoul(so.content);
     };
     load();
@@ -87,7 +87,7 @@ export function MemoryDashboard() {
     <div style={{ height: "100%", display: "flex", flexDirection: "column", color: colors.text || "#ccc", fontSize: 12 }}>
       {/* Tabs */}
       <div style={{ display: "flex", gap: 8, padding: "4px 12px", borderBottom: `1px solid ${colors.border || "#333"}` }}>
-        <div style={tabStyle("overview")} onClick={() => setActiveTab("overview")}>Memory</div>
+        <div style={tabStyle("overview")} onClick={() => setActiveTab("overview")}>全局记忆</div>
         <div style={tabStyle("skills")} onClick={() => setActiveTab("skills")}>Skills</div>
         <div style={tabStyle("cron")} onClick={() => setActiveTab("cron")}>Cron</div>
         <div style={tabStyle("soul")} onClick={() => setActiveTab("soul")}>SOUL</div>
@@ -131,9 +131,9 @@ export function MemoryDashboard() {
               </div>
             )}
 
-            {/* Sessions */}
+            {/* 历史对话记录 */}
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Sessions</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>历史对话记录</div>
               <div>{stats.fts5.sessions} indexed · Curator runs: {stats.curator.runs}</div>
             </div>
           </div>
@@ -153,9 +153,9 @@ export function MemoryDashboard() {
 
         {activeTab === "cron" && (
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Cron Tasks</div>
-            {cronTasks.length === 0 && <div style={{ opacity: 0.6 }}>No scheduled tasks. Use "cron add" or ask the agent to schedule something.</div>}
-            {cronTasks.map((t, i) => (
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Cron 任务列表</div>
+            {cron任务列表.length === 0 && <div style={{ opacity: 0.6 }}>No scheduled tasks. Use "cron add" or ask the agent to schedule something.</div>}
+            {cron任务列表.map((t, i) => (
               <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.border + "44" || "#33333344"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontWeight: 600 }}>{t.enabled ? "▶" : "⏸"} {t.name}</span>
@@ -179,7 +179,7 @@ export function MemoryDashboard() {
                   background: colors.accent || "#8b5cf6", color: "#fff", fontSize: 11,
                 }}
               >
-                {editingSoul ? "Save" : "Edit"}
+                {editingSoul ? "保存修改" : "Edit"}
               </button>
             </div>
             {editingSoul ? (

@@ -79,12 +79,12 @@ export function EditorPanel() {
     const hasChanges = fileContent !== originalContent;
 
     return (
-        <div style={{ height: "100%", display: "flex", flexDirection: "column", backgroundColor: colors.bg }}>
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", backgroundColor: 'transparent' }}>
             {/* Tab bar */}
             {openFiles.length > 0 && (
                 <div style={{
                     display: "flex", borderBottom: `1px solid ${colors.border}`,
-                    overflowX: "auto", backgroundColor: colors.bgSecondary, flexShrink: 0,
+                    overflowX: "auto", backgroundColor: 'transparent', flexShrink: 0,
                 }}>
                     {openFiles.map((f) => {
                         const fname = f.split("/").pop()?.split("\\").pop() || f;
@@ -112,7 +112,7 @@ export function EditorPanel() {
                 <div style={{
                     display: "flex", alignItems: "center", gap: 8, padding: "4px 12px",
                     borderBottom: hasChanges ? `1px solid ${colors.warning}` : `1px solid ${colors.border}`,
-                    backgroundColor: colors.bgSecondary, fontSize: 11, flexShrink: 0,
+                    backgroundColor: 'transparent', fontSize: 11, flexShrink: 0,
                 }}>
                     <span style={{ color: colors.textSecondary }}>{activeFile}</span>
                     <span style={{ color: colors.textSecondary }}>·</span>
@@ -122,7 +122,7 @@ export function EditorPanel() {
                             <span style={{ flex: 1 }} />
                             <button onClick={toggleDiff} style={{
                                 padding: "2px 10px", borderRadius: 4, border: `1px solid ${colors.border}`,
-                                cursor: "pointer", fontSize: 11, backgroundColor: colors.bg,
+                                cursor: "pointer", fontSize: 11, backgroundColor: 'transparent',
                                 color: showDiff ? colors.accent : colors.textSecondary,
                             }}>
                                 {showDiff ? "Hide Diff" : "Show Diff"}
@@ -131,7 +131,7 @@ export function EditorPanel() {
                                 padding: "2px 10px", borderRadius: 4, border: "none",
                                 cursor: "pointer", fontSize: 11, backgroundColor: colors.accent,
                                 color: "#fff", fontWeight: 600,
-                            }}>Save</button>
+                            }}>保存修改</button>
                         </>
                     )}
                 </div>

@@ -19,12 +19,7 @@ interface ChatPanelProps {
   onCancel: () => void;
 }
 
-const WELCOME_ACTIONS = [
-  t("quickAnalyzeCodebase"),
-  t("quickCreateProject"),
-  t("quickExplainCode"),
-  t("quickWriteTests"),
-];
+
 
 export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
   const colors = useStore((s) => s.themeColors);
@@ -122,7 +117,7 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
     const trimmed = input.trim();
     if (!trimmed && files.length === 0) return;
     onSend(trimmed, files.length > 0 ? files : undefined);
-    setInput("");
+    setInput(""); const ta = document.getElementById("chat-textarea"); if (ta) ta.style.height = "auto";
     setFiles([]);
   };
 
@@ -311,25 +306,14 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
         {messages.length === 0 && plan.length === 0 ? (
           /* ── Welcome / empty state ─────────────────────────────────── */
           <div className="welcome slide-up">
-            <div className="welcome-icon">✦</div>
-            <div className="welcome-title">{t("welcomeTitle")}</div>
+            
+            <div className="welcome-title">
+              ✨ {t("welcomeTitle").replace("✨ ", "")}
+            </div>
             <div className="welcome-subtitle">
               {t("askAurora")}
             </div>
-            <div className="welcome-actions">
-              {WELCOME_ACTIONS.map((action) => (
-                <button
-                  key={action}
-                  className="welcome-chip"
-                  onClick={() => {
-                    setInput(action);
-                    inputRef.current?.focus();
-                  }}
-                >
-                  {action}
-                </button>
-              ))}
-            </div>
+            
           </div>
         ) : (
           <>
@@ -378,11 +362,11 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
         >
           {/* File chips */}
           {files.length > 0 && (
-            <div className="file-chips">
+            <div className="file-chips" style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px" }}>
               {files.map((f, i) => (
-                <div key={i} className="file-chip">
+                <div key={i} className="file-chip" style={{ display: "flex", alignItems: "center", background: "rgba(255,255,255,0.1)", padding: "4px 8px", borderRadius: "12px", gap: "6px" }}>
                   {f.dataUrl && isImage(f.mimeType) ? (
-                    <img src={f.dataUrl} alt={f.name} />
+                    <img src={f.dataUrl} alt={f.name} style={{ width: "20px", height: "20px", borderRadius: "4px", objectFit: "cover" }} />
                   ) : null}
                   <span
                     style={{
@@ -390,6 +374,7 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
+                      fontSize: "12px"
                     }}
                   >
                     {f.name}
@@ -398,6 +383,7 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
                     className="file-chip-remove"
                     onClick={() => removeFile(i)}
                     title={t("remove")}
+                    style={{ cursor: "pointer", background: "none", border: "none", color: "var(--aurora-text-muted)" }}
                   >
                     ×
                   </button>
@@ -406,82 +392,10 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
             </div>
           )}
 
-          {/* Controls row: model + sandbox */}
-          <div className="input-controls-row">
-            {/* Model selector */}
-            <div className="model-selector-wrapper">
-              <button
-                className="model-selector-btn"
-                onClick={() => setModelMenuOpen(!modelMenuOpen)}
-                title="切换模型"
-              >
-                <span className="model-selector-dot" />
-                <span className="model-selector-label">{llmModel}</span>
-                <span className="model-selector-arrow">▾</span>
-              </button>
-              {modelMenuOpen && (
-                <>
-                  <div className="model-menu-backdrop" onClick={() => setModelMenuOpen(false)} />
-                  <div className="model-menu">
-                    {(availableModels.length > 0 ? availableModels : [{id:llmModel, label:llmModel, provider:"current"}]).map(m => (
-                      <button
-                        key={m.id}
-                        className={`model-menu-item${m.id === llmModel ? " active" : ""}`}
-                        onClick={() => {
-                          setLLMModel(m.id);
-                          setModelMenuOpen(false);
-                          // 同时通知后端更新模型
-                          fetch("http://127.0.0.1:9876/settings", {
-                            method: "POST",
-                            headers: {"Content-Type":"application/json"},
-                            body: JSON.stringify({model: m.id}),
-                          }).catch(() => {});
-                        }}
-                      >
-                        <span className="model-menu-name">{m.label}</span>
-                        <span className="model-menu-provider">{m.provider}</span>
-                        {m.id === llmModel && <span className="model-menu-check">✓</span>}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Sandbox mode dropdown */}
-            <div className="sandbox-selector-wrapper">
-              <button
-                className="sandbox-selector-btn"
-                onClick={() => setSandboxMenuOpen(!sandboxMenuOpen)}
-                title="沙盒权限"
-              >
-                <span className="sandbox-selector-icon">🔐</span>
-                <span className="sandbox-selector-label">{SANDBOX_OPTIONS.find(o => o.id === sandboxMode)?.label || "完全访问"}</span>
-                <span className="sandbox-selector-arrow">▾</span>
-              </button>
-              {sandboxMenuOpen && (
-                <>
-                  <div className="sandbox-menu-backdrop" onClick={() => setSandboxMenuOpen(false)} />
-                  <div className="sandbox-menu">
-                    {SANDBOX_OPTIONS.map(opt => (
-                      <button
-                        key={opt.id}
-                        className={`sandbox-menu-item${sandboxMode === opt.id ? " active" : ""}`}
-                        onClick={() => { setSandboxMode(opt.id); setSandboxMenuOpen(false); }}
-                      >
-                        <span className="sandbox-menu-icon">{opt.icon}</span>
-                        <span className="sandbox-menu-name">{opt.label}</span>
-                        {sandboxMode === opt.id && <span className="sandbox-menu-check">✓</span>}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
           {/* Input row */}
           <div className={`input-row${dragOver ? " drag-over" : ""}`}>
+            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -490,36 +404,115 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
               style={{ display: "none" }}
             />
 
-            <textarea
+            <textarea rows={1}
               ref={(el) => {
                 (inputRef as any).current = el;
                 (textareaRef as any).current = el;
               }}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px"; }}
               onKeyDown={handleKeyDown}
               placeholder={t("typeMessage") + " (Enter 发送, Shift+Enter 换行)"}
             />
 
-            <button
-              className="input-attach-btn"
-              onClick={handleFilePick}
-              title={t("attachFiles")}
-            >
-              📎
-            </button>
+            <div className="input-bottom-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <div className="input-bottom-left" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                {/* Model selector */}
+              <div className="model-selector-wrapper">
+                <button
+                  className="model-selector-btn"
+                  onClick={() => setModelMenuOpen(!modelMenuOpen)}
+                  title="切换模型"
+                >
+                  <span className="model-selector-dot" />
+                  <span className="model-selector-label">{llmModel}</span>
+                  <span className="model-selector-arrow">▾</span>
+                </button>
+                {modelMenuOpen && (
+                  <>
+                    <div className="model-menu-backdrop" onClick={() => setModelMenuOpen(false)} />
+                    <div className="model-menu">
+                      {(availableModels.length > 0 ? availableModels : [{id:llmModel, label:llmModel, provider:"current"}]).map(m => (
+                        <button
+                          key={m.id}
+                          className={`model-menu-item${m.id === llmModel ? " active" : ""}`}
+                          onClick={() => {
+                            setLLMModel(m.id);
+                            setModelMenuOpen(false);
+                            fetch("http://127.0.0.1:9876/settings", {
+                              method: "POST",
+                              headers: {"Content-Type":"application/json"},
+                              body: JSON.stringify({model: m.id}),
+                            }).catch(() => {});
+                          }}
+                        >
+                          <span className="model-menu-name">{m.label}</span>
+                          <span className="model-menu-provider">{m.provider}</span>
+                          {m.id === llmModel && <span className="model-menu-check">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
 
-            <button
-              className={`btn btn-accent btn-send${!canSend ? "" : ""}`}
-              onClick={handleSend}
-              disabled={!canSend}
-              style={{
-                opacity: canSend ? 1 : 0.3,
-                cursor: canSend ? "pointer" : "not-allowed",
-              }}
-            >
-              →
-            </button>
+              {/* Sandbox mode dropdown */}
+              <div className="sandbox-selector-wrapper">
+                <button
+                  className="sandbox-selector-btn"
+                  onClick={() => setSandboxMenuOpen(!sandboxMenuOpen)}
+                  title="沙盒权限"
+                >
+                  <span className="sandbox-selector-icon">{SANDBOX_OPTIONS.find(o => o.id === sandboxMode)?.icon || "🌐"}</span>
+                  <span className="sandbox-selector-label">{SANDBOX_OPTIONS.find(o => o.id === sandboxMode)?.label || "完全访问"}</span>
+                  <span className="sandbox-selector-arrow">▾</span>
+                </button>
+                {sandboxMenuOpen && (
+                  <>
+                    <div className="sandbox-menu-backdrop" onClick={() => setSandboxMenuOpen(false)} />
+                    <div className="sandbox-menu">
+                      {SANDBOX_OPTIONS.map(opt => (
+                        <button
+                          key={opt.id}
+                          className={`sandbox-menu-item${sandboxMode === opt.id ? " active" : ""}`}
+                          onClick={() => { setSandboxMode(opt.id); setSandboxMenuOpen(false); }}
+                        >
+                          <span className="sandbox-menu-icon">{opt.icon}</span>
+                          <span className="sandbox-menu-name">{opt.label}</span>
+                          {sandboxMode === opt.id && <span className="sandbox-menu-check">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              </div>
+              <div className="input-send-actions" style={{ display: "flex", gap: "8px" }}>
+                <button
+                  className="input-attach-btn"
+                  onClick={handleFilePick}
+                  title={t("attachFiles")}
+                >
+                  📎
+                </button>
+                <button
+                  className={`btn btn-accent btn-send`}
+                  onClick={handleSend}
+                  disabled={!canSend}
+                  style={{
+                    opacity: canSend ? 1 : 0.3,
+                    cursor: canSend ? "pointer" : "not-allowed",
+                  }}
+                  title={t("send")}
+                >
+                  {isStreaming ? (
+                    <span className="stop-icon">⏹</span>
+                  ) : (
+                    <span className="send-icon">→</span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Drop overlay */}

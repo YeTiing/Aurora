@@ -18,16 +18,18 @@ export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, 
     const createSession = useStore((s) => s.createSession);
     const showRightPanel = useStore((s) => s.showRightPanel);
     const toggleRightPanel = useStore((s) => s.toggleRightPanel);
+    const toggleSettings = useStore((s) => s.toggleSettings);
 
     return (
         <div className="aurora-toolbar">
             <div className="aurora-toolbar-left">
-                <span className="toolbar-brand">Aurora</span>
+                <span className="toolbar-brand" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <img src="/logo.png" alt="Aurora Logo" className="toolbar-logo" />
+                    Aurora
+                </span>
             </div>
             <div className="aurora-toolbar-right">
-                <button className="toolbar-btn" onClick={() => { createSession(); }} title={t("newChat")}>
-                    + {t("newChat")}
-                </button>
+                
                 {onToggleDetective && (
                     <button className={`toolbar-btn ${showDetective ? "active" : ""}`}
                         onClick={onToggleDetective} title="Diff Detective">
@@ -42,13 +44,16 @@ export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, 
                 )}
                 {onToggleSkins && (
                     <button className={`toolbar-btn ${showSkins ? "active" : ""}`}
-                        onClick={onToggleSkins} title="Skins">
+                        onClick={onToggleSkins} title="主题皮肤">
                         🎨
                     </button>
                 )}
                 <button className={`toolbar-btn ${showRightPanel ? "active" : ""}`}
                     onClick={toggleRightPanel} title="📁">
                     📁
+                </button>
+            <button className="toolbar-btn" onClick={toggleSettings} title={t("settings")}>
+                    ⚙️
                 </button>
             </div>
         </div>

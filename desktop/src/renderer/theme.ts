@@ -21,7 +21,10 @@ export interface Theme {
     colors: ThemeColors;
 }
 
+import { animeThemes } from "./anime_themes";
+
 export const themes: Theme[] = [
+    ...animeThemes,
     {
         name: "aurora-dark",
         label: "Aurora Dark",

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0');
 /* ═════════════════════════════════════════════════════════════
    Aurora CSS v2  —  Premium dark UI
    Aurora Design System  v2
@@ -119,12 +121,12 @@ body{background:var(--aurora-bg);color:var(--aurora-text);font-family:var(--auro
 .input-bar{width:100%}
 
 /* ── Input Controls Row (model + sandbox) ────────────────────── */
-.input-controls-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 0 10px 0;flex-wrap:wrap}
+.input-controls-row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px}
 
 /* Model selector */
 .model-selector-wrapper{position:relative;flex-shrink:0}
-.model-selector-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--aurora-surface);border:1px solid var(--aurora-border);border-radius:var(--aurora-radius);color:var(--aurora-text);font-size:12px;cursor:pointer;transition:all var(--aurora-transition);font-family:var(--aurora-font);white-space:nowrap}
-.model-selector-btn:hover{background:var(--aurora-surface-hover);border-color:var(--aurora-accent)}
+.model-selector-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(255,255,255,0.05);border:1px solid transparent;border-radius:var(--aurora-radius-lg);color:var(--aurora-text-muted);font-size:12px;cursor:pointer;transition:all var(--aurora-transition);font-family:var(--aurora-font);white-space:nowrap}
+.model-selector-btn:hover{background:rgba(255,255,255,0.1);color:var(--aurora-text)}
 .model-selector-dot{width:6px;height:6px;border-radius:50%;background:var(--aurora-accent);flex-shrink:0}
 .model-selector-label{font-weight:550}
 .model-selector-arrow{font-size:10px;color:var(--aurora-text-muted);transition:transform var(--aurora-transition)}
@@ -140,8 +142,8 @@ body{background:var(--aurora-bg);color:var(--aurora-text);font-family:var(--auro
 
 /* Sandbox selector dropdown */
 .sandbox-selector-wrapper{position:relative;flex-shrink:0}
-.sandbox-selector-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--aurora-surface);border:1px solid var(--aurora-border);border-radius:var(--aurora-radius);color:var(--aurora-text);font-size:12px;cursor:pointer;transition:all var(--aurora-transition);font-family:var(--aurora-font);white-space:nowrap}
-.sandbox-selector-btn:hover{background:var(--aurora-surface-hover);border-color:var(--aurora-accent)}
+.sandbox-selector-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(255,255,255,0.05);border:1px solid transparent;border-radius:var(--aurora-radius-lg);color:var(--aurora-text-muted);font-size:12px;cursor:pointer;transition:all var(--aurora-transition);font-family:var(--aurora-font);white-space:nowrap}
+.sandbox-selector-btn:hover{background:rgba(255,255,255,0.1);color:var(--aurora-text)}
 .sandbox-selector-icon{font-size:13px;line-height:1}
 .sandbox-selector-label{font-weight:550}
 .sandbox-selector-arrow{font-size:10px;color:var(--aurora-text-muted)}
@@ -155,17 +157,17 @@ body{background:var(--aurora-bg);color:var(--aurora-text);font-family:var(--auro
 .sandbox-menu-name{flex:1;font-weight:500}
 .sandbox-menu-check{color:var(--aurora-accent);font-size:12px}
 .input-bar-container{padding:12px 16px 16px;display:flex;justify-content:center;flex-shrink:0}
-.input-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:1;width:100%;background:var(--aurora-surface);border:1px solid var(--aurora-border);border-radius:var(--aurora-radius-xl);padding:6px 6px 6px 16px;transition:all var(--aurora-transition);box-shadow:var(--aurora-shadow)}
+.input-row{box-sizing:border-box;display:flex;flex-direction:column;gap:6px;flex:1;width:100%;background:var(--aurora-surface);border:1px solid var(--aurora-border);border-radius:var(--aurora-radius-xl);padding:8px 12px;transition:all var(--aurora-transition);box-shadow:var(--aurora-shadow)}
 .input-row:focus-within{border-color:var(--aurora-accent);box-shadow:0 0 0 3px rgba(91,156,245,0.12),var(--aurora-shadow-lg)}
-.input-row textarea{flex:1 1 0;width:0;min-width:0;box-sizing:border-box;min-height:48px;max-height:200px;overflow-y:auto;overflow-x:hidden;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;background:transparent;border:none;color:var(--aurora-text);font-family:var(--aurora-font);font-size:15px;line-height:1.55;resize:none;outline:none;padding:10px 0;align-self:stretch;margin:2px 0}
+.input-row textarea{flex:1 1 auto;width:100%;min-width:0;box-sizing:border-box;min-height:24px;max-height:200px;overflow-y:auto;overflow-x:hidden;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;background:transparent;border:none;color:var(--aurora-text);font-family:var(--aurora-font);font-size:15px;line-height:1.55;resize:none;outline:none;padding:0;align-self:stretch;margin:0}
 .input-row textarea::placeholder{color:var(--aurora-text-muted)}
-.input-attach-btn{align-self:center;background:transparent;border:none;color:var(--aurora-text-muted);cursor:pointer;padding:8px 6px;border-radius:var(--aurora-radius);font-size:18px;transition:all var(--aurora-transition);flex-shrink:0}
+.input-attach-btn{background:rgba(255,255,255,0.05);border:none;color:var(--aurora-text-muted);font-size:16px;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:var(--aurora-radius-lg);transition:all var(--aurora-transition);width:32px;height:32px}
 .input-attach-btn:hover{color:var(--aurora-accent);background:var(--aurora-surface-hover)}
 
 /* ── File Chips ─────────────────────────────────────── */
 .file-chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 24px 0;justify-content:center;margin:0 auto;width:100%}
 .file-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--aurora-surface);border:1px solid var(--aurora-border);border-radius:var(--aurora-radius-lg);font-size:12px;color:var(--aurora-text-secondary)}
-.file-chip img{width:28px;height:28px;border-radius:6px;object-fit:cover}
+.file-chip img{width:28px;height:24px;border-radius:6px;object-fit:cover}
 .file-chip-remove{background:none;border:none;color:var(--aurora-text-muted);cursor:pointer;font-size:15px;padding:0 2px;line-height:1;border-radius:4px;transition:all var(--aurora-transition)}
 .file-chip-remove:hover{color:var(--aurora-error)}
 
@@ -225,7 +227,7 @@ body{background:var(--aurora-bg);color:var(--aurora-text);font-family:var(--auro
 .tab-close:hover{background:var(--aurora-error-subtle);color:var(--aurora-error)}
 
 /* ── Toolbar ───────────────────────────────────────── */
-.aurora-toolbar{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 16px;background:var(--aurora-surface);border-bottom:1px solid var(--aurora-border);flex-shrink:0;-webkit-app-region:drag}
+.aurora-toolbar{margin-bottom: 0px;display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 16px;background:var(--aurora-surface);border-bottom:1px solid var(--aurora-border);flex-shrink:0;-webkit-app-region:drag}
 .aurora-toolbar-left,.aurora-toolbar-right{display:flex;align-items:center;gap:6px;-webkit-app-region:no-drag}
 .toolbar-brand{font-size:15px;font-weight:700;color:var(--aurora-text);letter-spacing:-0.01em;margin:0 8px}
 .toolbar-btn{background:none;border:none;color:var(--aurora-text-secondary);cursor:pointer;padding:6px 10px;border-radius:var(--aurora-radius);font-size:14px;transition:all var(--aurora-transition)}
@@ -380,7 +382,7 @@ button:disabled, .disabled {
 }
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: var(--opacity-c, 0.6); transform: translateY(0); }
 }
 .aurora-toast.error {
   background: var(--aurora-error);
@@ -408,3 +410,1134 @@ button:disabled, .disabled {
 .re-panel .toolbar-btn:hover {
   opacity: 0.85;
 }
+
+
+
+/* Anime/2D Styles Override */
+.aurora-app {
+    background-image: var(--anime-bg-image, none);
+    background-size: cover;
+    background-position: var(--pos-self, center);
+    background-repeat: no-reverse;
+}
+
+/* Add slight transparency to panels to show background */
+.aurora-center, .aurora-left-sidebar, .aurora-right-sidebar {
+    background-color: color-mix(in srgb, var(--aurora-bg) 85%, transparent) !important;
+    backdrop-filter: blur(10px);
+}
+
+.aurora-chat-wrapper .message-bubble.user {
+    background: linear-gradient(135deg, var(--aurora-accent), color-mix(in srgb, var(--aurora-accent) 70%, #fff));
+    border-radius: 18px 18px 4px 18px;
+    box-shadow: 0 4px 15px var(--aurora-accent-subtle);
+}
+
+.aurora-chat-wrapper .message-bubble.agent {
+    border-radius: 18px 18px 18px 4px;
+    border: 1px solid var(--aurora-border);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+/* Cuter tabs */
+.aurora-tabbar {
+    padding: 8px 12px;
+}
+
+.tab-item {
+    border-radius: 20px;
+    margin-right: 6px;
+    border: 1px solid transparent;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.tab-item.active {
+    background: var(--aurora-surface-elevated);
+    border-color: var(--aurora-accent);
+    box-shadow: 0 0 10px var(--aurora-accent-subtle);
+    transform: translateY(-2px);
+}
+
+.tab-item:hover:not(.active) {
+    background: var(--aurora-surface-hover);
+    transform: translateY(-1px);
+}
+
+/* Rounded inputs */
+input, textarea {
+    border-radius: 12px !important;
+}
+
+/* Floating chat input */
+.chat-input-area {
+    margin: 0 16px 16px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--aurora-border);
+    background: var(--aurora-surface-elevated);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+
+
+/* 鈹€鈹€ EXTREME ANIME OVERRIDE 鈹€鈹€ */
+:root {
+    --aurora-font: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif !important;
+}
+
+body, html, #root {
+    background-color: transparent !important;
+}
+
+/* Base App Wrapper */
+.aurora-app {
+    background-image: var(--anime-bg-image, none);
+    background-size: cover;
+    background-position: var(--pos-self, center);
+    background-color: var(--aurora-bg) !important;
+}
+
+/* Force Transparency on major containers */
+/* 彻底粉碎全局大包皮糊块 */
+
+/* Soften all list items and borders */
+.session-item, .chat-input-area, .aurora-panel, .tab-item {
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Soft glowing accents */
+.session-item.active {
+    background: linear-gradient(90deg, rgba(var(--aurora-accent-rgb, 91,156,245), 0.2), transparent) !important;
+    border-left: 4px solid var(--aurora-accent) !important;
+}
+
+/* Chat bubble overhaul */
+.message-row.user {
+    justify-content: flex-end;
+}
+.message-row.user .message-bubble {
+    background: linear-gradient(135deg, var(--aurora-accent), color-mix(in srgb, var(--aurora-accent) 60%, transparent)) !important;
+    border-radius: 20px 20px 4px 20px !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: 0 4px 20px var(--aurora-accent-subtle) !important;
+}
+
+.message-row.agent .message-bubble {
+    background: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 20px 20px 20px 4px !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
+}
+
+/* Input area floating card */
+.chat-input-area {
+    margin: 10px 20px 20px 20px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+}
+
+textarea {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Avatars */
+.message-avatar {
+    border-radius: 50% !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1) !important;
+    border: 2px solid var(--aurora-accent) !important;
+}
+
+.aurora-right-header, .aurora-panel-header {
+    border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+    background: rgba(0,0,0,0.2) !important;
+}
+
+
+.skin-browser input {
+    color: var(--aurora-text) !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+}
+
+.aurora-panel-header {
+    background: rgba(0, 0, 0, 0.5) !important;
+}
+
+
+
+
+
+
+
+
+
+
+/* 🌃 暗黑质感新野兽派 (Dark Neubrutalism) + Material Symbols 🌃 */
+
+
+
+:root {
+    --aurora-font: 'Space Grotesk', system-ui, sans-serif !important;
+    --dark-bg: #09090b !important;
+    --dark-panel: #18181b !important;
+    --dark-border: #3f3f46 !important;
+    --dark-text: #e4e4e7 !important;
+    --dark-muted: #a1a1aa !important;
+    --accent-purple: #7c3aed !important;
+    --accent-purple-shadow: #4c1d95 !important;
+    --accent-cyan: #0891b2 !important;
+    --accent-cyan-shadow: #164e63 !important;
+}
+
+body, html, #root { 
+    background: var(--dark-bg) !important; 
+    color: var(--dark-text) !important; 
+    font-family: var(--aurora-font) !important; 
+}
+
+.aurora-app {
+    background-color: var(--dark-bg) !important;
+    background-image: var(--anime-bg-image, none) !important;
+    background-size: cover !important;
+    background-position: center !important;
+}
+
+/* 💎 引入 Google Material Icons 处理图标问题 💎 */
+.aurora-panel-header span::before, 
+
+.aurora-right-header span::before,
+.message-avatar::before,
+.tab-item::before,
+.sidebar-btn::before,
+.toolbar-btn::before,
+.aurora-right-close::before,
+.tab-close::before {
+    font-family: 'Material Symbols Outlined' !important;
+    font-weight: normal; font-style: normal;
+    display: inline-block; vertical-align: middle;
+    line-height: 1; text-transform: none; letter-spacing: normal;
+    word-wrap: normal; white-space: nowrap; direction: ltr;
+    -webkit-font-smoothing: antialiased;
+    font-size: 20px;
+    margin-right: 8px;
+    color: var(--dark-muted);
+}
+
+/* 隐藏原有写死的杂乱文本图标 */
+.aurora-right-close { font-size: 0 !important; }
+.aurora-right-close::before { content: '\e5cd'; margin: 0; font-size: 22px; color: var(--dark-text); } /* close icon */
+
+.tab-close { font-size: 0 !important; cursor: pointer; }
+.tab-close::before { content: '\e5cd'; margin: 0; font-size: 16px; transition: color 0.2s;}
+.tab-close:hover::before { color: var(--accent-purple); }
+
+.aurora-panel-header span::before { content: '\e871'; color: var(--accent-cyan); } /* dashboard icon */
+
+ /* folder icon */
+
+/* 头像图标处理 */
+.message-avatar { font-size: 0 !important; }
+.message-avatar.user::before { content: '\e853'; font-size: 28px !important; margin: 0; color: var(--dark-text); } /* account_circle */
+.message-avatar.agent::before { content: '\e04b'; font-size: 28px !important; margin: 0; color: var(--accent-cyan); } /* smart_toy / robot */
+
+/* 布局：降低对比度的黑灰高级质感边框和阴影 */
+.aurora-main {
+    padding: 8px 25px 10px 25px !important;
+    gap: 20px !important;
+    background: transparent !important;
+}
+
+.aurora-left-sidebar, .aurora-right-sidebar, .aurora-center {
+    background-color: var(--dark-panel);
+    border: 2px solid var(--dark-border) !important;
+    border-radius: 12px !important;
+    /* 采用暗色纯色阴影，比刚才的亮黄/品红舒服得多 */
+    box-shadow: 6px 6px 0 var(--dark-bg), 6px 6px 0 2px var(--dark-border) !important;
+    position: relative !important;
+    transition: transform 0.15s, box-shadow 0.15s !important;
+}
+
+.aurora-left-sidebar:hover, .aurora-right-sidebar:hover {
+    transform: translate(2px, 2px) !important;
+    box-shadow: 4px 4px 0 var(--dark-bg), 4px 4px 0 2px var(--dark-border) !important;
+}
+
+.aurora-panel-header, .aurora-right-header {
+    background: transparent !important;
+    border-bottom: 2px solid var(--dark-border) !important;
+    color: var(--dark-text) !important;
+    font-weight: 700 !important;
+    font-size: 16px !important;
+    padding: 16px 20px !important;
+}
+
+/* 按钮变得清爽 */
+button, .sidebar-btn, .toolbar-btn {
+    border-radius: 8px !important;
+    background-color: var(--dark-panel);
+    border: 2px solid var(--dark-border) !important;
+    color: var(--dark-text) !important;
+    font-weight: 700 !important;
+    box-shadow: 3px 3px 0 var(--dark-border) !important;
+    transition: all 0.1s !important;
+    padding: 6px 12px !important;
+}
+button:active:not(:disabled), .sidebar-btn:active:not(:disabled) {
+    transform: translate(3px, 3px) !important;
+    box-shadow: 0 0 0 var(--dark-border) !important;
+    background: var(--dark-border) !important;
+}
+
+/* 会话列表卡片 */
+.session-item {
+    background: transparent !important;
+    border: 2px solid transparent !important;
+    color: var(--dark-muted) !important;
+    margin: 8px 12px !important;
+    border-radius: 8px !important;
+}
+.session-item.active {
+    background: rgba(255,255,255,0.05) !important;
+    border: 2px solid var(--dark-border) !important;
+    color: var(--dark-text) !important;
+    box-shadow: 3px 3px 0 var(--accent-purple-shadow) !important;
+    font-weight: bold !important;
+}
+
+/* 聊天气泡：克制的高级感 */
+.aurora-chat-wrapper { background: transparent !important; }
+
+.message-bubble {
+    padding: 14px 20px !important;
+    font-size: 15px !important;
+    border-radius: 12px !important;
+    border: 2px solid var(--dark-border) !important;
+    line-height: 1.6 !important;
+}
+.message-row.agent .message-bubble {
+    background: var(--dark-bg) !important;
+    color: var(--dark-text) !important;
+    box-shadow: 4px 4px 0 var(--dark-border) !important;
+}
+.message-row.user .message-bubble {
+    background: var(--accent-purple-shadow) !important;
+    color: #fff !important;
+    border-color: var(--accent-purple) !important;
+    box-shadow: 4px 4px 0 var(--accent-purple) !important;
+}
+
+/* 输入框 */
+.chat-input-area {
+    background: var(--dark-bg) !important;
+    border: 2px solid var(--dark-border) !important;
+    border-radius: 12px !important;
+    margin: 20px !important;
+    padding: 10px 15px !important;
+    box-shadow: 6px 6px 0 var(--dark-border) !important;
+}
+.chat-input-area textarea {
+    color: var(--dark-text) !important;
+    font-size: 16px !important;
+}
+
+/* 代码区域 */
+.markdown-content pre {
+    background: var(--dark-bg) !important;
+    border: 2px solid var(--dark-border) !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+}
+
+/* 头像外框 */
+.message-avatar {
+    width: 42px !important; height: 42px !important;
+    border-radius: 10px !important;
+    border: 2px solid var(--dark-border) !important;
+    background: var(--dark-bg) !important;
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    box-shadow: 3px 3px 0 var(--dark-border) !important;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 10px !important; height: 10px !important; }
+::-webkit-scrollbar-track { background: transparent !important; }
+::-webkit-scrollbar-thumb { background: var(--dark-border) !important; border-radius: 5px !important;}
+::-webkit-scrollbar-thumb:hover { background: var(--dark-muted) !important; }
+
+
+
+/* 🛠️ Context Menu / Hover Menu z-index Fix 🛠️ */
+.aurora-left-sidebar {
+    /* 保证侧边栏的内容溢出时不会被强行裁切掉 */
+    overflow: visible !important;
+}
+
+/* 这应该是一个绝对定位的弹出菜单，必须拥有最高层级，不能被右边中央区域挡住 */
+.session-item {
+    position: relative !important; /* 给子菜单一个安全的基准点 */
+}
+
+/* 假设菜单类名为 session-menu 或 context-menu 之类，统一拔高 z-index 并优化阴影 */
+.session-actions, .context-menu, [role="menu"], .dropdown-menu {
+    z-index: 9999 !important;
+    position: absolute !important;
+    background-color: var(--dark-panel);
+    border: 2px solid var(--dark-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 4px 4px 0 var(--dark-bg), 8px 8px 15px rgba(0,0,0,0.8) !important;
+    /* 如果向右弹出会盖在中间滚动条或面板底下，那我们强制把它挤在上面 */
+    transform: translateZ(0); 
+}
+
+/* 保证右边的中央窗体不会压过左侧弹窗 */
+.aurora-center {
+    z-index: 1 !important; 
+}
+
+
+/* 🛠️ Context Menu / Hover Menu z-index Fix V2 🛠️ */
+.context-menu-container {
+    z-index: 10000 !important; /* 强制拉到最最最顶级 */
+    padding: 6px !important;
+}
+.context-menu-container button {
+    border: none !important;
+    border-radius: 4px !important;
+    width: 100% !important;
+    text-align: left !important;
+    padding: 8px 12px !important;
+    margin-bottom: 2px !important;
+}
+.context-menu-container button:hover {
+    background: var(--accent-purple-shadow) !important;
+    color: white !important;
+}
+
+/* 恢复一下滚动条的可见度，不要让 overflow: visible 把滚动给干掉了 */
+.session-list-container {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100% !important;
+}
+/* 外围不能为 hidden，否则弹窗必被裁 */
+.aurora-left-sidebar {
+    overflow: visible !important;
+}
+
+
+/* 🛠️ Context Menu Refinement 🛠️ */
+.context-menu-container {
+    background-color: var(--dark-panel);
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+    padding: 8px !important;
+    min-width: 160px;
+    z-index: 10000 !important;
+    backdrop-filter: blur(20px);
+}
+
+.ctx-menu-item {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 6px !important;
+    color: var(--dark-text) !important;
+    font-weight: 500 !important;
+    padding: 10px 14px !important;
+    margin: 2px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    text-align: left !important;
+    transition: all 0.15s ease !important;
+}
+
+.ctx-menu-item span.ctx-icon {
+    font-size: 16px !important;
+    margin: 0 !important;
+}
+
+.ctx-menu-item:hover {
+    background: var(--dark-border) !important;
+    transform: translateX(4px) !important; /* 微微的前推交互感 */
+}
+
+.ctx-divider {
+    height: 1px;
+    background: var(--dark-border);
+    margin: 6px 4px;
+}
+
+.ctx-danger {
+    color: #ef4444 !important;
+}
+.ctx-danger:hover {
+    background: rgba(239, 68, 68, 0.1) !important;
+}
+
+
+/* 🚨 终极致命修复层级遮挡 (Z-Index / Stacking Context Traps) 🚨 */
+
+/* React 弹窗如果父容器有 transform 或者 backdrop-filter，position:fixed 会失效并被困在父盒子里。
+   同时，因为左侧面板在 DOM 树里排在中间面板前面，所以如果它弹出去了，也绝对会被中间面板盖住。
+   唯一的解法是：暴力提升左侧面板的堆叠层级 (z-index) 超过中央面板！ 
+*/
+.aurora-left-sidebar {
+    z-index: 9999 !important; /* 左侧面板直接抬升到最顶层 */
+    overflow: visible !important;
+}
+
+.aurora-center {
+    z-index: 10 !important; /* 中央面板垫后 */
+}
+
+/* 确保内部容器不要再加任何裁剪 */
+.session-list-container, .aurora-panel {
+    overflow: visible !important;
+}
+.session-list {
+    overflow-y: auto !important;
+    overflow-x: visible !important;
+}
+
+.context-menu-container {
+    position: fixed !important;
+    z-index: 999999 !important; /* 天神级 Z-Index */
+}
+
+
+/* 高级按需模糊绑定 */
+.aurora-left-sidebar {
+}
+.aurora-center {
+}
+.aurora-right-sidebar {
+}
+
+/* 输入框和代码框也统一加一点穿透感 */
+.chat-input-area {
+    background: rgba(9, 9, 11, 0.7) !important;
+}
+.message-row.agent .message-bubble {
+    background: rgba(9, 9, 11, 0.6) !important;
+}
+.markdown-content pre {
+    background: rgba(0, 0, 0, 0.7) !important;
+}
+
+
+/* 分体式高级透明度 & 独立背景壁纸 - 采用 color-mix 规避 rgba rgba(..., var) 的解析漏洞 */
+.aurora-left-sidebar {
+    background-color: color-mix(in srgb, #18181b calc(var(--opacity-l, 0.6) * 100%), transparent) !important;
+    
+    background-size: cover !important; background-position: center !important; background-blend-mode: overlay !important;
+}
+.aurora-center {
+    background-color: color-mix(in srgb, #18181b calc(var(--opacity-c, 0.6) * 100%), transparent) !important;
+    
+    background-size: cover !important; background-position: center !important; background-blend-mode: overlay !important;
+}
+.aurora-right-sidebar {
+    background-color: color-mix(in srgb, #18181b calc(var(--opacity-r, 0.6) * 100%), transparent) !important;
+    
+    background-size: cover !important; background-position: center !important; background-blend-mode: overlay !important;
+}
+
+
+
+
+
+
+/* 🛠️ 终极修正：浮台终端 (Terminal) 的穿模与重叠问题 🛠️ */
+
+.aurora-terminal-overlay {
+    position: absolute !important;
+    bottom: 25px !important;    /* 稍微离开最底部悬空 */
+    left: 280px !important;    /* 必须让开左侧由 aot-left 占领的 250px + 两边间距的领域 */
+    right: 300px !important;   /* 必须让开右侧由 aot-right 占领的 280px 领域 */
+    z-index: 100 !important;
+    background: transparent !important;
+    border: none !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+/* 当右侧边栏折叠时，把右边的空缺占满！ */
+/* 但是现在布局没有直接的 sibling 关系，右侧边栏在 main 里面，命令行在外头。 
+   这就导致我们无法用简单的 ~ 兄弟选择器。
+   所以咱们用稳一点的 fallback：只避开左侧会话，右边给点余量即可
+*/
+.aurora-terminal-overlay {
+    right: 320px !important; 
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+}
+
+.aurora-terminal-bg {
+    background: color-mix(in srgb, #18181b 80%, transparent) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 2px solid var(--dark-border) !important;
+    border-bottom: none !important;
+    border-radius: 12px 12px 0 0 !important;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.6) !important;
+    height: 100% !important;
+}
+
+.aurora-terminal-handle {
+    background: var(--dark-border) !important;
+    color: var(--dark-text) !important;
+    border-radius: 12px 12px 0 0 !important;
+    font-family: var(--aurora-font) !important;
+    font-weight: 700 !important;
+}
+
+/* 并且要保证终端栏打开时，不要影响底层内容的遮挡 */
+.aurora-center {
+    /* 避免中间内容被终端挡住，留点底边距 */
+    /* margin-bottom 压缩已彻底删除 */
+}
+
+
+
+
+
+.aurora-chat-wrapper .message-list {
+    padding-bottom: 260px !important; /* 让聊天流的底部多出极大空间避免被悬浮命令行挡住 */
+}
+
+
+
+
+
+/* 🔴 恢复终端全宽占位 🔴 */
+.aurora-terminal-overlay {
+    position: fixed !important;
+    left: 0 !important; 
+    right: 0 !important;
+    bottom: 28px !important;
+    z-index: 9999 !important; /* 必须极度高才能压过会话框 */
+    background: transparent !important;
+    border: none !important;
+}
+
+.aurora-terminal-bg {
+    background: rgba(9, 9, 11, 0.9) !important;
+    backdrop-filter: blur(25px) !important;
+    -webkit-backdrop-filter: blur(25px) !important;
+    border-top: 2px solid var(--dark-border) !important;
+    border-radius: 0 !important; /* 全宽不需要顶部圆角 */
+    height: 100% !important;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.8) !important;
+}
+
+.aurora-terminal-handle {
+    border-radius: 0 !important;
+}
+
+.aurora-left-sidebar { z-index: 20 !important; }
+
+/* 强制修复大背景及透明度体系 */
+
+
+
+
+
+/* 并且把里面那些乱七八糟的 backdrop-filter blur 给去除了，免得变糊！ */
+
+/* 更新底板图片定位 */
+
+
+
+body {
+    background-position: var(--pos-main, center) !important;
+}
+
+/* The most aggressive overwrite for Left Sidebar */
+.aurora-left-sidebar {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+/* REMOVED WILDCARD */ {
+    /* If some child like session-list has a hardcoded color, this doesn't kill it but we killed it in TSX */
+}
+
+/* ========================================= */
+/* 终极顶边栏完全透视法术 */
+/* ========================================= */
+.aurora-toolbar {
+    background: transparent !important; /* 砸碎死黑背板 */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important; /* 原来的粗边框改成极细玻璃线 */
+    backdrop-filter: blur(10px); /* 极其高雅的轻度毛玻璃效果 */
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* 按钮在顶端玻璃栏上也应稍微提亮，否则字看不清 */
+.toolbar-brand {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+}
+.toolbar-btn {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+    background: rgba(255, 255, 255, 0.05) !important; /* 玻璃质感底色 */
+    backdrop-filter: blur(5px) !important;
+}
+.toolbar-btn:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+}
+
+
+/* ========================================= */
+/* 终极解耦：将图片与模糊效果彻底分层！ */
+/* ========================================= */
+
+/* 1. 基础容器：彻底脱去其自身的颜色和模糊，只做定位框 */
+.aurora-left-sidebar, .aurora-center, .aurora-right-sidebar {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    position: relative;
+    z-index: 1; /* 抬高一点，压住底层全局大壁纸 */
+}
+
+/* 2. 第一层（最底层）：高清大图片，绝对不准被模糊！ */
+
+
+
+
+/* 3. 第二层（覆盖层）：专职负责蒙黑板和毛玻璃！压在图片之上！ */
+.aurora-left-sidebar::after {
+    content: ""; position: absolute; z-index: -1; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-color: rgba(24, 24, 27, var(--opacity-l, 0.6)); /* 当透明度设置极高，这里颜色就极淡 */
+    backdrop-filter: blur(var(--blur-l, 0px));
+    -webkit-backdrop-filter: blur(var(--blur-l, 0px));
+}
+.aurora-center::after {
+    content: ""; position: absolute; z-index: -1; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-color: rgba(24, 24, 27, var(--opacity-c, 0.6));
+    backdrop-filter: blur(var(--blur-c, 0px));
+    -webkit-backdrop-filter: blur(var(--blur-c, 0px));
+}
+.aurora-right-sidebar::after {
+    content: ""; position: absolute; z-index: -1; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-color: rgba(24, 24, 27, var(--opacity-r, 0.6));
+    backdrop-filter: blur(var(--blur-r, 0px));
+    -webkit-backdrop-filter: blur(var(--blur-r, 0px));
+}
+
+
+/* ========================================= */
+/* 终极解耦：将图片与模糊效果彻底分层！ */
+/* ========================================= */
+
+/* 1. 基础容器：彻底脱去其自身的颜色和模糊，只做定位框 */
+.aurora-left-sidebar, .aurora-center, .aurora-right-sidebar {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    position: relative;
+    z-index: 1; /* 抬高一点，压住底层全局大壁纸 */
+}
+
+/* 2. 第一层（最底层）：高清大图片，绝对不准被模糊！ */
+.aurora-left-sidebar::before {
+    content: ""; position: absolute; z-index: -2; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-image: var(--bg-l, none); background-size: cover; background-position: var(--pos-l, center);
+    opacity: var(--opacity-l, 0.6);
+}
+.aurora-center::before {
+    content: ""; position: absolute; z-index: -2; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-image: var(--bg-c, none); background-size: cover; background-position: var(--pos-c, center);
+    opacity: var(--opacity-c, 0.6);
+}
+.aurora-right-sidebar::before {
+    content: ""; position: absolute; z-index: -2; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-image: var(--bg-r, none); background-size: cover; background-position: var(--pos-r, center);
+    opacity: var(--opacity-c, 0.6);
+}
+
+/* 3. 第二层（覆盖层）：专职负责蒙黑板和毛玻璃！压在图片之上！ */
+.aurora-left-sidebar::after {
+    content: ""; position: absolute; z-index: -1; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-color: rgba(24, 24, 27, var(--opacity-l, 0.6)); /* 当透明度设置极高，这里颜色就极淡 */
+    backdrop-filter: blur(var(--blur-l, 0px));
+    -webkit-backdrop-filter: blur(var(--blur-l, 0px));
+}
+.aurora-center::after {
+    content: ""; position: absolute; z-index: -1; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-color: rgba(24, 24, 27, var(--opacity-c, 0.6));
+    backdrop-filter: blur(var(--blur-c, 0px));
+    -webkit-backdrop-filter: blur(var(--blur-c, 0px));
+}
+.aurora-right-sidebar::after {
+    content: ""; position: absolute; z-index: -1; top:0; left:0; right:0; bottom:0;
+    pointer-events: none;
+    background-color: rgba(24, 24, 27, var(--opacity-r, 0.6));
+    backdrop-filter: blur(var(--blur-r, 0px));
+    -webkit-backdrop-filter: blur(var(--blur-r, 0px));
+}
+
+/* KILL ANY BACKDROP ON PARENTS ONCE AND FOR ALL */
+.aurora-left-sidebar, .aurora-center, .aurora-right-sidebar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+.aurora-left-sidebar { background: var(--panel-bg-l) !important; background-color: var(--panel-bg-l) !important; }
+.aurora-center { background: var(--panel-bg-c) !important; background-color: var(--panel-bg-c) !important; }
+.aurora-right-sidebar { background: var(--panel-bg-r) !important; background-color: var(--panel-bg-r) !important; }
+/* Ensure the inner children (like ChatPanel) don't have hardcoded backgrounds hiding the transparent goodness */
+.chat-panel-container {
+    background-color: transparent !important;
+}
+
+.aurora-chat-wrapper { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* REMOVED WILDCARD */ {
+    /* If this is getting overridden by an inline style, CSS !important on a wildcard fixes it locally */
+}
+.chat-panel-container {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+.message-list {
+    background: transparent !important;
+}
+
+.aurora-left-sidebar::before { opacity: var(--opacity-l, 0.6) !important; }
+.aurora-center::before { opacity: var(--opacity-c, 0.6) !important; }
+.aurora-right-sidebar::before { opacity: var(--opacity-r, 0.6) !important; }
+
+/* The solid color overlay should also fade out when user drags transparency to 0 */
+.aurora-left-sidebar::after { background-color: rgba(24, 24, 27, var(--opacity-l, 0.6)) !important; }
+.aurora-center::after { background-color: rgba(24, 24, 27, var(--opacity-c, 0.6)) !important; }
+.aurora-right-sidebar::after { background-color: rgba(24, 24, 27, var(--opacity-r, 0.6)) !important; }
+
+/* The user wants NO solid dark background obscuring the wallpapers! */
+.aurora-left-sidebar::after, .aurora-center::after, .aurora-right-sidebar::after { 
+    background-color: transparent !important; 
+}
+
+.aurora-app {
+    background: transparent !important;
+}
+.aurora-main {
+    background: transparent !important;
+}
+
+
+
+/* The UNBEATABLE Global Wallpaper Rule */
+html, body, #root { background-image: var(--bg-main, none) !important; background-size: cover !important; background-position: var(--pos-main, center) !important; background-color: var(--aurora-bg) !important; }
+
+/* Make sure nothing inside the app structure covers up root */
+.aurora-app, .aurora-main {
+    background: transparent !important; /* Let the body image shine through! */
+}
+
+/* ========================================= */
+/* 全新沉浸式全景顶栏 (抛弃毛玻璃) */
+/* ========================================= */
+.aurora-toolbar {
+    /* 不使用模糊，而是用一种非常具有电影高级感的“自上而下的暗色渐变” */
+    /* 这样它顶端稍微有点黑，确保顶部按钮和文字绝对清晰；而到了下边缘则完全透明，和壁纸无缝融合！ */
+    background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%) !important;
+    
+    /* 彻底关掉毛玻璃！ */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    
+    /* 把下面那条横线也删掉，避免切割画面 */
+    border-bottom: none !important; 
+}
+
+/* 如果按钮太生硬，稍微融合一下 */
+.toolbar-btn {
+    background: rgba(0, 0, 0, 0.2) !important; 
+    backdrop-filter: none !important; /* 连按钮都不要带模糊底色 */
+    border: 1px solid rgba(255,255,255,0.05) !important;
+}
+.toolbar-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ========================================= */
+
+
+/* HARDCODED FINAL FALLBACK FROM AYANAMI */
+body, #root {
+    background-image: var(--bg-main, none) !important;
+    background-size: cover !important;
+    background-color: var(--aurora-bg) !important;
+}
+.aurora-app, .aurora-main {
+    background: transparent !important;
+}
+
+/* ========================================= */
+/* 终极高对比实体字幕描边加深版 (防一切瞎眼) */
+/* ========================================= */
+/* 我们使用四个方向的偏移制造“实体描边”，外加两阶下沉阴影制造浮雕感 */
+.file-tree-container, .session-list, .plan-panel, .aurora-right-header, .aurora-left-sidebar, .aurora-right-sidebar,
+.aurora-center h1, .aurora-center h2, .aurora-center h3, .aurora-center p, .aurora-center span, .toolbar-brand {
+    text-shadow: 
+        -1px -1px 0 rgba(0,0,0, 0.6),  
+         1px -1px 0 rgba(0,0,0, 0.6),
+        -1px  1px 0 rgba(0,0,0, 0.6),
+         1px  1px 0 rgba(0,0,0, 0.6),
+         0 2px 4px rgba(0,0,0, 1),
+         0 2px 10px rgba(0,0,0, 1) !important;
+}
+
+/* 文本彻底强制变白并增粗 */
+.file-node, .session-item, .file-node span, .session-item span {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* 原本被设计用来显示“灰色”的弱化文本，也要全部洗白提亮加粗 */
+.text-muted, .color-secondary, .session-list .text-muted, .file-tree-container .text-muted {
+    color: #f8fafc !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+}
+
+/* 给各种输入框（包括搜索框和打字框）垫一层安全的深色底，防止字溶于背景 */
+input[type="text"], .chat-input-area, .aurora-chat-input, input {
+    background-color: rgba(0, 0, 0, 0.55) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    color: #ffffff !important;
+}
+
+input::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* 让输入框内的文字不被阴影污染变得糊掉，只保留极轻微的阴影 */
+input[type="text"] {
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+}
+
+/* ALWAYS HAVE A SOLID BLACK BASE IN THE ABYSS */
+html, body, #root {
+    background-color: var(--aurora-bg) !important;
+}
+
+/* If NO global image is set, ensure it falls back to black in all major wrappers */
+.aurora-app {
+    background-color: var(--app-bg, var(--aurora-bg)) !important;
+}
+
+/* For panels, if they are cleared, they should fall back to a nice dark gray */
+.aurora-left-sidebar, .aurora-center, .aurora-right-sidebar {
+    background-color: var(--panel-bg-l, #18181b) !important; /* Will be used as fallback */
+}
+.aurora-center {
+    background-color: var(--panel-bg-c, #18181b) !important;
+}
+.aurora-right-sidebar {
+    background-color: var(--panel-bg-r, #18181b) !important;
+}
+
+/* 编辑器全景透明融合补丁 */
+.aurora-editor-panel {
+    background: transparent !important;
+}
+.monaco-editor, .monaco-editor-background {
+    background-color: transparent !important;
+}
+/* Ensure the tabbar is deeply blended */
+.aurora-tabbar {
+    background: rgba(0,0,0, 0.4) !important;
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+}
+.aurora-tab {
+    background: transparent !important;
+    border-right: 1px solid rgba(255,255,255,0.05) !important;
+}
+.aurora-tab.active {
+    background: rgba(255,255,255,0.1) !important;
+}
+
+/* 绝对强制令下拉菜单往上方弹起 */
+.sandbox-menu, .model-menu {
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+    right: 0 !important;
+    left: auto !important; /* depending on if it's left or right aligned */
+    transform-origin: bottom center !important;
+}
+
+/* 确保模型切换菜单（左下角）也是向上弹出 */
+.model-menu {
+    left: 0 !important;
+    right: auto !important;
+}
+
+/* 绝对终极防切断特型补丁 */
+.aurora-chat-input-container {
+    overflow: visible !important; /* 拆掉切断弹出框的罪魁祸首 */
+}
+.chat-input-area {
+    overflow: visible !important;
+}
+
+.model-selector-menu, .model-menu {
+    top: auto !important;
+    bottom: calc(100% + 12px) !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+}
+
+/* 彻底修复终极遮挡：把终端悬浮层向上提走，让出原本被掩埋的最底端状态栏和各种监控设置入口！ */
+.aurora-terminal-overlay {
+    bottom: 28px !important; /* StatusBar 大概占用 28px */
+    z-index: 99 !important; /* 降低层级，只盖住上面，不压过弹窗 */
+}
+/* 并给主体区加上底边距防止文字和消息在底下被挡住 */
+.aurora-main {
+    margin-bottom: 0px !important; /* 为状态栏留空间 */
+}
+.aurora-chat-wrapper .message-list {
+    padding-bottom: 280px !important; /* 当终端展开时，内部文字可以滑到终端上面 */
+}
+
+/* 顶级输入框自适应居中优化 */
+.aurora-chat-input {
+    resize: none !important; /* 禁止用户乱拉 */
+    line-height: 24px !important;
+    padding: 12px 14px !important;
+    min-height: 48px !important; /* 刚好是一行文字的样子 */
+    max-height: 200px !important; /* 字数太多时不再拉伸，转为内部滚动 */
+    overflow-y: auto !important; /* 需要时滚动 */
+    box-sizing: border-box !important;
+    height: auto; /* 交给JS控制其实不需要CSS定死height，但默认可以auto */
+}
+
+/* 输入框外部的大肚子可能被写死高度了，需要放开限制 */
+.chat-input-area {
+    min-height: auto !important;
+    height: auto !important;
+    align-items: flex-end !important; /* 当输入框变高时，右边那两个发送和附件按钮应该待在最底下对齐！ */
+}
+
+/* 按钮也需要对齐到底部 */
+.chat-input-actions {
+    display: flex;
+    align-items: flex-end !important;
+    margin-bottom: 2px !important; /* 微调使其和输入框字体的第一行对齐 */
+}
+
+.input-bottom-actions{display:flex;align-items:center;justify-content:space-between;width:100%;}
+.input-send-actions{display:flex;align-items:center;gap:8px;}
+.input-controls-container{display:flex;align-items:center;gap:6px;}
+.input-attach-btn:hover { background: rgba(255,255,255,0.1); color: var(--aurora-text); }
+.toolbar-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+.toolbar-logo:hover {
+  transform: scale(1.3) translateY(2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+  border-radius: 6px;
+  z-index: 10;
+  position: relative;
+}
+
+.context-menu-container { pointer-events: auto !important; }
+
+/* Context Menu Forced Opaque Styling */
+.context-menu-container {
+    background: rgba(30, 30, 35, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
+    backdrop-filter: blur(20px) !important;
+    pointer-events: auto !important;
+    z-index: 9999999 !important;
+}
+
+.context-menu-container button {
+    color: #e4e4e7 !important; /* bright white-grey text */
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    font-weight: 500 !important;
+}
+
+.context-menu-container button:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+}
+
+.context-menu-container button[style*="color: rgb(239, 68, 68)"] {
+    color: #ef4444 !important; /* Keep delete red */
+}
+.context-menu-container button[style*="color: rgb(239, 68, 68)"]:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+}
+
+.context-menu-container {
+    position: fixed !important;
+    z-index: 999999 !important;
+    background: rgba(30, 30, 30, 0.95);
+    background-color: #1e1e24 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8) !important;
+    border-radius: 8px !important;
+    padding: 6px !important;
+    backdrop-filter: blur(20px) !important;
+    pointer-events: auto !important;
+}
+
+.ctx-menu-item {
+    border: none !important;
+    border-radius: 6px !important;
+    width: 100% !important;
+    text-align: left !important;
+    padding: 10px 16px !important;
+    margin-bottom: 2px !important;
+    background: transparent !important;
+    color: #e4e4e7 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.ctx-menu-item:hover {
+    background: rgba(255,255,255,0.1) !important;
+    color: white !important;
+}
+
+.ctx-menu-item[style*="color: rgb(239, 68, 68)"] {
+    color: #ef4444 !important;
+}
+.ctx-menu-item[style*="color: rgb(239, 68, 68)"]:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+}
+
+
+
+

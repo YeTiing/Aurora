@@ -12,7 +12,7 @@ export function DetectivePanel({ onClose }: { onClose: () => void }) {
     const API = "http://127.0.0.1:9876";
 
     const analyze = async () => {
-        if (!file.trim()) { setError("File path required"); return; }
+        if (!file.trim()) { setError("请输入文件路径"); return; }
         setLoading(true); setError("");
         try {
             const r = await fetch(API+"/detective/analyze", {
@@ -25,7 +25,7 @@ export function DetectivePanel({ onClose }: { onClose: () => void }) {
     };
 
     const blame = async () => {
-        if (!file.trim()) { setError("File path required"); return; }
+        if (!file.trim()) { setError("请输入文件路径"); return; }
         setLoading(true); setError("");
         try {
             const q = API+"/detective/blame?file="+encodeURIComponent(file)+(lines?"&lines="+encodeURIComponent(lines):"");
@@ -38,18 +38,18 @@ export function DetectivePanel({ onClose }: { onClose: () => void }) {
         <div className="aurora-overlay">
             <div className="aurora-panel" style={{backgroundColor:colors.surface,borderColor:colors.border,color:colors.text,width:800,maxWidth:"94vw",maxHeight:"85vh",display:"flex",flexDirection:"column"}}>
                 <div className="aurora-panel-header" style={{borderColor:colors.border}}>
-                    <span>Diff Detective</span>
+                    <span>源码差异神探局 (Diff Detective)</span>
                     <button onClick={onClose} style={{color:colors.textSecondary,background:"none",border:"none",cursor:"pointer",fontSize:16}}>X</button>
                 </div>
                 <div style={{padding:12,display:"flex",flexDirection:"column",gap:8,flex:1,overflow:"auto"}}>
                     <div style={{display:"flex",gap:6}}>
-                        <input value={file} onChange={e=>setFile(e.target.value)} placeholder="File path (e.g. backend/api/__init__.py)" style={{flex:1,background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:"6px 10px",fontSize:12}} />
-                        <input value={lines} onChange={e=>setLines(e.target.value)} placeholder="Lines (e.g. 42,58,100)" style={{width:160,background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:"6px 10px",fontSize:12}} />
+                        <input value={file} onChange={e=>setFile(e.target.value)} placeholder="目标审查文件路径" style={{flex:1,background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:"6px 10px",fontSize:12}} />
+                        <input value={lines} onChange={e=>setLines(e.target.value)} placeholder="审查上下文行数" style={{width:160,background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:"6px 10px",fontSize:12}} />
                     </div>
-                    <input value={bug} onChange={e=>setBug(e.target.value)} placeholder="Bug description..." style={{background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:"6px 10px",fontSize:12}} />
+                    <input value={bug} onChange={e=>setBug(e.target.value)} placeholder="描述问题特征或审查需求..." style={{background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:"6px 10px",fontSize:12}} />
                     <div style={{display:"flex",gap:6}}>
-                        <button onClick={analyze} disabled={loading} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>Analyze</button>
-                        <button onClick={blame} disabled={loading} style={{background:"transparent",color:colors.accent,border:`1px solid ${colors.accent}`,borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>Blame Only</button>
+                        <button onClick={analyze} disabled={loading} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>深度查案</button>
+                        <button onClick={blame} disabled={loading} style={{background:"transparent",color:colors.accent,border:`1px solid ${colors.accent}`,borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>仅查责任人(Blame)</button>
                     </div>
                     {error && <div style={{color:colors.error,fontSize:12,padding:6,background:colors.bg,borderRadius:4}}>{error}</div>}
 

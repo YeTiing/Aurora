@@ -125,7 +125,7 @@ export function FileTree() {
                 </div>
             )}
 
-            {/* Sessions */}
+            {/* 历史对话记录 */}
             {activeTab === "sessions" && (
                 <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
                     <div style={{

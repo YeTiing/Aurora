@@ -1,0 +1,24 @@
+{
+  "name": "ayanami-pink",
+  "label": "Ayanami Pink",
+  "is_builtin": true,
+  "colors": {
+    "bg": "#20111a",
+    "surface": "#351c2c",
+    "surfaceHover": "#4a273e",
+    "border": "#5e324f",
+    "text": "#fce7f3",
+    "textSecondary": "#fbcfe8",
+    "primary": "#ec4899",
+    "primaryHover": "#db2777",
+    "error": "#e11d48",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "info": "#3b82f6"
+  },
+  "fonts": {
+    "sans": "Inter, ui-sans-serif, system-ui, sans-serif",
+    "mono": "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace"
+  },
+  "custom": {}
+}

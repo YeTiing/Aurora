@@ -36,6 +36,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     const [apiKey, setApiKey] = useState("");
     const [modelsList, setModelsList] = useState<string[]>([]);
     const [testResult, setTestResult] = useState<{ok?:boolean;response?:string;error?:string} | null>(null);
+    const [fetchingModels, setFetchingModels] = useState(false);
+    const [customModels, setCustomModels] = useState<string[]>([]);
     const [saving, setSaving] = useState(false);
 
     // Vision fallback state
@@ -98,6 +100,36 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     useEffect(() => { fetchModels(); }, [fetchModels]);
 
     // Save
+    
+    const fetchRemoteModels = async () => {
+        if (!baseUrl) return;
+        setFetchingModels(true);
+        try {
+            let url = baseUrl.endsWith("/") ? baseUrl + "models" : baseUrl + "/models";
+            if (!url.includes("/v1/")) {
+                url = baseUrl.endsWith("/") ? baseUrl + "v1/models" : baseUrl + "/v1/models";
+            }
+            const actualUrl = baseUrl.endsWith("/v1") ? baseUrl + "/models" : url;
+            
+            const res = await fetch(actualUrl, {
+                headers: { "Authorization": `Bearer ${apiKey}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.data && Array.isArray(data.data)) {
+                    const ids = data.data.map((m: any) => m.id);
+                    setCustomModels(ids);
+                    if (ids.length > 0 && !ids.includes(model)) {
+                        setModel(ids[0]);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch models", e);
+        }
+        setFetchingModels(false);
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -265,14 +297,30 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                 </div>
                             </div>
                             <div>
-                                <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>Model</label>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                    <label style={{ fontSize: 11, color: colors.textSecondary }}>Model</label>
+                                    <button 
+                                        onClick={fetchRemoteModels}
+                                        disabled={fetchingModels || !baseUrl}
+                                        style={{ background: "transparent", border: "none", color: colors.accent, fontSize: 11, cursor: baseUrl ? "pointer" : "not-allowed", opacity: baseUrl ? 1 : 0.5 }}
+                                    >
+                                        {fetchingModels ? "获取中..." : "🔄 获取远端模型"}
+                                    </button>
+                                </div>
                                 <select value={model} onChange={e => setModel(e.target.value)} style={inputStyle}>
-                                    {modelsList.map(m => <option key={m} value={m}>{m}</option>)}
-                                    {modelsList.length === 0 && (
+                                    {customModels.length > 0 ? (
+                                        customModels.map(m => <option key={m} value={m}>{m}</option>)
+                                    ) : (
                                         <>
-                                            <option value="gpt-4o">gpt-4o</option>
-                                            <option value="gpt-4o-mini">gpt-4o-mini</option>
-                                            <option value="deepseek-chat">deepseek-chat</option>
+                                            {modelsList.map(m => <option key={m} value={m}>{m}</option>)}
+                                            {modelsList.length === 0 && (
+                                                <>
+                                                    <option value="gpt-4o">gpt-4o</option>
+                                                    <option value="gpt-4o-mini">gpt-4o-mini</option>
+                                                    <option value="deepseek-chat">deepseek-chat</option>
+                                                    <option value={model}>{model}</option>
+                                                </>
+                                            )}
                                         </>
                                     )}
                                 </select>

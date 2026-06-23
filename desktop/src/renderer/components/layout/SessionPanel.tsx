@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useStore } from "../../store";
 import { useTheme } from "../../hooks";
@@ -25,6 +26,7 @@ export const SessionPanel: React.FC = () => {
     const [search, setSearch] = useState("");
     const [contextMenu, setContextMenu] = useState<ContextMenuState>({ open: false, x: 0, y: 0, sessionId: "" });
     const [renaming, setRenaming] = useState<string | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState("");
     const renameInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,10 +62,12 @@ export const SessionPanel: React.FC = () => {
         );
     }, [sorted, search]);
 
-    const handleContextMenu = (e: React.MouseEvent, sessionId: string) => {
+        const handleContextMenu = (e: React.MouseEvent, sessionId: string) => {
         e.preventDefault();
         e.stopPropagation();
-        setContextMenu({ open: true, x: e.clientX, y: e.clientY, sessionId });
+        const rect = e.currentTarget.getBoundingClientRect();
+        // Snap to exactly the right edge of the sessions panel (width = 240)
+        setContextMenu({ open: true, x: '260px', y: `${rect.top}px`, sessionId });
     };
 
     const handleRename = (id: string, title: string) => {
@@ -120,12 +124,12 @@ export const SessionPanel: React.FC = () => {
     const ctxSession = sessions.find((s) => s.id === contextMenu.sessionId);
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: colors.bg }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: 'transparent' }}>
             <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "8px 12px", borderBottom: `1px solid ${colors.border}`,
             }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: colors.text }}>Sessions</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: colors.text }}>历史对话记录</span>
                 <button
                     onClick={() => createSession()}
                     style={{
@@ -143,12 +147,12 @@ export const SessionPanel: React.FC = () => {
             <div style={{ padding: "6px 8px" }}>
                 <input
                     type="text"
-                    placeholder={t("searchSessions")}
+                    placeholder={t("搜索对话记录...")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={{
                         width: "100%", padding: "4px 8px", fontSize: 12,
-                        backgroundColor: colors.bgSecondary, color: colors.text,
+                        backgroundColor: 'transparent', color: colors.text,
                         border: `1px solid ${colors.border}`, borderRadius: 4,
                         outline: "none", boxSizing: "border-box",
                     }}
@@ -195,7 +199,7 @@ export const SessionPanel: React.FC = () => {
                                     onClick={(e) => e.stopPropagation()}
                                     style={{
                                         width: "100%", padding: "2px 4px", fontSize: 12,
-                                        backgroundColor: colors.bgSecondary, color: colors.text,
+                                        backgroundColor: 'transparent', color: colors.text,
                                         border: `1px solid ${colors.accent}`, borderRadius: 3,
                                         outline: "none",
                                     }}
@@ -228,7 +232,7 @@ export const SessionPanel: React.FC = () => {
                                                 fontSize: 10, color: colors.textSecondary,
                                                 marginTop: 2, display: "flex", gap: 8,
                                             }}>
-                                                <span>{messageCount(s)} msgs</span>
+                                                <span>{messageCount(s)} 条消息</span>
                                                 <span>{formatDate(s.updatedAt)}</span>
                                             </div>
                                         </div>
@@ -241,22 +245,22 @@ export const SessionPanel: React.FC = () => {
             </div>
 
             {/* Context Menu */}
-            {contextMenu.open && ctxSession && (
+            {contextMenu.open && ctxSession && createPortal(
                 <div
-                    className="session-context-menu"
+                    className="context-menu-container"
                     style={{
                         position: "fixed",
                         left: contextMenu.x,
                         top: contextMenu.y,
-                        zIndex: 200,
+                        zIndex: 999999,
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <button className="ctx-menu-item" onClick={() => handleRename(ctxSession.id, ctxSession.title)}>
-                        <span className="ctx-icon">✏️</span> Rename
+                        <span className="ctx-icon">📝</span> 重命名
                     </button>
                     <button className="ctx-menu-item" onClick={() => handleDuplicate(ctxSession.id)}>
-                        <span className="ctx-icon">📋</span> Duplicate
+                        <span className="ctx-icon">📋</span> 复制会话
                     </button>
                     <button className="ctx-menu-item" onClick={() => { togglePinSession(ctxSession.id); setContextMenu((c) => ({ ...c, open: false })); }}>
                         <span className="ctx-icon">📌</span> {ctxSession.pinned ? t("unpin") : t("pin")}
@@ -265,17 +269,60 @@ export const SessionPanel: React.FC = () => {
                         <span className="ctx-icon">📦</span> {ctxSession.archived ? "Unarchive" : t("archive")}
                     </button>
                     <button className="ctx-menu-item" onClick={() => handleExport(ctxSession.id)}>
-                        <span className="ctx-icon">馃搫</span> Export
+                        <span className="ctx-icon">📤</span> 导出备份
                     </button>
                     <div className="ctx-divider" />
                     <button
                         className="ctx-menu-item ctx-danger"
-                        onClick={() => { deleteSession(ctxSession.id); setContextMenu((c) => ({ ...c, open: false })); }}
+                        style={{ color: "#ef4444" }}
+                        onClick={() => {
+                            setConfirmDelete(ctxSession.id);
+                            setContextMenu((c) => ({ ...c, open: false }));
+                        }}
                     >
-                        <span className="ctx-icon">🗑️</span> Delete
+                        <span className="ctx-icon">🗑️</span> 彻底删除
                     </button>
-                </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Custom Confirm Modal */}
+            {confirmDelete && createPortal(
+                <div className="aurora-overlay">
+                    <div className="aurora-panel" style={{ width: 400, maxWidth: "90vw", background: "rgba(24, 24, 27, 0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px", padding: 24, boxShadow: "0 10px 40px rgba(0,0,0,0.8)", backdropFilter: "blur(20px)" }}>
+                        <div style={{ fontSize: 18, fontWeight: 600, color: "#ef4444", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                            <span>⚠️</span> 彻底删除会话
+                        </div>
+                        <div style={{ fontSize: 14, color: "#a1a1aa", marginBottom: 24, lineHeight: 1.5 }}>
+                            确定要彻底删除这个神秘的会话记录吗？<br />
+                            删除后数据将被抹除，这种操作可没法吃后悔药喔！
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+                            <button
+                                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.2)", color: "#e4e4e7", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontSize: 14, transition: "all 0.2s" }}
+                                onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+                                onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+                                onClick={() => setConfirmDelete(null)}
+                            >
+                                取消
+                            </button>
+                            <button
+                                style={{ background: "#ef4444", border: "none", color: "white", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontSize: 14, fontWeight: 500, transition: "all 0.2s", boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)" }}
+                                onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-1px)"}
+                                onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}
+                                onClick={() => {
+                                    deleteSession(confirmDelete);
+                                    setConfirmDelete(null);
+                                }}
+                            >
+                                确定删除
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );
 };
+

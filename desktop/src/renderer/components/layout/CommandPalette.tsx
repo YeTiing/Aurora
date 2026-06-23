@@ -25,7 +25,7 @@ export const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) =
     const setActiveSession = useStore((s) => s.setActiveSession);
 
     const commands: Command[] = useMemo(() => [
-        { id: "new-session", label: "New Session", category: "Sessions", shortcut: "Ctrl+N", action: createSession },
+        { id: "new-session", label: "New Session", category: "历史对话记录", shortcut: "Ctrl+N", action: createSession },
         { id: "toggle-filetree", label: "Toggle File Tree", category: "View", shortcut: "Ctrl+B", action: toggleFileTree },
         { id: "toggle-search", label: "Search in Files", category: "View", shortcut: "Ctrl+Shift+F", action: toggleSearch },
         { id: "toggle-settings", label: "Open Settings", category: "View", shortcut: "Ctrl+,", action: toggleSettings },
@@ -33,7 +33,7 @@ export const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) =
         ...sessions.slice(0, 10).map((s) => ({
             id: `session-${s.id}`,
             label: s.title || "Untitled",
-            category: "Sessions",
+            category: "历史对话记录",
             action: () => setActiveSession(s.id),
         })),
     ], [sessions, toggleFileTree, toggleSettings, toggleSearch, toggleTheme, createSession, setActiveSession]);
@@ -140,7 +140,7 @@ export const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) =
                         >
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <span style={{ fontSize: 16, color: colors.textSecondary, width: 20, textAlign: "center" }}>
-                                    {cmd.category === "Sessions" ? "💬" : "⚡"}
+                                    {cmd.category === "历史对话记录" ? "💬" : "⚡"}
                                 </span>
                                 <div>
                                     <div style={{ fontSize: 13, color: colors.text, fontWeight: idx === selectedIdx ? 600 : 400 }}>

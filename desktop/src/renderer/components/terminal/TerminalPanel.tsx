@@ -151,7 +151,7 @@ export function TerminalPanel() {
                         <span style={{ fontSize: 12 }}>
                             {terminalOpen ? "▼" : "▶"}
                         </span>
-                        <span>Terminal</span>
+                        <span>终端控制台</span>
                         {terminalOpen && workspace && (
                             <span style={{ fontSize: 10, opacity: 0.5, marginLeft: 6 }}>
                                 {workspace.split(/[/\\]/).pop()}
@@ -160,7 +160,7 @@ export function TerminalPanel() {
                     </span>
                     <span className="actions">
                         {terminalOpen && (
-                            <button className="aurora-terminal-close" onClick={handleClose} title="Close">
+                            <button className="aurora-terminal-close" onClick={handleClose} title="关闭">
                                 ✕
                             </button>
                         )}

@@ -5,8 +5,9 @@ import { t } from "../../i18n";
 export function StatusBar() {
     const backendConnected = useStore((s) => s.backendConnected);
     const workspace = useStore((s) => s.workspace);
-    const toggleSettings = useStore((s) => s.toggleSettings);
+        const toggleSettings = useStore((s) => s.toggleSettings);
     const toggleMonitor = useStore((s) => s.toggleMonitor);
+    
     const setTerminalOpen = useStore((s) => s.setTerminalOpen);
     const terminalOpen = useStore((s) => s.terminalOpen);
     const colors = useStore((s) => s.themeColors);
@@ -24,7 +25,7 @@ export function StatusBar() {
             </span>
             <div className="status-right">
                 <button className="status-btn" onClick={toggleMonitor} title={t("monitor")}
-                    style={useStore.getState().showMonitor ? { color: "var(--aurora-accent)", background: "var(--aurora-accent-subtle)" } : {}}>
+                    style={useStore.getState().show任务监听器 ? { color: "var(--aurora-accent)", background: "var(--aurora-accent-subtle)" } : {}}>
                     📊
                 </button>
                 <button className={`status-btn ${terminalOpen ? "active" : ""}`}

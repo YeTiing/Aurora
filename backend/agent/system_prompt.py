@@ -251,6 +251,15 @@ def RU(
 
 # ═══ Preset Templates ═══
 
+def _get_memory_context() -> str:
+    """Pull closed-loop memory for system prompt injection."""
+    try:
+        from backend.dual_memory import get_closed_loop
+        cl = get_closed_loop()
+        return cl.system_prompt("")
+    except Exception:
+        return ""
+
 def get_cli_prompt() -> str:
     """CLI mode System Prompt"""
     return RU(desktop=False, include_permissions=True, chinese=True)

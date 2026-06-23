@@ -161,12 +161,25 @@ class AgentGraph:
                 # Inject nudge into conversation if triggered
                 if result.get("nudge"):
                     state.add_message(Message.system(result["nudge"]))
+                # Inject skill creation suggestion
+                if result.get("suggest_skill"):
+                    state.add_message(Message.system(result["suggest_skill"]))
             except Exception:
                 pass
 
             return state
 
 
+
+        # Step 0: Inject closed-loop memory into context
+        from backend.dual_memory import get_closed_loop
+        try:
+            cl = get_closed_loop()
+            mem_ctx = cl.system_prompt(user_input)
+            if mem_ctx:
+                state.add_message(Message.system(f"MEMORY CONTEXT:\n{mem_ctx}"))
+        except Exception:
+            pass
 
         # Step 1: Planner
 
@@ -192,6 +205,9 @@ class AgentGraph:
                 # Inject nudge into conversation if triggered
                 if result.get("nudge"):
                     state.add_message(Message.system(result["nudge"]))
+                # Inject skill creation suggestion
+                if result.get("suggest_skill"):
+                    state.add_message(Message.system(result["suggest_skill"]))
             except Exception:
                 pass
 
@@ -306,10 +322,35 @@ class AgentGraph:
 
         await self.events.task_complete(session_id, state.final_response[:200])
 
-        # End session: curator + index + nudge
+        # Process full turn + auto-record
         from backend.dual_memory import get_closed_loop
         try:
             cl = get_closed_loop()
+            result = cl.process_turn(user_input, state.final_response)
+            # Inject nudge if triggered
+            if result.get("nudge"):
+                state.add_message(Message.system(result["nudge"]))
+            # Inject skill suggestion
+            if result.get("suggest_skill"):
+                state.final_response += "\n\n" + result["suggest_skill"]
+            # Run Honcho dialectic if needed
+            if result.get("dialectic_needed"):
+                depth = cl.honcho.depth_for(len(user_input))
+                prompt = cl.honcho.warm_prompt() if cl.honcho.peer.traits else cl.honcho.cold_prompt()
+                try:
+                    resp = await self.llm.chat_simple(
+                        user_message=prompt,
+                        system_prompt="You are a user modeling system. Return only valid JSON.",
+                        max_tokens=500,
+                    )
+                    text = resp.content if hasattr(resp, "content") else str(resp)
+                    import json as _json, re as _re
+                    m = _re.search(r'\{.*\}', text, _re.DOTALL)
+                    if m:
+                        cl.honcho.apply(_json.loads(m.group()))
+                except Exception:
+                    pass
+            # End session: curator + FTS5 index
             summary = state.final_response[:500] if state.final_response else user_input[:200]
             await cl.end_session(session_id, summary, "", 0, self.llm)
         except Exception:

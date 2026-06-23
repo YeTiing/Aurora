@@ -16,4 +16,15 @@ if __name__ == "__main__":
     print(f"  Aurora AI Agent v0.1.0")
     print(f"  http://{host}:{port}")
     print(f"  API docs: http://{host}:{port}/docs")
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    from backend.dual_memory import get_closed_loop
+try:
+    cl = get_closed_loop()
+    if cl.curator.should():
+        print(f"  Curator: running maintenance (last run {cl.curator.cfg.run_count} runs ago)...")
+        cl.curator.light()
+        cl.agent_memory.save()
+        cl.user_profile.save()
+except Exception:
+    pass
+
+uvicorn.run(app, host=host, port=port, log_level="info")

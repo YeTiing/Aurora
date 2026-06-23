@@ -16,6 +16,7 @@ from .capture import CaptureEngine
 from .deobfuscator import Deobfuscator
 from .miner import APIMiner
 from .analyzer import SceneAnalyzer
+from .signature import SignatureTracer, get_signature_tracer
 
 def init_workspace():
     from pathlib import Path

@@ -146,6 +146,11 @@ class RESession:
     def get_hooks(self) -> list[dict]:
         return [dict(r) for r in self.conn.execute("SELECT * FROM js_hooks WHERE session_id=?", (self.id,))]
 
+    def get_request_detail(self, req_id: str) -> dict | None:
+        """Get full request with body."""
+        r = self.conn.execute("SELECT * FROM requests WHERE id=? AND session_id=?", (req_id, self.id)).fetchone()
+        return dict(r) if r else None
+
     def stats(self) -> dict:
         r = self.conn.execute("SELECT COUNT(*), SUM(CASE WHEN is_static=0 THEN 1 ELSE 0 END), SUM(CASE WHEN is_js=1 THEN 1 ELSE 0 END) FROM requests WHERE session_id=?", (self.id,)).fetchone()
         h = self.conn.execute("SELECT COUNT(*) FROM js_hooks WHERE session_id=?", (self.id,)).fetchone()

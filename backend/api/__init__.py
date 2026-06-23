@@ -1523,6 +1523,129 @@ async def re_analyze(req: dict):
     url = req.get("url", "")
     return {"scene": a.detect_scene(url, "", code), "auth": a.trace_auth("", code), "crypto": a.fingerprint_crypto(code)}
 
+
+
+@app.get("/re/sessions/{session_id}/requests/{req_id}")
+async def re_request_detail(session_id: str, req_id: str):
+    from backend.re.session import get_re_manager
+    sess = get_re_manager().get(session_id)
+    if not sess:
+        raise HTTPException(404, f"RE session '{session_id}' not found")
+    detail = sess.get_request_detail(req_id)
+    if not detail:
+        raise HTTPException(404, f"Request '{req_id}' not found")
+    import json
+    for key in ["request_headers", "response_headers"]:
+        try: detail[key] = json.loads(detail[key]) if isinstance(detail[key], str) else detail[key]
+        except: pass
+    return detail
+
+@app.get("/re/sessions/{session_id}/requests/{req_id}/curl")
+async def re_request_curl(session_id: str, req_id: str):
+    from backend.re.session import get_re_manager
+    import json, shlex
+    sess = get_re_manager().get(session_id)
+    if not sess: raise HTTPException(404, f"Session not found")
+    detail = sess.get_request_detail(req_id)
+    if not detail: raise HTTPException(404, f"Request not found")
+    headers = json.loads(detail.get("request_headers","{}")) if isinstance(detail.get("request_headers"), str) else detail.get("request_headers",{})
+    url = detail.get("url","")
+    method = detail.get("method","GET")
+    body = detail.get("request_body","")
+    parts = ["curl", "-X", method]
+    for k, v in headers.items():
+        if k.lower() in ("host", "content-length", "connection", "accept-encoding"): continue
+        parts.extend(["-H", f"{k}: {v}"])
+    if body and method in ("POST","PUT","PATCH"): parts.extend(["-d", body[:2000]])
+    parts.append(shlex.quote(url))
+    return {"curl": " ".join(parts), "method": method, "url": url}
+
+@app.post("/re/import/har")
+async def re_import_har(req: dict):
+    from backend.re.session import get_re_manager, CapturedRequest
+    import json
+    har_data = req.get("har", req)
+    if isinstance(har_data, str):
+        try: har_data = json.loads(har_data)
+        except: raise HTTPException(400, "Invalid HAR JSON")
+    mgr = get_re_manager()
+    sess = mgr.create(url=req.get("url","HAR Import"))
+    entries = har_data.get("log",{}).get("entries",[]) or []
+    for entry in entries:
+        rq = entry.get("request",{})
+        rs = entry.get("response",{})
+        req_obj = CapturedRequest(
+            id=f"har_{sess.id}_{len(entries)}", session_id=sess.id,
+            seq=len(entries)+1, method=rq.get("method","GET"),
+            url=rq.get("url",""), path=rq.get("url","").split("?",1)[0] if "?" in rq.get("url","") else rq.get("url",""),
+            request_headers=json.dumps({h.get("name",""):h.get("value","") for h in rq.get("headers",[])}),
+            request_body=rq.get("postData",{}).get("text","")[:50000] if isinstance(rq.get("postData"), dict) else "",
+            response_status=rs.get("status",0),
+            response_headers=json.dumps({h.get("name",""):h.get("value","") for h in rs.get("headers",[])}),
+            response_body=rs.get("content",{}).get("text","")[:50000] if isinstance(rs.get("content"), dict) else "",
+        )
+        sess.add_request(req_obj)
+    return {"session_id": sess.id, "url": sess.url, "imported": len(entries), "stats": sess.stats()}
+
+@app.get("/re/sessions/{session_id}/export/har")
+async def re_export_har(session_id: str):
+    from backend.re.session import get_re_manager
+    import json
+    sess = get_re_manager().get(session_id)
+    if not sess: raise HTTPException(404, f"Session not found")
+    reqs = sess.get_requests()
+    entries = []
+    for r in reqs:
+        req_headers = json.loads(r.get("request_headers","{}")) if isinstance(r.get("request_headers"),str) else r.get("request_headers",{})
+        resp_headers = json.loads(r.get("response_headers","{}")) if isinstance(r.get("response_headers"),str) else r.get("response_headers",{})
+        entries.append({
+            "startedDateTime": "",
+            "request": {"method": r.get("method","GET"), "url": r.get("url",""),
+                "headers": [{"name": k, "value": v} for k,v in req_headers.items()],
+                "postData": {"text": r.get("request_body","")[:50000]} if r.get("request_body") else {}},
+            "response": {"status": r.get("response_status",0),
+                "headers": [{"name": k, "value": v} for k,v in resp_headers.items()],
+                "content": {"text": r.get("response_body","")[:50000]}},
+        })
+    return {"log": {"version": "1.2", "entries": entries}}
+
+@app.post("/re/signature")
+async def re_signature_trace(req: dict):
+    from backend.re.signature import get_signature_tracer
+    t = get_signature_tracer()
+    code = req.get("code", "")
+    filepath = req.get("file", "")
+    if filepath:
+        from pathlib import Path
+        p = Path(filepath)
+        if p.exists(): code = p.read_text(encoding="utf-8", errors="ignore")
+        else: raise HTTPException(400, f"File not found: {filepath}")
+    if not code: raise HTTPException(400, "Provide 'code' or 'file'")
+    return t.trace(code)
+
+@app.post("/re/sessions/{session_id}/replay/{req_id}")
+async def re_replay_request(session_id: str, req_id: str, modifier: dict = {}):
+    from backend.re.session import get_re_manager
+    import httpx, json
+    sess = get_re_manager().get(session_id)
+    if not sess: raise HTTPException(404, f"Session not found")
+    detail = sess.get_request_detail(req_id)
+    if not detail: raise HTTPException(404, f"Request not found")
+    headers = json.loads(detail.get("request_headers","{}")) if isinstance(detail.get("request_headers"),str) else detail.get("request_headers",{})
+    url = detail.get("url","")
+    method = detail.get("method","GET")
+    body = detail.get("request_body","")
+    if modifier:
+        if "body" in modifier: body = modifier["body"]
+        if "headers" in modifier: headers.update(modifier["headers"])
+        if "url" in modifier: url = modifier["url"]
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.request(method, url, headers=headers, content=body)
+            return {"status": resp.status_code, "headers": dict(resp.headers), "body": resp.text[:10000], "replayed": True}
+    except Exception as e:
+        return {"error": str(e), "replayed": False}
+
 @app.delete("/re/sessions/{session_id}")
 async def re_session_delete(session_id: str):
     from backend.re.session import get_re_manager

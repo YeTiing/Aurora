@@ -128,11 +128,11 @@ class AgentGraph:
 
             try:
 
-                # Inject dual-file memory into system prompt
-                from backend.dual_memory import get_dual_memory
-                dm = get_dual_memory()
-                memory_block = dm.get_system_prompt_injection()
-                sys_prompt = "You are Aurora, a helpful AI assistant.\n\n" + memory_block + "\n\nAnswer concisely and naturally."
+                # Inject full closed-loop memory into system prompt
+                from backend.dual_memory import get_closed_loop
+                cl = get_closed_loop()
+                mem = cl.system_prompt(user_input)
+                sys_prompt = "You are Aurora, a helpful AI assistant.\n\n" + mem + "\n\nAnswer concisely and naturally."
                 resp = await self.llm.chat_simple(
 
                     user_message=user_input,
@@ -154,9 +154,13 @@ class AgentGraph:
             await self.events.task_complete(session_id, state.final_response[:200])
             state.done = True
 
-            # Process conversation for memory
+            # Process conversation through full closed loop
             try:
-                dm.process_conversation_turn(user_input, state.final_response)
+                cl = get_closed_loop()
+                result = cl.process_turn(user_input, state.final_response)
+                # Inject nudge into conversation if triggered
+                if result.get("nudge"):
+                    state.add_message(Message.system(result["nudge"]))
             except Exception:
                 pass
 
@@ -181,9 +185,13 @@ class AgentGraph:
             await self.events.task_complete(session_id, state.final_response[:200])
             state.done = True
 
-            # Process conversation for memory
+            # Process conversation through full closed loop
             try:
-                dm.process_conversation_turn(user_input, state.final_response)
+                cl = get_closed_loop()
+                result = cl.process_turn(user_input, state.final_response)
+                # Inject nudge into conversation if triggered
+                if result.get("nudge"):
+                    state.add_message(Message.system(result["nudge"]))
             except Exception:
                 pass
 
@@ -298,12 +306,12 @@ class AgentGraph:
 
         await self.events.task_complete(session_id, state.final_response[:200])
 
-        # End session: curator + index
-        from backend.dual_memory import get_dual_memory
+        # End session: curator + index + nudge
+        from backend.dual_memory import get_closed_loop
         try:
-            dm = get_dual_memory()
+            cl = get_closed_loop()
             summary = state.final_response[:500] if state.final_response else user_input[:200]
-            dm.end_session(session_id, summary)
+            await cl.end_session(session_id, summary, "", 0, self.llm)
         except Exception:
             pass
 

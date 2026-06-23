@@ -1169,6 +1169,75 @@ async def semantic_build_episodic():
     count = sm.build_episodic_index()
     return {"indexed_episodes": count}
 
+
+# === Skills ===
+@app.get("/memory/skills")
+async def memory_skills_list():
+    _init()
+    from backend.dual_memory import get_closed_loop
+    return get_closed_loop().skills.all()
+
+@app.post("/memory/skills/{name}/use")
+async def memory_skill_use(name: str):
+    _init()
+    from backend.dual_memory import get_closed_loop
+    get_closed_loop().skills.use(name)
+    return {"used": name}
+
+@app.delete("/memory/skills/{name}")
+async def memory_skill_archive(name: str):
+    _init()
+    from backend.dual_memory import get_closed_loop
+    ok = get_closed_loop().skills.archive(name)
+    if not ok: raise HTTPException(404, "Skill not found")
+    return {"archived": name}
+
+# === Honcho ===
+@app.get("/memory/honcho")
+async def memory_honcho_status():
+    _init()
+    from backend.dual_memory import get_closed_loop
+    cl = get_closed_loop()
+    return {
+        "turns": cl.honcho._turns,
+        "traits": cl.honcho.peer.traits,
+        "preferences": cl.honcho.peer.preferences,
+        "knowledge": cl.honcho.peer.knowledge_levels,
+        "contradictions": cl.honcho.peer.contradictions,
+        "context": cl.honcho.prompt_injection(),
+    }
+
+# === Nudge ===
+@app.post("/memory/nudge/trigger")
+async def memory_nudge_trigger():
+    _init()
+    from backend.dual_memory import get_closed_loop
+    cl = get_closed_loop()
+    p = cl.nudge.end_prompt(len(cl.agent_memory.entries))
+    return {"nudge": p}
+
+# === Curator ===
+@app.post("/memory/curator/full")
+async def memory_curator_full():
+    _init()
+    from backend.dual_memory import get_closed_loop
+    from backend.agent.llm_client import MockLLMClient
+    cl = get_closed_loop()
+    # Use mock if no real LLM configured
+    try:
+        from backend.config import config
+    except:
+        config = None
+    result = await cl.curator.light()  # Fallback to lightweight
+    return {"curation": result}
+
+# === FTS5 Sessions ===
+@app.get("/memory/sessions/recent")
+async def memory_sessions_recent(n: int = 10):
+    _init()
+    from backend.dual_memory import get_closed_loop
+    return get_closed_loop().fts5.recent(n)
+
 # === Plugin Marketplace ===
 class MarketplaceInstallRequest(BaseModel):
     repo_url: str

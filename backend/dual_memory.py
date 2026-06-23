@@ -811,7 +811,7 @@ class ClosedLoopMemory:
 
         # 2. Agent produced a significant response (>500 chars) in a non-trivial context
         #    → extract key facts for AGENT_MEMORY
-        if len(resp) > 500 and len(user) > 30:
+        if len(resp) > 200 and len(user) > 15:
             # Check if this looks like a coding task result
             task_markers = [
                 r"(已|已经|完成|done|finished|好了|created|built|fixed|implemented|deployed|configured)",
@@ -820,8 +820,12 @@ class ClosedLoopMemory:
             is_task = any(re.search(m, resp, re.IGNORECASE) for m in task_markers)
             if is_task:
                 # Extract the first sentence as a summary
-                summary = resp.split("。")[0].split(".")[0][:200]
-                if len(summary) > 20:
+                # Extract meaningful summary (first 2 sentences or 200 chars)
+                parts = resp.replace("。", ".").split(".")
+                summary = ".".join(parts[:2]).strip()[:200]
+                if not summary or len(summary) < 15:
+                    summary = resp[:200]
+                if len(summary) >= 15:
                     # Only save if not a near-duplicate
                     existing_texts = [e.text.lower()[:50] for e in self.agent_memory.entries]
                     if summary.lower()[:50] not in existing_texts:
@@ -832,7 +836,7 @@ class ClosedLoopMemory:
         if self._turns_since_last_skill_check is None:
             self._turns_since_last_skill_check = 0
         self._turns_since_last_skill_check += 1
-        if self._turns_since_last_skill_check >= 8 and len(resp) > 800:
+        if self._turns_since_last_skill_check >= 6 and len(resp) > 400:
             r["suggest_skill"] = (
                 f"[Auto] This was a complex task ({self._turns_since_last_skill_check} turns). "
                 f"Consider creating a skill with `memory skill_create` if this pattern is reusable."

@@ -1,4 +1,4 @@
-# view_image — Codex同款图片查看工具
+# view_image — image viewer + vision analysis fallback
 from __future__ import annotations
 import base64, os, pathlib
 from typing import Any
@@ -6,14 +6,27 @@ from .base import ToolSpec, ToolCallResult, safe_resolve_path
 
 VIEW_IMAGE_SPEC = ToolSpec(
     name="view_image",
-    description="View a local image file from the filesystem when visual inspection is needed. Use this for images already available on disk.",
+    description=(
+        "View a local image file from the filesystem when visual inspection is needed. "
+        "Use this for images already available on disk. "
+        "Set analyze=true to get AI vision analysis of the image content "
+        "(auto-fallback to vision model if main model lacks vision capability)."
+    ),
     parameters={
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
                 "description": "Local filesystem path to an image file."
-            }
+            },
+            "analyze": {
+                "type": "boolean",
+                "description": "Set true to get AI analysis of the image. Useful when your model lacks vision."
+            },
+            "question": {
+                "type": "string",
+                "description": "Specific question about the image for AI analysis."
+            },
         },
         "required": ["path"]
     },
@@ -23,8 +36,12 @@ VIEW_IMAGE_SPEC = ToolSpec(
 
 SUPPORTED_FORMATS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico", ".tiff", ".tif"}
 
+
 async def view_image_handler(arguments: dict, workspace: str = ".") -> ToolCallResult:
     path_str = arguments.get("path", "")
+    analyze = arguments.get("analyze", False)
+    question = arguments.get("question", "")
+
     if not path_str:
         return ToolCallResult(id="", name="view_image", output="", success=False, error="No path provided")
 
@@ -47,7 +64,7 @@ async def view_image_handler(arguments: dict, workspace: str = ".") -> ToolCallR
         return ToolCallResult(id="", name="view_image", output="", success=False,
                                error=f"Image too large: {size_bytes} bytes (max 20MB)")
 
-    # 读取图片，返回 base64 data URL
+    # Read image
     try:
         with open(file_path, "rb") as f:
             img_data = f.read()
@@ -61,7 +78,7 @@ async def view_image_handler(arguments: dict, workspace: str = ".") -> ToolCallR
         mime = mime_map.get(ext, "application/octet-stream")
         data_url = f"data:{mime};base64,{base64.b64encode(img_data).decode('ascii')}"
 
-        # 尝试获取图片尺寸
+        # Try to get dimensions
         dimensions = ""
         try:
             if ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"):
@@ -79,10 +96,32 @@ async def view_image_handler(arguments: dict, workspace: str = ".") -> ToolCallR
         except Exception:
             pass
 
-        output = f"![{file_path.name}]({data_url[:100]}...)\n\nImage: {file_path.name}\nSize: {size_bytes:,} bytes{dimensions}\nFormat: {ext}"
+        # If analyze mode: use vision subagent
+        analysis_text = ""
+        if analyze:
+            try:
+                from backend.agent.vision_subagent import get_vision_analyzer
+                analyzer = get_vision_analyzer()
+                q = question or "Describe this image in detail. What do you see? Be thorough but concise."
+                analysis_text = analyzer.analyze_sync(str(file_path), q)
+                analysis_text = f"\n\n## Vision Analysis\n{analysis_text}"
+            except Exception as e:
+                analysis_text = f"\n\n## Vision Analysis Failed\nError: {type(e).__name__}: {str(e)[:300]}"
+
+        output = (
+            f"![{file_path.name}]({data_url[:100]}...)\n\n"
+            f"Image: {file_path.name}\n"
+            f"Size: {size_bytes:,} bytes{dimensions}\n"
+            f"Format: {ext}\n"
+            f"{'Path: ' + str(file_path)}"
+            f"{analysis_text}"
+        )
         return ToolCallResult(
             id="", name="view_image", output=output, success=True,
-            metadata={"path": str(file_path), "size": size_bytes, "format": ext, "mime": mime}
+            metadata={
+                "path": str(file_path), "size": size_bytes, "format": ext, "mime": mime,
+                "analyzed": analyze, "data_url_prefix": data_url[:100],
+            }
         )
     except Exception as e:
         return ToolCallResult(id="", name="view_image", output="", success=False,

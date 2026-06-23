@@ -42,5 +42,12 @@
     "approval_policy": "never",
     "language": "zh",
     "theme": "aurora-dark",
-    "model": "gpt-4o"
+    "model": "gpt-4o",
+    "vision_fallback": {
+        "model": "gpt-4o-mini",
+        "provider": "openai",
+        "api_key": "",
+        "base_url": "",
+        "enabled": true
+    }
 }

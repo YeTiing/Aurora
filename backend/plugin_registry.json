@@ -1,0 +1,28 @@
+{
+  "plugins": [
+    {
+      "id": "auto-format",
+      "name": "Auto Format",
+      "version": "1.0.0",
+      "description": "Automatic code formatting on save",
+      "author": "Aurora",
+      "tags": ["formatting"]
+    },
+    {
+      "id": "spell-check",
+      "name": "Spell Check",
+      "version": "0.1.0",
+      "description": "Spell checking for comments and docs",
+      "author": "Aurora",
+      "tags": ["quality"]
+    },
+    {
+      "id": "code-review",
+      "name": "AI Code Review",
+      "version": "0.2.0",
+      "description": "AI-powered code review suggestions",
+      "author": "Aurora",
+      "tags": ["review", "quality"]
+    }
+  ]
+}

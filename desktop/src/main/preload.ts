@@ -1,0 +1,55 @@
+import { contextBridge, ipcRenderer } from "electron";
+
+contextBridge.exposeInMainWorld("aurora", {
+    // Agent
+    chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; model?: string }) =>
+        ipcRenderer.invoke("agent:chat", data),
+    cancel: (sessionId: string) =>
+        ipcRenderer.invoke("agent:cancel", { sessionId }),
+
+    // Terminal
+    terminal: {
+        create: (sessionId: string, cwd: string) =>
+            ipcRenderer.invoke("terminal:create", { sessionId, cwd }),
+        write: (sessionId: string, data: string) =>
+            ipcRenderer.invoke("terminal:write", { sessionId, data }),
+        resize: (sessionId: string, cols: number, rows: number) =>
+            ipcRenderer.invoke("terminal:resize", { sessionId, cols, rows }),
+        kill: (sessionId: string) =>
+            ipcRenderer.invoke("terminal:kill", { sessionId }),
+        onData: (callback: (data: { sessionId: string; data: string }) => void) =>
+            ipcRenderer.on("terminal:data", (_e, d) => callback(d)),
+        onExit: (callback: (data: { sessionId: string; exitCode: number }) => void) =>
+            ipcRenderer.on("terminal:exit", (_e, d) => callback(d)),
+    },
+
+    // Agent events
+    onAgentMessage: (callback: (msg: any) => void) =>
+        ipcRenderer.on("agent:message", (_e, msg) => callback(msg)),
+    onBackendConnected: (callback: () => void) =>
+        ipcRenderer.on("backend:connected", () => callback()),
+
+    // Dialogs
+    dialog: {
+        openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
+        openFile: () => ipcRenderer.invoke("dialog:openFile"),
+    },
+
+    // File ops
+    file: {
+        read: (path: string) => ipcRenderer.invoke("file:read", path),
+        write: (path: string, content: string) =>
+            ipcRenderer.invoke("file:write", { filePath: path, content }),
+        list: (dirPath: string) => ipcRenderer.invoke("file:list", dirPath),
+    },
+
+    // Search
+    searchInFiles: (params: any) =>
+        ipcRenderer.invoke("search:inFiles", params),
+
+    // Shell
+    openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
+
+    // Platform
+    platform: process.platform,
+});

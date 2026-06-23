@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Aurora 全局样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body, #root {
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+}
+
+/* xterm 覆盖 */
+.xterm {
+    height: 100%;
+    padding: 4px;
+}
+
+.xterm-viewport::-webkit-scrollbar {
+    width: 4px;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+    background: #30363d;
+}
+
+/* Monaco 编辑器覆盖 */
+.monaco-editor .margin {
+    background-color: inherit !important;
+}
+
+/* Mermaid SVG 适配暗色 */
+[data-theme="dark"] .mermaid svg {
+    filter: none;
+}
+
+/* Shiki 代码块高亮 */
+.shiki {
+    padding: 12px !important;
+    overflow: auto !important;
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+    tab-size: 4;
+}
+
+/* 动画 */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+.animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+}

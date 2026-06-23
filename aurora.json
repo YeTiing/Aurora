@@ -1,0 +1,46 @@
+{
+    "llm": {
+        "model": "gpt-4o",
+        "api_key": "",
+        "base_url": "https://api.openai.com/v1"
+    },
+    "agent": {
+        "max_turn_iter": 30,
+        "max_empty_turns": 3
+    },
+    "tools": {
+        "timeout_sec": 30,
+        "truncate_output": 16384
+    },
+    "context": {
+        "token_budget": 24000
+    },
+    "rag": {
+        "enabled": true,
+        "top_k": 5
+    },
+    "skills": {
+        "roots": [
+            "./skills"
+        ]
+    },
+    "multi_agent": {
+        "max_parallel": 4
+    },
+    "sandbox": {
+        "image": "aurora-sandbox:latest",
+        "network_enabled": false
+    },
+    "server": {
+        "host": "127.0.0.1",
+        "port": 9876
+    },
+    "provider": "openai",
+    "workspace": "./workspace",
+    "max_context_tokens": 128000,
+    "sandbox_mode": "danger-full-access",
+    "approval_policy": "never",
+    "language": "zh",
+    "theme": "aurora-dark",
+    "model": "gpt-4o"
+}

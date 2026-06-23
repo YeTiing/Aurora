@@ -1,0 +1,8 @@
+{
+    "name": "auto-format",
+    "version": "0.1.0",
+    "description": "代码保存后自动格式化",
+    "author": "Aurora",
+    "permissions": ["filesystem", "shell"],
+    "entry_point": "main.py"
+}

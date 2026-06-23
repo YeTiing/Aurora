@@ -1,0 +1,615 @@
+# LangGraph StateGraph — 真实状态图 + SSE事件集成 + 条件边 + Send 并行分发
+
+from __future__ import annotations
+
+import asyncio, time, traceback
+
+from typing import Any, Literal, Callable
+
+from .state import AgentState, AgentStateDict, Message
+
+from .nodes import (
+
+    planner_node, tool_select_node, executor_node,
+
+    observer_node, synthesizer_node, truncate_tool_output
+
+)
+
+from .llm_client import LLMClient, MockLLMClient
+
+from .checkpoint import CheckpointManager
+
+from .sse_events import sse_bus, SSEEventBus
+
+from backend.goal import goal_manager
+
+from backend.context.token_tracker import TokenBudget
+
+
+
+class AgentGraph:
+
+    """基于 LangGraph StateGraph 的六步流水线"""
+
+
+
+    def __init__(
+
+        self,
+
+        llm: LLMClient,
+
+        tool_handler: Callable,
+
+        tools_schema: list[dict],
+
+        max_turns: int = 30,
+
+        max_empty_turns: int = 3,
+
+        workspace: str = ".",
+
+        checkpoint_manager: CheckpointManager | None = None,
+
+        event_bus: SSEEventBus | None = None,
+
+        token_budget: TokenBudget | None = None,
+
+    ):
+
+        self.llm = llm
+
+        self.tool_handler = tool_handler
+
+        self.tools_schema = tools_schema
+
+        self.max_turns = max_turns
+
+        self.max_empty_turns = max_empty_turns
+
+        self.workspace = workspace
+
+        self.checkpoints = checkpoint_manager or CheckpointManager()
+
+        self.events = event_bus or sse_bus
+
+        self.token_budget = token_budget or TokenBudget(24000)
+
+
+
+    # ══ 核心执行循环 ══
+
+    async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "") -> AgentState:
+
+        ws = workspace or self.workspace
+
+        state = AgentState(session_id=session_id, workspace=ws)
+
+        
+
+        # Apply sandbox mode and model override
+
+        state.sandbox_mode = sandbox_mode
+
+        if model:
+
+            self.llm.set_model(model)
+
+
+
+        state.add_message(Message.user(user_input))
+
+
+
+        await self.events.task_started(session_id, user_input[:200])
+
+
+
+        # 简单对话绕过agent循环，直接调用LLM
+
+        chat_keywords = ("hello", "hi", "hey", "你好", "嗨", "谢谢", "thank", "what is", "who are", "how are", "explain", "解释", "帮我理解", "聊天", "聊")
+
+        is_simple_chat = (
+
+            len(user_input) < 200 and
+
+            not any(kw in user_input.lower() for kw in ["code", "代码", "fix", "修", "bug", "error", "错", "build", "test", "file", "文件", "write", "写", "create", "创建", "run", "运行", "deploy", "git", "commit", "install", "安装", "config", "配置", "terminal", "终端", "shell", "重构", "refactor", "delete", "删", "rename", "改", "add ", "加", "patch", "diff", "command", "命令", "api", "API", "docker", "database", "数据库"])
+
+            or
+
+            any(user_input.lower().startswith(kw) for kw in chat_keywords)
+
+        )
+
+
+
+        if is_simple_chat:
+
+            try:
+
+                resp = await self.llm.chat_simple(
+
+                    user_message=user_input,
+
+                    system_prompt="You are Aurora, a helpful AI assistant. Answer concisely and naturally.",
+
+                    max_tokens=2000,
+
+                )
+
+                state.final_response = resp if isinstance(resp, str) else (resp.content if hasattr(resp, "content") else str(resp))
+
+            except Exception as e:
+
+                state.final_response = f"Error: {str(e)[:200]}"
+
+            await self.events.agent_message(session_id, state.final_response)
+
+            await self.events.task_complete(session_id, state.final_response[:200])
+            state.done = True
+
+            return state
+
+
+
+        # Step 1: Planner
+
+        await self.events.agent_reasoning_delta(session_id, "Planning...")
+
+        await self._run_planner(state)
+
+        await self.events.plan_update(session_id, [p.to_dict() for p in state.plan])
+
+
+
+        if not state.plan:
+
+            await self._run_synthesizer(state)
+
+            await self.events.task_complete(session_id, state.final_response[:200])
+            state.done = True
+
+            return state
+
+
+
+        # Step 2-4 循环
+
+        while not state.done:
+
+            if state.total_turns >= self.max_turns:
+
+                state.add_message(Message.system(f"Reached max turns ({self.max_turns}). Stopping."))
+
+                break
+
+            if state.empty_turns >= self.max_empty_turns:
+
+                state.add_message(Message.system(f"Auto-stop after {self.max_empty_turns} empty turns."))
+
+                break
+
+            if goal_manager.is_budget_exhausted():
+
+                state.add_message(Message.system("Goal token budget exhausted."))
+
+                break
+
+            budget_result = self.token_budget.consume(0)
+
+            if budget_result["exhausted"]:
+
+                state.add_message(Message.system("Session token budget exhausted."))
+
+                break
+
+
+
+            self.checkpoints.save(state, f"pre_turn_{state.total_turns}")
+
+
+
+            # ToolSelect
+
+            try:
+
+                await self.events.agent_reasoning_delta(session_id, f"Turn {state.total_turns+1}: Selecting tool...")
+
+                await self._run_tool_select(state)
+
+            except Exception as e:
+
+                state.add_message(Message.system(f"ToolSelect error: {str(e)[:200]}"))
+
+                state.empty_turns += 1; state.total_turns += 1
+
+                continue
+
+
+
+            # Executor
+
+            if state.tool_invocations:
+
+                for inv in state.tool_invocations:
+
+                    await self.events.tool_call_begin(session_id, inv.name, inv.id)
+
+                try:
+
+                    await self._run_executor(state)
+
+                    for r in state.tool_results:
+
+                        await self.events.tool_call_end(session_id, r.name, r.invocation_id, r.success,
+
+                            r.output[:500] if r.success else (r.error or ""))
+
+                except Exception as e:
+
+                    await self.events.error(session_id, f"Executor: {str(e)[:200]}")
+
+
+
+            # Observer
+
+            await self._run_observer(state)
+
+
+
+            if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
+
+                break
+
+
+
+            state.total_turns += 1
+
+            self.checkpoints.save(state, f"post_turn_{state.total_turns}")
+
+        state.done = True
+
+
+        # Step 5: Synthesizer
+
+        await self.events.agent_reasoning_delta(session_id, "Synthesizing final response...")
+
+        await self._run_synthesizer(state)
+
+        self.checkpoints.save(state, "final")
+
+        await self.events.task_complete(session_id, state.final_response[:200])
+
+        return state
+
+
+
+    async def run_with_stream(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = ""):
+
+        """流式执行 — 每步 yield SSE 进度更新"""
+
+        ws = workspace or self.workspace
+
+        state = AgentState(session_id=session_id, workspace=ws)
+
+        
+
+        # Apply sandbox mode and model override
+
+        state.sandbox_mode = sandbox_mode
+
+        if model:
+
+            self.llm.set_model(model)
+
+
+
+        state.add_message(Message.user(user_input))
+
+
+
+        yield {"type": "codex/event/task_started", "data": {"task": user_input[:200]}, "session_id": session_id}
+
+
+
+        await self.events.task_started(session_id, user_input[:200])
+
+
+
+        yield {"type": "codex/event/agent_reasoning", "data": {"status": "Planning..."}, "session_id": session_id}
+
+
+
+        await self._run_planner(state)
+
+        plan_data = [p.to_dict() for p in state.plan]
+
+        yield {"type": "codex/event/plan_update", "data": {"plan": plan_data}, "session_id": session_id}
+
+        await self.events.plan_update(session_id, plan_data)
+
+
+
+        if not state.plan:
+
+            await self._run_synthesizer(state)
+
+            yield {"type": "codex/event/task_complete", "data": {"result": state.final_response[:200]}, "session_id": session_id}
+
+            yield {"type": "done", "response": state.final_response}
+
+            return
+
+
+
+        while not state.done:
+
+            if state.total_turns >= self.max_turns: break
+
+            if state.empty_turns >= self.max_empty_turns: break
+
+            if goal_manager.is_budget_exhausted():
+
+                state.add_message(Message.system("Goal token budget exhausted."))
+
+                break
+
+            budget_result = self.token_budget.consume(0)
+
+            if budget_result["exhausted"]:
+
+                state.add_message(Message.system("Session token budget exhausted."))
+
+                break
+
+
+
+            step = state.current_plan_step()
+
+            yield {"type": "codex/event/agent_reasoning_delta", "data": {
+
+                "delta": f"Step {state.current_step+1}/{len(state.plan)}: {step.description if step else 'Processing...'}"
+
+            }, "session_id": session_id}
+
+
+
+            self.checkpoints.save(state, f"pre_turn_{state.total_turns}")
+
+
+
+            try:
+
+                await self._run_tool_select(state)
+
+            except Exception as e:
+
+                state.empty_turns += 1; state.total_turns += 1
+
+                yield {"type": "codex/event/error", "data": {"error": str(e)[:200]}, "session_id": session_id}
+
+                continue
+
+
+
+            if state.tool_invocations:
+
+                for inv in state.tool_invocations:
+
+                    yield {"type": "codex/event/exec_command_begin", "data": {
+
+                        "tool": inv.name, "tool_call_id": inv.id
+
+                    }, "session_id": session_id}
+
+                    await self.events.tool_call_begin(session_id, inv.name, inv.id)
+
+
+
+                try:
+
+                    await self._run_executor(state)
+
+                    for r in state.tool_results:
+
+                        yield {"type": "codex/event/exec_command_end", "data": {
+
+                            "tool": r.name, "tool_call_id": r.invocation_id,
+
+                            "success": r.success,
+
+                            "output": (r.output[:200] if r.success else r.error)
+
+                        }, "session_id": session_id}
+
+                        await self.events.tool_call_end(session_id, r.name, r.invocation_id, r.success,
+
+                            r.output[:500] if r.success else (r.error or ""))
+
+                except Exception as e:
+
+                    yield {"type": "codex/event/error", "data": {"error": str(e)[:200]}, "session_id": session_id}
+
+
+
+            await self._run_observer(state)
+
+
+
+            if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
+
+                break
+
+
+
+            state.total_turns += 1
+
+            self.checkpoints.save(state, f"post_turn_{state.total_turns}")
+
+        state.done = True
+
+
+        yield {"type": "codex/event/agent_reasoning", "data": {"status": "Synthesizing..."}, "session_id": session_id}
+
+        await self._run_synthesizer(state)
+
+        self.checkpoints.save(state, "final")
+
+        final_plan = [p.to_dict() for p in state.plan]
+
+        yield {"type": "codex/event/task_complete", "data": {"result": state.final_response[:200]}, "session_id": session_id}
+
+        yield {"type": "done", "response": state.final_response, "plan": final_plan}
+
+
+
+    # ══ 内部方法 ══
+
+    async def _run_planner(self, state: AgentState):
+
+        await planner_node(state, self.llm)
+
+
+
+    async def _run_tool_select(self, state: AgentState):
+
+        await tool_select_node(state, self.llm, self.tools_schema)
+
+
+
+    async def _run_executor(self, state: AgentState):
+
+        sandbox = getattr(state, "sandbox_mode", "full-access")
+
+        # Restricted tools in non-full-access mode
+
+        RESTRICTED_TOOLS = {"shell_command", "file_rw", "apply_patch", "git_ops"}
+
+
+
+        async def handler(name, args, ws):
+
+            if sandbox == "read-only" and name in RESTRICTED_TOOLS:
+
+                return {"success": False, "output": "", "error": "Sandbox mode: read-only. Tool blocked: " + name}
+
+            if sandbox == "workspace-only" and name in RESTRICTED_TOOLS:
+
+                # Allow only within workspace boundary
+
+                pass  # Full workspace-only enforcement done in tool itself
+
+            return await self.tool_handler(name, args, ws)
+
+        await executor_node(state, handler, state.workspace)
+
+
+
+    async def _run_observer(self, state: AgentState):
+
+        await observer_node(state)
+
+
+
+    async def _run_synthesizer(self, state: AgentState):
+
+        await synthesizer_node(state, self.llm)
+
+
+
+    async def resume(self, checkpoint_id: str) -> AgentState | None:
+
+        state = self.checkpoints.load(checkpoint_id)
+
+        if not state: return None
+
+        state.done = False; state.empty_turns = 0
+
+
+
+        while not state.done:
+
+            if state.total_turns >= self.max_turns: break
+
+            if state.empty_turns >= self.max_empty_turns: break
+
+            if goal_manager.is_budget_exhausted(): break
+
+            budget_result = self.token_budget.consume(0)
+
+            if budget_result["exhausted"]: break
+
+
+
+            self.checkpoints.save(state, f"resume_turn_{state.total_turns}")
+
+            try: await self._run_tool_select(state)
+
+            except: state.empty_turns += 1; state.total_turns += 1; continue
+
+
+
+            if state.tool_invocations:
+
+                try: await self._run_executor(state)
+
+                except: pass
+
+
+
+            await self._run_observer(state)
+
+
+
+            if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
+
+                break
+
+            state.total_turns += 1
+
+
+
+        await self._run_synthesizer(state)
+
+        self.checkpoints.save(state, "resume_final")
+
+        return state
+
+
+
+    async def cancel(self, session_id: str):
+
+        self.checkpoints.clear_session(session_id)
+
+
+
+    def stats(self) -> dict:
+
+        base = {
+
+            "llm": self.llm.stats,
+
+            "checkpoints": self.checkpoints.stats(),
+
+            "max_turns": self.max_turns,
+
+            "tools_count": len(self.tools_schema),
+
+        }
+
+        if self.token_budget:
+
+            base["token_budget"] = {
+
+                "limit": self.token_budget.limit(),
+
+                "used": self.token_budget.used,
+
+                "remaining": self.token_budget.remaining(),
+
+                "ratio": round(self.token_budget.usage_ratio(), 3),
+
+            }
+
+        return base

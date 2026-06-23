@@ -210,8 +210,8 @@ export default function App() {
 
             {showMonitor && <MonitorPanel onClose={toggleMonitor} />}
             {showSettings && <SettingsPanel onClose={toggleSettings} />}
-            {showSearch && <SearchPanel />
-            {showMemory && <MemoryDashboard />}}
+            {showSearch && <SearchPanel />}
+            {showMemory && <MemoryDashboard />}
             {showDetective && <DetectivePanel onClose={() => setShowDetective(false)} />}
             {showRe && <RePanel onClose={() => setShowRe(false)} />}
             {showSkins && <SkinBrowser onClose={() => setShowSkins(false)} />}

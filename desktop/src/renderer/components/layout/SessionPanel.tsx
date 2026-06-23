@@ -133,7 +133,7 @@ export const SessionPanel: React.FC = () => {
                         border: `1px solid ${colors.accent}`, borderRadius: 4, cursor: "pointer",
                         fontWeight: 600,
                     }}
-                    title=t("newSession")
+                    title={t("newSession")}
                 >
                     +
                 </button>
@@ -142,7 +142,7 @@ export const SessionPanel: React.FC = () => {
             <div style={{ padding: "6px 8px" }}>
                 <input
                     type="text"
-                    placeholder=t("searchSessions")
+                    placeholder={t("searchSessions")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={{

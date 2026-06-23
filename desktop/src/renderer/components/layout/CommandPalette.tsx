@@ -107,7 +107,7 @@ export const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) =
                     <input
                         ref={inputRef}
                         type="text"
-                        placeholder=t("typeCommand")
+                        placeholder={t("typeCommand")}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}

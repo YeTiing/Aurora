@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from .base import ToolSpec, ToolCallResult, sanitize_command
 
+sys.stdout.reconfigure(encoding='utf-8')
 CODE_EXEC_SPEC = ToolSpec(
     name="code_exec",
     description="Execute a code snippet in an isolated environment and return the output. Supports Python, JavaScript (Node), and shell snippets. Max 30s timeout.",

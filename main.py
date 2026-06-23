@@ -3,6 +3,7 @@ import sys, uvicorn
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.stdout.reconfigure(encoding='utf-8')
 
 from backend.config import init_config
 from backend.api import app

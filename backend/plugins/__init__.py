@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 # ── 插件清单 — .codex-plugin/plugin.json 格式 ──
+sys.stdout.reconfigure(encoding='utf-8')
 @dataclass
 class PluginInterface:
     displayName: str = ""

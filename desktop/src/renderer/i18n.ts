@@ -1,4 +1,4 @@
-// Aurora 中文语言包 + 主题系统
+// Aurora 中文国际化 + 主题系统
 export type Lang = "zh-CN" | "en";
 
 interface LocaleStrings {
@@ -42,29 +42,29 @@ interface LocaleStrings {
     askAurora: string;
     searchFiles: string;
     modelSelect: string;
-        attachFiles: string;
-        remove: string;
-        saving: string;
-        saveSettings: string;
-        settingsSaved: string;
-        saveFailed: string;
-        resetToDefault: string;
-        unknownError: string;
-        closePanel: string;
-        monitor: string;
-        clearChatConfirm: string;
-        alt: string;
-        ctrl: string;
-        shift: string;
-        meta: string;
-        quickCreateProject: string;
-        quickAnalyzeCodebase: string;
-        quickExplainCode: string;
-        quickWriteTests: string;
-        dropFilesToAttach: string;
-        welcomeTitle: string;
-        welcomeSubtitle: string;
-        continueTyping: string;
+    attachFiles: string;
+    remove: string;
+    saving: string;
+    saveSettings: string;
+    settingsSaved: string;
+    saveFailed: string;
+    resetToDefault: string;
+    unknownError: string;
+    closePanel: string;
+    monitor: string;
+    clearChatConfirm: string;
+    alt: string;
+    ctrl: string;
+    shift: string;
+    meta: string;
+    quickCreateProject: string;
+    quickAnalyzeCodebase: string;
+    quickExplainCode: string;
+    quickWriteTests: string;
+    dropFilesToAttach: string;
+    welcomeTitle: string;
+    welcomeSubtitle: string;
+    continueTyping: string;
     noSessionsYet: string;
     newSession: string;
     searchSessions: string;
@@ -88,7 +88,7 @@ interface LocaleStrings {
 }
 
 const zhCN: LocaleStrings = {
-    appName: "✦ Aurora",
+    appName: "✨ Aurora",
     files: "文件",
     chats: "对话",
     search: "搜索",
@@ -125,32 +125,32 @@ const zhCN: LocaleStrings = {
     stepPending: "待处理",
     typeMessage: "输入消息...",
     noMessages: "开始新对话",
-    askAurora: "问 Aurora 任何事...",
+    askAurora: "问 Aurora 任何事情...",
     searchFiles: "搜索文件...",
     modelSelect: "选择模型",
-        attachFiles: "附加文件",
-        remove: "移除",
-        saving: "保存中...",
-        saveSettings: "保存设置",
-        settingsSaved: "设置已保存",
-        saveFailed: "保存失败",
-        resetToDefault: "恢复默认",
-        unknownError: "未知错误",
-        closePanel: "关闭面板",
-        monitor: "监控",
-        clearChatConfirm: "确定清空对话吗？",
-        alt: "Alt",
-        ctrl: "Ctrl",
-        shift: "Shift",
-        meta: "Meta",
+    attachFiles: "附加文件",
+    remove: "移除",
+    saving: "保存中...",
+    saveSettings: "保存设置",
+    settingsSaved: "设置已保存",
+    saveFailed: "保存失败",
+    resetToDefault: "恢复默认",
+    unknownError: "未知错误",
+    closePanel: "关闭面板",
+    monitor: "监控",
+    clearChatConfirm: "确定清空对话吗？",
+    alt: "Alt",
+    ctrl: "Ctrl",
+    shift: "Shift",
+    meta: "Meta",
     quickCreateProject: "创建新项目",
     quickAnalyzeCodebase: "分析代码库",
     quickExplainCode: "解释代码逻辑",
     quickWriteTests: "写单元测试",
-                dropFilesToAttach: "拖入文件",
-        welcomeTitle: "✦ Aurora",
-        welcomeSubtitle: "你的 AI 智能编程助手",
-        continueTyping: "输入消息 (Enter换行 Ctrl+Enter发送)...",
+    dropFilesToAttach: "拖入文件",
+    welcomeTitle: "✨ Aurora",
+    welcomeSubtitle: "你的 AI 智能编程助手",
+    continueTyping: "输入消息 (Enter换行 Ctrl+Enter发送)...",
     noSessionsYet: "暂无会话",
     newSession: "新建会话",
     searchSessions: "搜索会话...",
@@ -174,7 +174,7 @@ const zhCN: LocaleStrings = {
 };
 
 const en: LocaleStrings = {
-    appName: "✦ Aurora",
+    appName: "✨ Aurora",
     files: "Files",
     chats: "Chats",
     search: "Search",
@@ -215,29 +215,29 @@ const en: LocaleStrings = {
     askAurora: "Ask Aurora anything...",
     searchFiles: "Search files...",
     modelSelect: "Select Model",
-        attachFiles: "Attach files",
-        remove: "Remove",
-        saving: "Saving...",
-        saveSettings: "Save Settings",
-        settingsSaved: "Settings saved",
-        saveFailed: "Save failed",
-        resetToDefault: "Reset to default",
-        unknownError: "Unknown error",
-        closePanel: "Close panel",
-        monitor: "Monitor",
-        clearChatConfirm: "Clear this conversation?",
-        alt: "Alt",
-        ctrl: "Ctrl",
-        shift: "Shift",
-        meta: "Meta",
+    attachFiles: "Attach files",
+    remove: "Remove",
+    saving: "Saving...",
+    saveSettings: "Save Settings",
+    settingsSaved: "Settings saved",
+    saveFailed: "Save failed",
+    resetToDefault: "Reset to default",
+    unknownError: "Unknown error",
+    closePanel: "Close panel",
+    monitor: "Monitor",
+    clearChatConfirm: "Clear this conversation?",
+    alt: "Alt",
+    ctrl: "Ctrl",
+    shift: "Shift",
+    meta: "Meta",
     quickCreateProject: "Create a new project",
     quickAnalyzeCodebase: "Analyze this codebase",
     quickExplainCode: "Explain how this works",
     quickWriteTests: "Write unit tests",
-                dropFilesToAttach: "Drop files to attach",
-        welcomeTitle: "✦ Aurora",
-        welcomeSubtitle: "Your AI coding companion",
-        continueTyping: "Type a message (Enter newline, Ctrl+Enter send)...",
+    dropFilesToAttach: "Drop files to attach",
+    welcomeTitle: "✨ Aurora",
+    welcomeSubtitle: "Your AI coding companion",
+    continueTyping: "Type a message (Enter newline, Ctrl+Enter send)...",
     noSessionsYet: "No sessions yet",
     newSession: "New session",
     searchSessions: "Search sessions...",

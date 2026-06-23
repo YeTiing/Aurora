@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useStore } from "../../store";
 import { useTheme } from "../../hooks";
+import { t } from "../../i18n";
 import type { Session } from "../../../shared/types";
 
 interface ContextMenuState {
@@ -98,7 +99,7 @@ export const SessionPanel: React.FC = () => {
         } catch (e: any) { console.warn("Export failed:", e); }
     };
 
-    handleDuplicate = (id: string) => {
+    const handleDuplicate = (id: string) => {
         const newId = duplicateSession(id);
         if (newId) setActiveSession(newId);
         setContextMenu((c) => ({ ...c, open: false }));

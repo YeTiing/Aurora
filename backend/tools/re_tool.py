@@ -6,19 +6,19 @@ async def re_handler(action: str = "", session_id: str = "", url: str = "", file
     """RE toolkit: capture, deobfuscate, mine, analyze, list-sessions, inspect"""
     try:
         if action == "capture-start":
-            from backend.re.capture import get_capture_engine
+            from backend.re_engine.capture import get_capture_engine
             eng = get_capture_engine()
             sess = eng.start_session(url or "")
             return ToolCallResult(success=True, output=f"RE session started: {sess.id}\nURL: {url or 'manual'}\nCapturing requests...")
 
         elif action == "capture-stop":
-            from backend.re.capture import get_capture_engine
+            from backend.re_engine.capture import get_capture_engine
             eng = get_capture_engine()
             stats = eng.stop_session()
             return ToolCallResult(success=True, output=json.dumps(stats, indent=2, ensure_ascii=False))
 
         elif action == "capture-request":
-            from backend.re.capture import get_capture_engine
+            from backend.re_engine.capture import get_capture_engine
             eng = get_capture_engine()
             try:
                 flow = json.loads(code) if code else {}
@@ -28,7 +28,7 @@ async def re_handler(action: str = "", session_id: str = "", url: str = "", file
             return ToolCallResult(success=True, output=f"Captured: {req.method} {req.url[:120]}\nID: {req.id}\nStatus: {req.response_status}")
 
         elif action == "deobfuscate":
-            from backend.re.deobfuscator import get_deobfuscator
+            from backend.re_engine.deobfuscator import get_deobfuscator
             d = get_deobfuscator()
             if file:
                 from pathlib import Path
@@ -44,7 +44,7 @@ async def re_handler(action: str = "", session_id: str = "", url: str = "", file
             return ToolCallResult(success=True, output=report)
 
         elif action == "mine":
-            from backend.re.miner import get_api_miner
+            from backend.re_engine.miner import get_api_miner
             m = get_api_miner()
             results = []
             if session_id:
@@ -63,7 +63,7 @@ async def re_handler(action: str = "", session_id: str = "", url: str = "", file
             return ToolCallResult(success=True, output="\n".join(lines))
 
         elif action == "analyze":
-            from backend.re.analyzer import get_analyzer
+            from backend.re_engine.analyzer import get_analyzer
             a = get_analyzer()
             if session_id:
                 result = a.analyze_session(session_id)
@@ -78,7 +78,7 @@ async def re_handler(action: str = "", session_id: str = "", url: str = "", file
             return ToolCallResult(success=True, output=json.dumps(result, indent=2, ensure_ascii=False))
 
         elif action == "list-sessions":
-            from backend.re.session import get_re_manager
+            from backend.re_engine.session import get_re_manager
             mgr = get_re_manager()
             sessions = mgr.list_sessions()
             if not sessions:
@@ -89,7 +89,7 @@ async def re_handler(action: str = "", session_id: str = "", url: str = "", file
             return ToolCallResult(success=True, output="\n".join(lines))
 
         elif action == "inspect":
-            from backend.re.session import get_re_manager
+            from backend.re_engine.session import get_re_manager
             mgr = get_re_manager()
             sess = mgr.get(session_id)
             if not sess:

@@ -94,8 +94,9 @@ function createWindow() {
         minWidth: 900,
         minHeight: 600,
         title: "Aurora",
-        titleBarStyle: "hiddenInset",
+        // titleBarStyle: "hiddenInset" (macOS only),
         backgroundColor: "#0d1117",
+        frame: true,
         show: !startMinimized,
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
@@ -104,11 +105,25 @@ function createWindow() {
         },
     });
 
-    if (process.env.NODE_ENV === "development") {
+    console.log("[Aurora] NODE_ENV:", process.env.NODE_ENV);
+    console.log("[Aurora] args:", process.argv.filter(a => a.startsWith("-")));
+    console.log("[Aurora] isDev:", process.env.NODE_ENV === "development" || process.argv.includes("--dev"));
+
+    mainWindow.webContents.on("did-fail-load", (_e, code, desc, url) => {
+        console.error("[Aurora] PAGE LOAD FAILED:", code, desc, url);
+    });
+    mainWindow.webContents.on("console-message", (_e, _lvl, msg) => {
+        console.log("[Renderer]", msg);
+    });
+
+    if (process.env.NODE_ENV === "development" || process.argv.includes("--dev")) {
+        console.log("[Aurora] Loading dev URL: http://localhost:5173");
         mainWindow.loadURL("http://localhost:5173");
         mainWindow.webContents.openDevTools({ mode: "detach" });
     } else {
-        mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+        const prodPath = path.join(__dirname, "../renderer/index.html");
+        console.log("[Aurora] Loading production file:", prodPath);
+        mainWindow.loadFile(prodPath);
     }
 
     // Minimize to tray instead of closing

@@ -1429,12 +1429,12 @@ async def skin_import(req: SkinImportRequest):
 
 @app.get("/re/sessions")
 async def re_sessions():
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     return get_re_manager().list_sessions()
 
 @app.post("/re/capture/start")
 async def re_capture_start(req: dict = {}):
-    from backend.re.capture import get_capture_engine
+    from backend.re_engine.capture import get_capture_engine
     eng = get_capture_engine()
     sess = eng.start_session(req.get("url", ""))
     hooks = eng.get_hook_scripts()
@@ -1442,18 +1442,18 @@ async def re_capture_start(req: dict = {}):
 
 @app.post("/re/capture/stop")
 async def re_capture_stop():
-    from backend.re.capture import get_capture_engine
+    from backend.re_engine.capture import get_capture_engine
     return get_capture_engine().stop_session()
 
 @app.post("/re/capture/request")
 async def re_capture_request(req: dict):
-    from backend.re.capture import get_capture_engine
+    from backend.re_engine.capture import get_capture_engine
     r = get_capture_engine().capture_mitm_request(req)
     return {"id": r.id, "seq": r.seq, "method": r.method, "url": r.url[:200]}
 
 @app.get("/re/sessions/{session_id}")
 async def re_session_get(session_id: str):
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     sess = get_re_manager().get(session_id)
     if not sess:
         raise HTTPException(404, f"RE session '{session_id}' not found")
@@ -1461,7 +1461,7 @@ async def re_session_get(session_id: str):
 
 @app.get("/re/sessions/{session_id}/requests")
 async def re_session_requests(session_id: str, api_only: bool = False):
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     sess = get_re_manager().get(session_id)
     if not sess:
         raise HTTPException(404, f"RE session '{session_id}' not found")
@@ -1470,7 +1470,7 @@ async def re_session_requests(session_id: str, api_only: bool = False):
 
 @app.get("/re/sessions/{session_id}/hooks")
 async def re_session_hooks(session_id: str):
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     sess = get_re_manager().get(session_id)
     if not sess:
         raise HTTPException(404, f"RE session '{session_id}' not found")
@@ -1478,7 +1478,7 @@ async def re_session_hooks(session_id: str):
 
 @app.post("/re/deobfuscate")
 async def re_deobfuscate(req: dict):
-    from backend.re.deobfuscator import get_deobfuscator
+    from backend.re_engine.deobfuscator import get_deobfuscator
     d = get_deobfuscator()
     code = req.get("code", "")
     filepath = req.get("file", "")
@@ -1496,7 +1496,7 @@ async def re_deobfuscate(req: dict):
 
 @app.post("/re/mine")
 async def re_mine(req: dict):
-    from backend.re.miner import get_api_miner
+    from backend.re_engine.miner import get_api_miner
     m = get_api_miner()
     session_id = req.get("session_id", "")
     filepath = req.get("file", "")
@@ -1514,7 +1514,7 @@ async def re_mine(req: dict):
 
 @app.post("/re/analyze")
 async def re_analyze(req: dict):
-    from backend.re.analyzer import get_analyzer
+    from backend.re_engine.analyzer import get_analyzer
     a = get_analyzer()
     session_id = req.get("session_id", "")
     if session_id:
@@ -1527,7 +1527,7 @@ async def re_analyze(req: dict):
 
 @app.get("/re/sessions/{session_id}/requests/{req_id}")
 async def re_request_detail(session_id: str, req_id: str):
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     sess = get_re_manager().get(session_id)
     if not sess:
         raise HTTPException(404, f"RE session '{session_id}' not found")
@@ -1542,7 +1542,7 @@ async def re_request_detail(session_id: str, req_id: str):
 
 @app.get("/re/sessions/{session_id}/requests/{req_id}/curl")
 async def re_request_curl(session_id: str, req_id: str):
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     import json, shlex
     sess = get_re_manager().get(session_id)
     if not sess: raise HTTPException(404, f"Session not found")
@@ -1562,7 +1562,7 @@ async def re_request_curl(session_id: str, req_id: str):
 
 @app.post("/re/import/har")
 async def re_import_har(req: dict):
-    from backend.re.session import get_re_manager, CapturedRequest
+    from backend.re_engine.session import get_re_manager, CapturedRequest
     import json
     har_data = req.get("har", req)
     if isinstance(har_data, str):
@@ -1589,7 +1589,7 @@ async def re_import_har(req: dict):
 
 @app.get("/re/sessions/{session_id}/export/har")
 async def re_export_har(session_id: str):
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     import json
     sess = get_re_manager().get(session_id)
     if not sess: raise HTTPException(404, f"Session not found")
@@ -1611,7 +1611,7 @@ async def re_export_har(session_id: str):
 
 @app.post("/re/signature")
 async def re_signature_trace(req: dict):
-    from backend.re.signature import get_signature_tracer
+    from backend.re_engine.signature import get_signature_tracer
     t = get_signature_tracer()
     code = req.get("code", "")
     filepath = req.get("file", "")
@@ -1625,7 +1625,7 @@ async def re_signature_trace(req: dict):
 
 @app.post("/re/sessions/{session_id}/replay/{req_id}")
 async def re_replay_request(session_id: str, req_id: str, modifier: dict = {}):
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     import httpx, json
     sess = get_re_manager().get(session_id)
     if not sess: raise HTTPException(404, f"Session not found")
@@ -1648,7 +1648,7 @@ async def re_replay_request(session_id: str, req_id: str, modifier: dict = {}):
 
 @app.delete("/re/sessions/{session_id}")
 async def re_session_delete(session_id: str):
-    from backend.re.session import get_re_manager
+    from backend.re_engine.session import get_re_manager
     get_re_manager().delete(session_id)
     return {"success": True}
 

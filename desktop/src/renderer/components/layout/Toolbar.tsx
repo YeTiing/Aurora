@@ -9,9 +9,13 @@ interface ToolbarProps {
     showSkins?: boolean;
     onToggleRe?: () => void;
     showRe?: boolean;
+    onToggleDetective?: () => void;
+    showDetective?: boolean;
+    onToggleDocGhost?: () => void;
+    showDocGhost?: boolean;
 }
 
-export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, onToggleRe, showRe }: ToolbarProps) {
+export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, onToggleRe, showRe, onToggleDetective, showDetective, onToggleDocGhost, showDocGhost }: ToolbarProps) {
     const colors = useStore((s) => s.themeColors);
     const createSession = useStore((s) => s.createSession);
     const showRightPanel = useStore((s) => s.showRightPanel);
@@ -26,6 +30,18 @@ export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, 
                 <button className="toolbar-btn" onClick={() => { createSession(); }} title={t("newChat")}>
                     + {t("newChat")}
                 </button>
+                {onToggleDetective && (
+                    <button className={`toolbar-btn ${showDetective ? "active" : ""}`}
+                        onClick={onToggleDetective} title="Diff Detective">
+                        🕵
+                    </button>
+                )}
+                {onToggleDocGhost && (
+                    <button className={`toolbar-btn ${showDocGhost ? "active" : ""}`}
+                        onClick={onToggleDocGhost} title="Doc Ghost">
+                        📝
+                    </button>
+                )}
                 {onToggleRe && (
                     <button className={`toolbar-btn ${showRe ? "active" : ""}`}
                         onClick={onToggleRe} title="RE Workspace">

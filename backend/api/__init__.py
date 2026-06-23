@@ -1651,3 +1651,72 @@ async def re_session_delete(session_id: str):
     from backend.re.session import get_re_manager
     get_re_manager().delete(session_id)
     return {"success": True}
+
+# ═══════════ Detective (Bug Forensics) ═══════════
+
+@app.post("/detective/analyze")
+async def detective_analyze(req: dict):
+    from backend.diff_detective import get_detective
+    d = get_detective(req.get("workspace", "."))
+    line_str = req.get("lines", "")
+    line_nums = [int(x) for x in line_str.split(",") if x.strip().isdigit()] if line_str else None
+    result = await d.trace_bug_origin(req.get("file", ""), req.get("bug", "Bug investigation"), line_nums)
+    return result
+
+@app.get("/detective/blame")
+async def detective_blame(file: str, lines: str = ""):
+    from backend.diff_detective import get_detective
+    d = get_detective()
+    line_nums = None
+    if lines:
+        try: line_nums = [int(x) for x in lines.split(",") if x.strip().isdigit()]
+        except: pass
+    report = await d.analyze_file(file, line_nums)
+    return {
+        "file": file,
+        "suspicious_lines": [{"line": bl.line_no, "content": bl.content[:120], "commit": bl.commit_short, "author": bl.author, "date": bl.date} for bl in report.suspicious_lines[:30]],
+        "suspect_commits": [{"hash": c.short_hash, "message": c.message[:150], "author": c.author} for c in report.suspect_commits[:8]],
+        "hypothesis": report.root_cause_hypothesis,
+    }
+
+# ═══════════ Doc Ghost ═══════════
+
+@app.post("/doc-ghost/scan")
+async def doc_ghost_scan():
+    from backend.doc_ghost import get_doc_ghost
+    g = get_doc_ghost()
+    changes = g.scan_changes()
+    snap = g.detect_feature_completion(changes)
+    return {"changes": len(changes), "feature_detected": snap is not None,
+            "summary": snap.summary if snap else "",
+            "suggestion": snap.doc_suggestion if snap else "",
+            "snapshot_id": snap.id if snap else "",
+            "files": [c.path for c in (snap.files[:10] if snap else [])]}
+
+@app.get("/doc-ghost/pending")
+async def doc_ghost_pending():
+    from backend.doc_ghost import get_doc_ghost
+    return get_doc_ghost().get_pending()
+
+@app.post("/doc-ghost/dismiss/{id}")
+async def doc_ghost_dismiss(id: str):
+    from backend.doc_ghost import get_doc_ghost
+    get_doc_ghost().dismiss(id)
+    return {"success": True}
+
+@app.post("/doc-ghost/generate")
+async def doc_ghost_generate(req: dict):
+    from backend.doc_ghost import get_doc_ghost
+    g = get_doc_ghost()
+    filepath = req.get("file", "")
+    kind = req.get("kind", "api")
+    if kind == "api":
+        return {"doc": g.generate_api_doc(filepath)}
+    elif kind == "changelog":
+        return {"doc": g.generate_changelog(g.scan_changes())}
+    raise HTTPException(400, f"Unknown kind: {kind}")
+
+@app.get("/doc-ghost/stats")
+async def doc_ghost_stats():
+    from backend.doc_ghost import get_doc_ghost
+    return get_doc_ghost().stats()

@@ -19,7 +19,7 @@
 
 Aurora 是一个完整的 AI 编程助手引擎，含 Python 后端 + Electron 桌面端。基于 LangGraph StateGraph 构建六步 Agent 流水线：**规划 → 工具选择 → 执行 → 观察 → 循环 → 合成**。
 
-设计灵感来自 Codex 架构，支持 Skill/Plugin 扩展、多 Agent 并行编排、语义记忆、RAG 代码检索、模型发现等。
+支持 Skill/Plugin 扩展、多 Agent 并行编排、语义记忆、RAG 代码检索、模型发现等功能。
 
 ## 快速开始
 

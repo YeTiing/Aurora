@@ -328,4 +328,36 @@ export const useStore = create<AuroraState>((set, get) => ({
 
     sandboxMode: "full-access",
     setSandboxMode(mode) { set({ sandboxMode: mode }); },
+
+  // ── Slash Commands ──
+  getSlashCommands: (): {cmd: string; desc: string}[] => ([
+    { cmd: "/memory", desc: "Show memory stats" },
+    { cmd: "/memory-list", desc: "List all memory entries" },
+    { cmd: "/memory-search", desc: "Search past sessions" },
+    { cmd: "/skill-list", desc: "List all skills" },
+    { cmd: "/skill-create", desc: "Create a new skill" },
+    { cmd: "/cron-list", desc: "List cron tasks" },
+    { cmd: "/cron-add", desc: "Add a cron task" },
+    { cmd: "/soul", desc: "View or edit SOUL.md" },
+    { cmd: "/plan", desc: "Create a step-by-step plan" },
+    { cmd: "/undo", desc: "Undo last action" },
+    { cmd: "/stats", desc: "Show session statistics" },
+  ]),
+  handleSlashCommand: (cmd: string, input: string): string => {
+    const mapping: Record<string, string> = {
+      "/memory": "memory action='stats'",
+      "/memory-list": "memory action='list'",
+      "/memory-search": `memory action='search' text='${input}'`,
+      "/skill-list": "memory action='skill_list'",
+      "/skill-create": "memory action='skill_create' text='${input}'",
+      "/cron-list": "cron action='list'",
+      "/cron-add": `cron action='add' ${input}`,
+      "/soul": "View current SOUL.md personality",
+      "/plan": `Please create a step-by-step plan for: ${input}`,
+      "/undo": "Undo the last action and revert changes",
+      "/stats": "memory action='stats'",
+    };
+    return mapping[cmd] || input;
+  },
+
 }));

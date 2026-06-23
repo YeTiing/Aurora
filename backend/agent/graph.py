@@ -76,6 +76,10 @@ class AgentGraph:
 
         self.token_budget = token_budget or TokenBudget(24000)
 
+        # Start cron scheduler
+        from backend.cron_scheduler import get_cron
+        self.cron = get_cron()
+
 
 
     # ══ 核心执行循环 ══
@@ -99,6 +103,11 @@ class AgentGraph:
 
 
         state.add_message(Message.user(user_input))
+        # Check cron for due tasks and inject
+        cron_fires = self.cron.pop_fires()
+        for task in cron_fires:
+            state.add_message(Message.system(f"[Cron: {task.name}] {task.prompt}"))
+
 
 
 
@@ -387,6 +396,12 @@ class AgentGraph:
             _mem = None
 
         state.add_message(Message.user(user_input))
+        # Check cron for due tasks and inject
+        cron_fires = self.cron.pop_fires()
+        for task in cron_fires:
+            yield {"type": "codex/event/agent_message", "data": {"content": f"[Cron: {task.name}] {task.prompt}"}, "session_id": session_id}
+            state.add_message(Message.system(f"[Cron: {task.name}] {task.prompt}"))
+
 
         # Inject closed-loop memory into stream context
         if _mem:

@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 # Aurora System Prompt Assembler — Codex RU/BU architecture (complete)
 """Based on reverse-engineered Codex system prompt templates.
 RU() = root assembler, BU() = block joiner
@@ -251,6 +253,17 @@ def RU(
 
 # ═══ Preset Templates ═══
 
+SOUL_PATH = Path(os.environ.get("AURORA_HOME", ".aurora")) / "SOUL.md"
+
+def _load_soul() -> str:
+    """Load SOUL.md personality definition."""
+    try:
+        if SOUL_PATH.exists():
+            return SOUL_PATH.read_text(encoding="utf-8")
+    except Exception:
+        pass
+    return "You are Aurora, a helpful AI coding assistant. Answer concisely and naturally."
+
 def _get_memory_context() -> str:
     """Pull closed-loop memory for system prompt injection."""
     try:
@@ -262,7 +275,9 @@ def _get_memory_context() -> str:
 
 def get_cli_prompt() -> str:
     """CLI mode System Prompt"""
-    return RU(desktop=False, include_permissions=True, chinese=True)
+    soul = _load_soul()
+    core = RU(desktop=False, include_permissions=True, chinese=True)
+    return f"{soul}\n\n---\n\n{core}"
 
 
 def get_desktop_prompt() -> str:

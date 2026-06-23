@@ -104,6 +104,26 @@ def _init_plugins():
         _plugins = plugin_manager
 
 
+
+# === SOUL.md Personality ===
+@app.get("/soul")
+async def soul_get():
+    """Get current SOUL.md personality."""
+    from pathlib import Path
+    sp = Path(".aurora") / "SOUL.md"
+    if sp.exists():
+        return {"content": sp.read_text(encoding="utf-8"), "path": str(sp)}
+    return {"content": "", "path": str(sp)}
+
+@app.post("/soul")
+async def soul_update(req: dict):
+    """Update SOUL.md personality."""
+    from pathlib import Path
+    sp = Path(".aurora") / "SOUL.md"
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    sp.write_text(req.get("content", ""), encoding="utf-8")
+    return {"updated": True, "path": str(sp)}
+
 # Health
 @app.get("/health")
 async def health():
@@ -992,6 +1012,49 @@ async def models_cache_purge():
     from backend.model_discovery import model_discovery
     removed = model_discovery.cache_results(ttl_seconds=0)
     return {"removed": removed, "remaining_cache": model_discovery.get_cache_age()}
+
+
+# === Cron Scheduler ===
+@app.get("/cron")
+async def cron_list():
+    """List all cron tasks."""
+    from backend.cron_scheduler import get_cron
+    return get_cron().list_tasks()
+
+@app.post("/cron")
+async def cron_add(req: dict):
+    """Add a cron task: {name, schedule, prompt}."""
+    from backend.cron_scheduler import get_cron
+    ok, msg = get_cron().add(
+        req.get("name", ""),
+        req.get("schedule", ""),
+        req.get("prompt", ""),
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "message": msg}
+
+@app.delete("/cron/{name}")
+async def cron_remove(name: str):
+    """Remove a cron task."""
+    from backend.cron_scheduler import get_cron
+    ok = get_cron().remove(name)
+    if not ok:
+        raise HTTPException(404, f"Task not found: {name}")
+    return {"removed": name}
+
+@app.post("/cron/{name}/toggle")
+async def cron_toggle(name: str):
+    """Toggle a cron task on/off."""
+    from backend.cron_scheduler import get_cron
+    enabled = get_cron().toggle(name)
+    return {"name": name, "enabled": enabled}
+
+@app.get("/cron/stats")
+async def cron_stats():
+    """Get cron scheduler stats."""
+    from backend.cron_scheduler import get_cron
+    return get_cron().stats()
 
 # === Observability Stats ===
 @app.get("/observability/stats")

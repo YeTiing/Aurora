@@ -128,11 +128,16 @@ class AgentGraph:
 
             try:
 
+                # Inject dual-file memory into system prompt
+                from backend.dual_memory import get_dual_memory
+                dm = get_dual_memory()
+                memory_block = dm.get_system_prompt_injection()
+                sys_prompt = "You are Aurora, a helpful AI assistant.\n\n" + memory_block + "\n\nAnswer concisely and naturally."
                 resp = await self.llm.chat_simple(
 
                     user_message=user_input,
 
-                    system_prompt="You are Aurora, a helpful AI assistant. Answer concisely and naturally.",
+                    system_prompt=sys_prompt,
 
                     max_tokens=2000,
 
@@ -148,6 +153,12 @@ class AgentGraph:
 
             await self.events.task_complete(session_id, state.final_response[:200])
             state.done = True
+
+            # Process conversation for memory
+            try:
+                dm.process_conversation_turn(user_input, state.final_response)
+            except Exception:
+                pass
 
             return state
 
@@ -169,6 +180,12 @@ class AgentGraph:
 
             await self.events.task_complete(session_id, state.final_response[:200])
             state.done = True
+
+            # Process conversation for memory
+            try:
+                dm.process_conversation_turn(user_input, state.final_response)
+            except Exception:
+                pass
 
             return state
 
@@ -280,6 +297,15 @@ class AgentGraph:
         self.checkpoints.save(state, "final")
 
         await self.events.task_complete(session_id, state.final_response[:200])
+
+        # End session: curator + index
+        from backend.dual_memory import get_dual_memory
+        try:
+            dm = get_dual_memory()
+            summary = state.final_response[:500] if state.final_response else user_input[:200]
+            dm.end_session(session_id, summary)
+        except Exception:
+            pass
 
         return state
 

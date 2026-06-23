@@ -21,7 +21,7 @@ venv/
 Thumbs.db
 
 # Project specific
-.aurora/
+# .aurora/ (we track memory templates)
 .pytest_cache/
 workspace/
 
@@ -33,3 +33,6 @@ desktop/node_modules/
 # Env
 .env
 .env.local
+# Aurora runtime (but track memory templates)
+.aurora/*.db
+.aurora/memories/curator_state.json

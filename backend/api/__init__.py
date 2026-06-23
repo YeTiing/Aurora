@@ -999,6 +999,141 @@ async def observability_stats():
     from backend.observability.stats import get_stats
     return get_stats()
 
+
+# === Dual-File Memory (Hermes-style) ===
+@app.get("/memory/agent")
+async def memory_agent_list():
+    """List agent memory entries."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    return dm.agent_memory.list_entries()
+
+@app.get("/memory/agent/stats")
+async def memory_agent_stats():
+    """Get agent memory stats."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    return dm.agent_memory.stats()
+
+@app.post("/memory/agent")
+async def memory_agent_add(req: dict):
+    """Add an entry to agent memory."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    ok, msg = dm.agent_memory.add(req.get("text", ""), source="api")
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "message": msg}
+
+@app.put("/memory/agent/{index}")
+async def memory_agent_replace(index: int, req: dict):
+    """Replace an entry in agent memory."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    ok, msg = dm.agent_memory.replace(index, req.get("text", ""), source="api")
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "message": msg}
+
+@app.delete("/memory/agent/{index}")
+async def memory_agent_remove(index: int):
+    """Remove an entry from agent memory."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    ok, msg = dm.agent_memory.remove(index)
+    if not ok:
+        raise HTTPException(404, msg)
+    return {"success": True, "message": msg}
+
+@app.get("/memory/user")
+async def memory_user_list():
+    """List user profile entries."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    return dm.user_profile.list_entries()
+
+@app.get("/memory/user/stats")
+async def memory_user_stats():
+    """Get user profile stats."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    return dm.user_profile.stats()
+
+@app.post("/memory/user")
+async def memory_user_add(req: dict):
+    """Add an entry to user profile."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    ok, msg = dm.user_profile.add(req.get("text", ""), source="api")
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "message": msg}
+
+@app.put("/memory/user/{index}")
+async def memory_user_replace(index: int, req: dict):
+    """Replace an entry in user profile."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    ok, msg = dm.user_profile.replace(index, req.get("text", ""), source="api")
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "message": msg}
+
+@app.delete("/memory/user/{index}")
+async def memory_user_remove(index: int):
+    """Remove an entry from user profile."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    ok, msg = dm.user_profile.remove(index)
+    if not ok:
+        raise HTTPException(404, msg)
+    return {"success": True, "message": msg}
+
+@app.get("/memory/stats")
+async def memory_stats():
+    """Get full memory system stats."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    return dm.stats()
+
+@app.post("/memory/curator/run")
+async def memory_curator_run():
+    """Run lightweight curator deduplication."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    result = dm.curator.run_lightweight()
+    return {"success": True, "result": result}
+
+@app.post("/memory/session/{session_id}/end")
+async def memory_session_end(session_id: str, req: dict):
+    """End session: run curator, index summary."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    result = dm.end_session(session_id, req.get("summary", ""))
+    return {"success": True, "result": result}
+
+@app.get("/memory/sessions/search")
+async def memory_sessions_search(q: str = ""):
+    """Search past sessions."""
+    _init()
+    from backend.dual_memory import get_dual_memory
+    dm = get_dual_memory()
+    results = dm.search_past_sessions(q)
+    return {"query": q, "count": len(results), "results": results}
+
 # === Semantic Memory ===
 class SemanticIndexRequest(BaseModel):
     text: str

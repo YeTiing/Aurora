@@ -15,6 +15,7 @@ import { SettingsPanel } from "./components/layout/SettingsPanel";
 import { CommandPalette } from "./components/layout/CommandPalette";
 import { SearchPanel } from "./components/layout/SearchPanel";
 import { MemoryDashboard } from "./components/layout/MemoryDashboard";
+import { SkinBrowser } from "./components/layout/SkinBrowser";
 import { t, setLang } from "./i18n";
 import { useGlobalShortcuts, getShortcutManager } from "./shortcuts";
 import { useInitializeTheme } from "./theme";
@@ -35,6 +36,7 @@ export default function App() {
     const toggleMonitor = useStore((s) => s.toggleMonitor);
     const showSearch = useStore((s) => s.showSearch);
   const [showMemory, setShowMemory] = useState(false);
+    const [showSkins, setShowSkins] = useState(false);
     const createSession = useStore((s) => s.createSession);
     const setActiveSession = useStore((s) => s.setActiveSession);
     const setTerminalOpen = useStore((s) => s.setTerminalOpen);
@@ -122,7 +124,9 @@ export default function App() {
         <div className="aurora-app" style={{ backgroundColor: colors.bg, color: colors.text }}>
             <Toolbar
             onToggleMemory={() => setShowMemory(!showMemory)}
-            showMemory={showMemory} />
+            showMemory={showMemory}
+            onToggleSkins={() => setShowSkins(!showSkins)}
+            showSkins={showSkins} />
 
             <div className="aurora-main">
                 {/* Left: Session list */}
@@ -200,6 +204,7 @@ export default function App() {
             {showSettings && <SettingsPanel onClose={toggleSettings} />}
             {showSearch && <SearchPanel />
             {showMemory && <MemoryDashboard />}}
+            {showSkins && <SkinBrowser onClose={() => setShowSkins(false)} />}
             {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
         </div>
     );

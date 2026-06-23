@@ -1,0 +1,53 @@
+{
+  "name": "aurora-light",
+  "label": "Aurora Light",
+  "description": "Clean light theme. Good for daytime coding.",
+  "author": "Aurora",
+  "version": "1.0",
+  "accent_color_name": "blue",
+  "colors": {
+    "bg": "#ffffff",
+    "surface": "#f6f8fa",
+    "surface_elevated": "#ffffff",
+    "surface_hover": "#f3f4f6",
+    "border": "#d0d7de",
+    "border_light": "#e8eaed",
+    "text": "#1f2328",
+    "text_secondary": "#656d76",
+    "text_muted": "#8c959f",
+    "accent": "#0969da",
+    "accent_hover": "#0550ae",
+    "accent_glow": "rgba(9, 105, 218, 0.15)",
+    "accent_subtle": "rgba(9, 105, 218, 0.08)",
+    "success": "#1a7f37",
+    "success_subtle": "rgba(26, 127, 55, 0.12)",
+    "error": "#cf222e",
+    "error_subtle": "rgba(207, 34, 46, 0.12)",
+    "warning": "#9a6700",
+    "warning_subtle": "rgba(154, 103, 0, 0.12)",
+    "code_bg": "#f6f8fa",
+    "status_bar_bg": "#f6f8fa",
+    "status_bar_text": "#8b949e",
+    "terminal_bg": "#1f2328",
+    "terminal_text": "#e6edf3"
+  },
+  "typography": {
+    "font_family": "'Inter', -apple-system, sans-serif",
+    "font_mono": "'JetBrains Mono', 'Cascadia Code', monospace",
+    "font_size_sm": "11px",
+    "font_size_base": "13px",
+    "font_size_lg": "15px",
+    "line_height": "1.5"
+  },
+  "shape": {
+    "radius_sm": "6px",
+    "radius_base": "10px",
+    "radius_lg": "14px",
+    "radius_xl": "18px",
+    "radius_full": "9999px",
+    "shadow": "0 2px 12px rgba(0,0,0,0.4)",
+    "shadow_lg": "0 8px 32px rgba(0,0,0,0.6)",
+    "spacing_unit": "4px"
+  },
+  "custom_css": ""
+}

@@ -1,0 +1,53 @@
+{
+  "name": "sunset-orange",
+  "label": "Sunset Orange",
+  "description": "Warm dark brown with orange accent. Cozy and creative.",
+  "author": "Aurora",
+  "version": "1.0",
+  "accent_color_name": "orange",
+  "colors": {
+    "bg": "#1a120c",
+    "surface": "#261915",
+    "surface_elevated": "#33201a",
+    "surface_hover": "#2c1c17",
+    "border": "#3d2a22",
+    "border_light": "#4a352c",
+    "text": "#f5e6d8",
+    "text_secondary": "#c4a88c",
+    "text_muted": "#8c6c52",
+    "accent": "#fb923c",
+    "accent_hover": "#fbbf24",
+    "accent_glow": "rgba(251, 146, 60, 0.2)",
+    "accent_subtle": "rgba(251, 146, 60, 0.1)",
+    "success": "#a3e635",
+    "success_subtle": "rgba(163, 230, 53, 0.12)",
+    "error": "#ef4444",
+    "error_subtle": "rgba(239, 68, 68, 0.12)",
+    "warning": "#facc15",
+    "warning_subtle": "rgba(250, 204, 21, 0.12)",
+    "code_bg": "#1a120c",
+    "status_bar_bg": "#120a06",
+    "status_bar_text": "#8b949e",
+    "terminal_bg": "#120a06",
+    "terminal_text": "#e6edf3"
+  },
+  "typography": {
+    "font_family": "'Inter', -apple-system, sans-serif",
+    "font_mono": "'JetBrains Mono', 'Cascadia Code', monospace",
+    "font_size_sm": "11px",
+    "font_size_base": "13px",
+    "font_size_lg": "15px",
+    "line_height": "1.5"
+  },
+  "shape": {
+    "radius_sm": "6px",
+    "radius_base": "10px",
+    "radius_lg": "14px",
+    "radius_xl": "18px",
+    "radius_full": "9999px",
+    "shadow": "0 2px 12px rgba(0,0,0,0.4)",
+    "shadow_lg": "0 8px 32px rgba(0,0,0,0.6)",
+    "spacing_unit": "4px"
+  },
+  "custom_css": ""
+}

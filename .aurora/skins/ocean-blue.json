@@ -1,0 +1,53 @@
+{
+  "name": "ocean-blue",
+  "label": "Ocean Blue",
+  "description": "Deep ocean navy. Professional and clean.",
+  "author": "Aurora",
+  "version": "1.0",
+  "accent_color_name": "cyan",
+  "colors": {
+    "bg": "#0c1929",
+    "surface": "#14273e",
+    "surface_elevated": "#1b3452",
+    "surface_hover": "#182e46",
+    "border": "#1e3d5c",
+    "border_light": "#264a6e",
+    "text": "#dceefb",
+    "text_secondary": "#7bafd4",
+    "text_muted": "#4a7ea8",
+    "accent": "#38bdf8",
+    "accent_hover": "#7dd3fc",
+    "accent_glow": "rgba(56, 189, 248, 0.18)",
+    "accent_subtle": "rgba(56, 189, 248, 0.08)",
+    "success": "#2dd4bf",
+    "success_subtle": "rgba(45, 212, 191, 0.12)",
+    "error": "#f472b6",
+    "error_subtle": "rgba(244, 114, 182, 0.12)",
+    "warning": "#fb923c",
+    "warning_subtle": "rgba(251, 146, 60, 0.12)",
+    "code_bg": "#0c1929",
+    "status_bar_bg": "#091420",
+    "status_bar_text": "#8b949e",
+    "terminal_bg": "#091420",
+    "terminal_text": "#e6edf3"
+  },
+  "typography": {
+    "font_family": "'Inter', -apple-system, sans-serif",
+    "font_mono": "'JetBrains Mono', 'Cascadia Code', monospace",
+    "font_size_sm": "11px",
+    "font_size_base": "13px",
+    "font_size_lg": "15px",
+    "line_height": "1.5"
+  },
+  "shape": {
+    "radius_sm": "6px",
+    "radius_base": "10px",
+    "radius_lg": "14px",
+    "radius_xl": "18px",
+    "radius_full": "9999px",
+    "shadow": "0 2px 12px rgba(0,0,0,0.4)",
+    "shadow_lg": "0 8px 32px rgba(0,0,0,0.6)",
+    "spacing_unit": "4px"
+  },
+  "custom_css": ""
+}

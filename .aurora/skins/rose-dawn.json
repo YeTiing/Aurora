@@ -1,0 +1,53 @@
+{
+  "name": "rose-dawn",
+  "label": "Rose Dawn",
+  "description": "Soft rose-pink tones on warm dark. Gentle and elegant.",
+  "author": "Aurora",
+  "version": "1.0",
+  "accent_color_name": "pink",
+  "colors": {
+    "bg": "#1a1018",
+    "surface": "#261a22",
+    "surface_elevated": "#33242e",
+    "surface_hover": "#2c1e27",
+    "border": "#3d2c36",
+    "border_light": "#4a3642",
+    "text": "#f0dde8",
+    "text_secondary": "#c498b0",
+    "text_muted": "#8c5c78",
+    "accent": "#f472b6",
+    "accent_hover": "#fb8ec4",
+    "accent_glow": "rgba(244, 114, 182, 0.18)",
+    "accent_subtle": "rgba(244, 114, 182, 0.08)",
+    "success": "#6ee7b7",
+    "success_subtle": "rgba(110, 231, 183, 0.12)",
+    "error": "#ef4444",
+    "error_subtle": "rgba(239, 68, 68, 0.12)",
+    "warning": "#fcd34d",
+    "warning_subtle": "rgba(252, 211, 77, 0.12)",
+    "code_bg": "#1a1018",
+    "status_bar_bg": "#120810",
+    "status_bar_text": "#8b949e",
+    "terminal_bg": "#120810",
+    "terminal_text": "#e6edf3"
+  },
+  "typography": {
+    "font_family": "'Inter', -apple-system, sans-serif",
+    "font_mono": "'JetBrains Mono', 'Cascadia Code', monospace",
+    "font_size_sm": "11px",
+    "font_size_base": "13px",
+    "font_size_lg": "15px",
+    "line_height": "1.5"
+  },
+  "shape": {
+    "radius_sm": "6px",
+    "radius_base": "10px",
+    "radius_lg": "14px",
+    "radius_xl": "18px",
+    "radius_full": "9999px",
+    "shadow": "0 2px 12px rgba(0,0,0,0.4)",
+    "shadow_lg": "0 8px 32px rgba(0,0,0,0.6)",
+    "spacing_unit": "4px"
+  },
+  "custom_css": ""
+}

@@ -1,0 +1,53 @@
+{
+  "name": "aurora-dark",
+  "label": "Aurora Dark",
+  "description": "Deep navy base with purple accent. The original Aurora look.",
+  "author": "Aurora",
+  "version": "1.0",
+  "accent_color_name": "purple",
+  "colors": {
+    "bg": "#0b0e14",
+    "surface": "#13171f",
+    "surface_elevated": "#191e28",
+    "surface_hover": "#1a1f2b",
+    "border": "#1e2430",
+    "border_light": "#2a3140",
+    "text": "#e8edf5",
+    "text_secondary": "#8892a4",
+    "text_muted": "#5d6578",
+    "accent": "#5b9cf5",
+    "accent_hover": "#74aff7",
+    "accent_glow": "rgba(91, 156, 245, 0.18)",
+    "accent_subtle": "rgba(91, 156, 245, 0.08)",
+    "success": "#42be65",
+    "success_subtle": "rgba(66, 190, 101, 0.12)",
+    "error": "#f4605e",
+    "error_subtle": "rgba(244, 96, 94, 0.12)",
+    "warning": "#d4a72c",
+    "warning_subtle": "rgba(212, 167, 44, 0.12)",
+    "code_bg": "#0d1117",
+    "status_bar_bg": "#0b0e14",
+    "status_bar_text": "#8b949e",
+    "terminal_bg": "#0b0e14",
+    "terminal_text": "#e6edf3"
+  },
+  "typography": {
+    "font_family": "'Inter', -apple-system, sans-serif",
+    "font_mono": "'JetBrains Mono', 'Cascadia Code', monospace",
+    "font_size_sm": "11px",
+    "font_size_base": "13px",
+    "font_size_lg": "15px",
+    "line_height": "1.5"
+  },
+  "shape": {
+    "radius_sm": "6px",
+    "radius_base": "10px",
+    "radius_lg": "14px",
+    "radius_xl": "18px",
+    "radius_full": "9999px",
+    "shadow": "0 2px 12px rgba(0,0,0,0.4)",
+    "shadow_lg": "0 8px 32px rgba(0,0,0,0.6)",
+    "spacing_unit": "4px"
+  },
+  "custom_css": ""
+}

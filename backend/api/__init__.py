@@ -1342,3 +1342,76 @@ async def marketplace_search(q: str = ""):
     mp = get_marketplace()
     results = mp.search(q)
     return {"query": q, "count": len(results), "results": results}
+
+
+
+# === Skin / Theme Engine ===
+class SkinCreateRequest(BaseModel):
+    name: str
+    label: str = ""
+    description: str = ""
+    author: str = "Aurora"
+    colors: dict = {}
+    typography: dict = {}
+    shape: dict = {}
+    custom_css: str = ""
+    accent_color_name: str = "purple"
+
+class SkinImportRequest(BaseModel):
+    data: dict
+
+@app.get("/skins")
+async def skin_list():
+    from backend.skin_engine import get_skin_manager
+    return get_skin_manager().list_skins()
+
+@app.get("/skins/active")
+async def skin_active():
+    from backend.skin_engine import get_skin_manager
+    return get_skin_manager().get_active_skin()
+
+@app.get("/skins/{name}")
+async def skin_get(name: str):
+    from backend.skin_engine import get_skin_manager
+    skin = get_skin_manager().get_skin(name)
+    if not skin:
+        raise HTTPException(404, f"Skin '{name}' not found")
+    return skin.to_dict()
+
+@app.post("/skins")
+async def skin_create(req: SkinCreateRequest):
+    from backend.skin_engine import get_skin_manager
+    data = req.model_dump()
+    name = data.pop("name")
+    skin = get_skin_manager().save_skin(name, data)
+    return {"success": True, "skin": skin.to_dict()}
+
+@app.delete("/skins/{name}")
+async def skin_delete(name: str):
+    from backend.skin_engine import get_skin_manager
+    ok = get_skin_manager().delete_skin(name)
+    if not ok:
+        raise HTTPException(400, f"Cannot delete skin '{name}'")
+    return {"success": True}
+
+@app.post("/skins/{name}/apply")
+async def skin_apply(name: str):
+    from backend.skin_engine import get_skin_manager
+    ok = get_skin_manager().apply_skin(name)
+    if not ok:
+        raise HTTPException(404, f"Skin '{name}' not found")
+    return {"success": True, "active": name}
+
+@app.get("/skins/{name}/export")
+async def skin_export(name: str):
+    from backend.skin_engine import get_skin_manager
+    data = get_skin_manager().export_skin(name)
+    if not data:
+        raise HTTPException(404, f"Skin '{name}' not found")
+    return data
+
+@app.post("/skins/import")
+async def skin_import(req: SkinImportRequest):
+    from backend.skin_engine import get_skin_manager
+    skin = get_skin_manager().import_skin(req.data)
+    return {"success": True, "skin": skin.to_dict()}

@@ -1,0 +1,53 @@
+{
+  "name": "monochrome",
+  "label": "Monochrome",
+  "description": "Pure grayscale. Maximum focus, zero distraction.",
+  "author": "Aurora",
+  "version": "1.0",
+  "accent_color_name": "slate",
+  "colors": {
+    "bg": "#121212",
+    "surface": "#1e1e1e",
+    "surface_elevated": "#282828",
+    "surface_hover": "#242424",
+    "border": "#333333",
+    "border_light": "#404040",
+    "text": "#e0e0e0",
+    "text_secondary": "#a0a0a0",
+    "text_muted": "#707070",
+    "accent": "#ffffff",
+    "accent_hover": "#e0e0e0",
+    "accent_glow": "rgba(255, 255, 255, 0.12)",
+    "accent_subtle": "rgba(255, 255, 255, 0.06)",
+    "success": "#888888",
+    "success_subtle": "rgba(136, 136, 136, 0.12)",
+    "error": "#ff6b6b",
+    "error_subtle": "rgba(255, 107, 107, 0.12)",
+    "warning": "#dddddd",
+    "warning_subtle": "rgba(221, 221, 221, 0.12)",
+    "code_bg": "#121212",
+    "status_bar_bg": "#0a0a0a",
+    "status_bar_text": "#8b949e",
+    "terminal_bg": "#0a0a0a",
+    "terminal_text": "#e6edf3"
+  },
+  "typography": {
+    "font_family": "'Inter', -apple-system, sans-serif",
+    "font_mono": "'JetBrains Mono', 'Cascadia Code', monospace",
+    "font_size_sm": "11px",
+    "font_size_base": "13px",
+    "font_size_lg": "15px",
+    "line_height": "1.5"
+  },
+  "shape": {
+    "radius_sm": "6px",
+    "radius_base": "10px",
+    "radius_lg": "14px",
+    "radius_xl": "18px",
+    "radius_full": "9999px",
+    "shadow": "0 2px 12px rgba(0,0,0,0.4)",
+    "shadow_lg": "0 8px 32px rgba(0,0,0,0.6)",
+    "spacing_unit": "4px"
+  },
+  "custom_css": ""
+}

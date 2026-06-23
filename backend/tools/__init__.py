@@ -18,6 +18,7 @@ from .computer_use import COMPUTER_USE_SPEC, computer_use_handler
 from .browser_use import BROWSER_USE_SPEC, browser_use_handler
 from .memory import MEMORY_SPEC, memory_handler
 from .cron_tool import CRON_SPEC, cron_handler
+from .skin_tool import SKIN_SPEC, skin_handler
 
 def register_all_tools():
     tool_registry.register(SHELL_SPEC, shell_handler)
@@ -38,6 +39,7 @@ def register_all_tools():
     tool_registry.register(BROWSER_USE_SPEC, browser_use_handler)
 tool_registry.register(MEMORY_SPEC, memory_handler)
 tool_registry.register(CRON_SPEC, cron_handler)
+tool_registry.register(SKIN_SPEC, skin_handler)
 
 register_all_tools()
 
@@ -64,4 +66,5 @@ __all__ = [
     "register_all_tools",
         "MEMORY_SPEC", "memory_handler",
         "CRON_SPEC", "cron_handler",
+    "SKIN_SPEC", "skin_handler",
 ]

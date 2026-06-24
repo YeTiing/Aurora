@@ -4,7 +4,7 @@ import asyncio, json, time
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Any, Optional
 
 router = APIRouter()
@@ -112,6 +112,33 @@ async def index_message(req: dict):
         content=req.get("content", ""),
     )
     return {"indexed": True}
+
+
+class SharedObjectSetRequest(BaseModel):
+    value: Any
+    source: str = Field(default="api", max_length=80)
+
+
+# ====== Shared Object State Sync ======
+
+@router.get("/shared-objects")
+async def shared_object_snapshot():
+    from backend.shared_object import shared_object_repository
+    return {"objects": shared_object_repository.get_snapshot()}
+
+@router.get("/shared-objects/{key}")
+async def shared_object_get(key: str):
+    from backend.shared_object import MISSING, shared_object_repository
+    value = shared_object_repository.get(key)
+    if value is MISSING:
+        raise HTTPException(404, f"Shared object '{key}' not found")
+    return {"key": key, "value": value}
+
+@router.post("/shared-objects/{key}")
+async def shared_object_set(key: str, req: SharedObjectSetRequest):
+    from backend.shared_object import shared_object_repository
+    update = shared_object_repository.set(key, req.value, source=req.source)
+    return {"update": update.to_dict()}
 
 
 # ====== Worktree ======

@@ -85,6 +85,62 @@ interface LocaleStrings {
     skins: string;
     noPlanYet: string;
     unnamed: string;
+    acceptAll: string;
+    openSaveHint: string;
+    typeObjective: string;
+    typeTokenBudget: string;
+    tokenBudgetLabel: string;
+    used: string;
+    budget: string;
+    noActiveGoals: string;
+    status: string;
+    noOpenPages: string;
+    mode: string;
+    noPendingApprovals: string;
+    suspiciousLines: string;
+    suspectCommits: string;
+    toolCallFrequency: string;
+    noToolCallsYet: string;
+    delay: string;
+    capturing: string;
+    noApiRequests: string;
+    replay: string;
+    requestDetail: string;
+    sceneDetection: string;
+    crypto: string;
+    authTokens: string;
+    deobfuscate: string;
+    obfuscation: string;
+    cryptoCalls: string;
+    signatureTrace: string;
+    keysFound: string;
+    secretsFound: string;
+    noThreads: string;
+    enableVisionFallback: string;
+    wordWrapLabel: string;
+    skillsTab: string;
+    agentMemTab: string;
+    userMemTab: string;
+    discoverModelsTab: string;
+    promptsTab: string;
+    pluginsTab: string;
+    mcpTab: string;
+    processesTab: string;
+    browserTab: string;
+    approvalTab: string;
+    agentsTab: string;
+    tasksTab: string;
+    overviewTab: string;
+    openAI: string;
+    anthropic: string;
+    deepSeek: string;
+    moonshot: string;
+    openRouter: string;
+    visionApiKeyPlaceholder: string;
+    visionBaseUrlPlaceholder: string;
+    diffDetective: string;
+    benchmarksLabel: string;
+    renderedPrompt: string;
 }
 
 const zhCN: LocaleStrings = {
@@ -171,8 +227,63 @@ const zhCN: LocaleStrings = {
     skins: "皮肤",
     noPlanYet: "暂无计划",
     unnamed: "未命名",
+    acceptAll: "全部接受",
+    openSaveHint: "Ctrl+O 打开 · Ctrl+S 保存",
+    typeObjective: "输入目标...",
+    typeTokenBudget: "Token 预算 (可选)",
+    tokenBudgetLabel: "Token 预算",
+    used: "已用",
+    budget: "预算",
+    noActiveGoals: "暂无活跃目标",
+    status: "状态",
+    noOpenPages: "无打开页面",
+    mode: "模式",
+    noPendingApprovals: "无待审批项",
+    suspiciousLines: "可疑行",
+    suspectCommits: "可疑提交",
+    toolCallFrequency: "工具调用频率",
+    noToolCallsYet: "暂无工具调用记录",
+    delay: "延迟",
+    capturing: "抓包中...",
+    noApiRequests: "无 API 请求，请先选择会话",
+    replay: "重放",
+    requestDetail: "请求详情",
+    sceneDetection: "场景检测",
+    crypto: "加密",
+    authTokens: "认证令牌",
+    deobfuscate: "反混淆 + 追踪",
+    obfuscation: "混淆",
+    cryptoCalls: "加密调用",
+    signatureTrace: "签名追踪",
+    keysFound: "找到密钥",
+    secretsFound: "发现秘钥",
+    noThreads: "无线程",
+    enableVisionFallback: "启用 Vision 回退",
+    wordWrapLabel: "自动换行",
+    skillsTab: "Skills",
+    agentMemTab: "Agent 记忆",
+    userMemTab: "用户记忆",
+    discoverModelsTab: "发现模型",
+    promptsTab: "Prompt 预设",
+    pluginsTab: "插件",
+    mcpTab: "MCP",
+    processesTab: "进程",
+    browserTab: "浏览器",
+    approvalTab: "审批",
+    agentsTab: "Agents",
+    tasksTab: "任务",
+    overviewTab: "总览",
+    openAI: "OpenAI",
+    anthropic: "Anthropic",
+    deepSeek: "DeepSeek",
+    moonshot: "Moonshot",
+    openRouter: "OpenRouter",
+    visionBaseUrlPlaceholder: "留空则使用主 Base URL",
+    diffDetective: "Diff 侦探",
+    benchmarksLabel: "跑分",
+    renderedPrompt: "渲染结果",
+    visionApiKeyPlaceholder: "留空则使用主 API Key",
 };
-
 const en: LocaleStrings = {
     appName: "✨ Aurora",
     files: "Files",
@@ -257,6 +368,62 @@ const en: LocaleStrings = {
     skins: "Skins",
     noPlanYet: "No plan yet",
     unnamed: "Unnamed",
+    visionApiKeyPlaceholder: "Leave empty to use main API key",
+    acceptAll: "Accept All",
+    openSaveHint: "openSaveHint",
+    typeObjective: "Objective...",
+    typeTokenBudget: "Token budget (optional)",
+    tokenBudgetLabel: "Token Budget",
+    used: "Used",
+    budget: "Budget",
+    noActiveGoals: "No active goals",
+    status: "Status",
+    noOpenPages: "No open pages",
+    mode: "Mode",
+    noPendingApprovals: "No pending approvals",
+    suspiciousLines: "Suspicious Lines",
+    suspectCommits: "Suspect Commits",
+    toolCallFrequency: "Tool Call Frequency",
+    noToolCallsYet: "No tool calls recorded yet",
+    delay: "Delay",
+    capturing: "Capturing...",
+    noApiRequests: "No API requests. Select session above.",
+    replay: "Replay",
+    requestDetail: "Request",
+    sceneDetection: "Scene Detection",
+    crypto: "Crypto",
+    authTokens: "Auth Tokens",
+    deobfuscate: "Deobfuscate + Trace",
+    obfuscation: "Obfuscation",
+    cryptoCalls: "Crypto Calls",
+    signatureTrace: "Signature Trace",
+    keysFound: "Keys Found",
+    secretsFound: "Secrets Found",
+    noThreads: "No threads",
+    enableVisionFallback: "Enable Vision Fallback",
+    wordWrapLabel: "Word Wrap",
+    skillsTab: "Skills",
+    agentMemTab: "Agent Memory",
+    userMemTab: "User Profile",
+    discoverModelsTab: "Discover Models",
+    promptsTab: "Prompt Presets",
+    pluginsTab: "Plugins",
+    mcpTab: "MCP",
+    processesTab: "Processes",
+    browserTab: "Browser",
+    approvalTab: "Approval",
+    agentsTab: "Agents",
+    tasksTab: "Tasks",
+    overviewTab: "Overview",
+    openAI: "openAI",
+    anthropic: "anthropic",
+    deepSeek: "deepSeek",
+    moonshot: "moonshot",
+    openRouter: "openRouter",
+    visionBaseUrlPlaceholder: "Leave empty to use main base URL",
+    diffDetective: "Diff Detective",
+    benchmarksLabel: "Benchmarks",
+    renderedPrompt: "Rendered Prompt",
 };
 
 const locales: Record<Lang, LocaleStrings> = { "zh-CN": zhCN, en };

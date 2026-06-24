@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useStore } from "../../store";
+import { t } from "../../i18n";
 
 export function SearchPanel() {
     const colors = useStore((s) => s.themeColors);
@@ -78,7 +79,7 @@ export function SearchPanel() {
             {/* Results */}
             <div style={{ flex: 1, overflow: "auto", maxHeight: "50vh" }}>
                 {searching ? (
-                    <div style={{ padding: 16, color: colors.textSecondary, fontSize: 12 }}>Searching...</div>
+                    <div style={{ padding: 16, color: colors.textSecondary, fontSize: 12 }}>{t("searching")}</div>
                 ) : results.length === 0 && searchQuery ? (
                     <div style={{ padding: 16, color: colors.textSecondary, fontSize: 12 }}>No results</div>
                 ) : (

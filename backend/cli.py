@@ -474,7 +474,7 @@ async def interactive():
     if use_mock:
         print(f"  {C.yellow('[!] No API key set — using mock mode')}")
         print(f"  {C.dim('Set llm.api_key in aurora.json for real AI.')}\n")
-        llm = MockLLMClient()
+        print("❌ 未配置 API Key"); sys.exit(1)
     else:
         provider = cfg.get("llm.provider", "openai")
         from backend.agent.llm_client import create_llm_client

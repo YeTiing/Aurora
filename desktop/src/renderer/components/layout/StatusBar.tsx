@@ -25,7 +25,7 @@ export function StatusBar() {
             </span>
             <div className="status-right">
                 <button className="status-btn" onClick={toggleMonitor} title={t("monitor")}
-                    style={useStore.getState().show任务监听器 ? { color: "var(--aurora-accent)", background: "var(--aurora-accent-subtle)" } : {}}>
+                    style={useStore.getState().showMonitor ? { color: "var(--aurora-accent)", background: "var(--aurora-accent-subtle)" } : {}}>
                     📊
                 </button>
                 <button className={`status-btn ${terminalOpen ? "active" : ""}`}

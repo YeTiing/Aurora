@@ -46,6 +46,51 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     const [visionApiKey, setVisionApiKey] = useState("");
     const [visionBaseUrl, setVisionBaseUrl] = useState("");
     const [visionLoaded, setVisionLoaded] = useState(false);
+    const [savedProviders, setSavedProviders] = useState<any[]>([]);
+    const [newProviderName, setNewProviderName] = useState("");
+    const [showSaveProvider, setShowSaveProvider] = useState(false);
+    const loadProviders = async () => { try { setSavedProviders((await (await fetch("http://127.0.0.1:9876/providers")).json()).providers||[]); } catch {} };
+    const saveProvider = async () => { const name=newProviderName.trim()||provider; await fetch("http://127.0.0.1:9876/providers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,provider,api_key:apiKey,base_url:baseUrl,model})});setNewProviderName("");setShowSaveProvider(false);loadProviders(); };
+    const deleteProvider = async (name:string) => { await fetch("http://127.0.0.1:9876/providers/"+encodeURIComponent(name),{method:"DELETE"});loadProviders(); };
+    const switchProvider = async (p:any) => {
+        setProvider(p.provider||"openai");setBaseUrl(p.base_url||"");
+        if (p.api_key) setApiKey(p.api_key);
+        // Update backend config so /models returns correct provider
+        await fetch("http://127.0.0.1:9876/settings", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({
+                provider: p.provider||"openai",
+                model: p.model||"",
+                api_key: p.api_key||"",
+                base_url: p.base_url||"",
+            }),
+        }).catch(() => {});
+        // Fetch remote models for this provider
+        const url = p.base_url||"";
+        if (url && url !== "https://api.openai.com/v1") {
+            setFetchingModels(true);
+            try {
+                let fetchUrl = url.endsWith("/") ? url + "models" : url + "/models";
+                if (!fetchUrl.includes("/v1/")) fetchUrl = url.endsWith("/") ? url + "v1/models" : url + "/v1/models";
+                const finalUrl = url.endsWith("/v1") ? url + "/models" : fetchUrl;
+                const res = await fetch(finalUrl, { headers: { "Authorization": "Bearer "+(p.api_key||apiKey||"") } });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.data && Array.isArray(data.data)) {
+                        const ids = data.data.map((m: any) => m.id);
+                        setCustomModels(ids);
+                        if (ids.length > 0 && !ids.includes(p.model)) setModel(ids[0]);
+                        else if (ids.length > 0) setModel(p.model);
+                        setFetchingModels(false);
+                        return;
+                    }
+                }
+            } catch {}
+            setFetchingModels(false);
+        }
+        setModel(p.model||"gpt-4o");
+    };
 
     // Load vision settings
     useEffect(() => {
@@ -63,12 +108,13 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             .catch(() => setVisionLoaded(true));
     }, [visionLoaded]);
 
-    const [activeTab, setActiveTab] = useState<"general" | "llm" | "vision" | "editor" | "terminal" | "shortcuts">("llm");
+    const [activeTab, setActiveTab] = useState<"providers" | "general" | "llm" | "vision" | "editor" | "terminal" | "shortcuts">("llm");
     const [shortcutBindings, setShortcutBindings] = useState<
         Array<{ id: string; label: string; display: string; defaultDisplay: string; isCustom: boolean }>
     >([]);
 
     const tabs: Array<{ id: typeof activeTab; label: string }> = [
+        { id: "providers", label: "服务商" },
         { id: "general", label: "设置" },
         { id: "llm", label: "LLM API" },
         { id: "vision", label: "Vision" },
@@ -97,7 +143,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         } catch { setModelsList([]); }
     }, []);
 
-    useEffect(() => { fetchModels(); }, [fetchModels]);
+    useEffect(() => { fetchModels(); loadProviders(); }, [fetchModels]);
+    useEffect(() => {
+        if (baseUrl && baseUrl !== "https://api.openai.com/v1") {
+            fetchRemoteModels();
+        }
+    }, [provider, baseUrl]);
 
     // Save
     
@@ -133,6 +184,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     const handleSave = async () => {
         setSaving(true);
         try {
+            if (newProviderName.trim() && apiKey.trim()) {
+                await saveProvider();
+            }
             const body: any = {};
             if (provider) body.provider = provider;
             if (model) body.model = model;
@@ -276,54 +330,16 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
                     {activeTab === "llm" && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            {/* Saved API configs */}
                             <div>
-                                <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>API 配置</label>
-                                <div style={{ display: "flex", gap: 6 }}>
-                                    <select value={provider + "|" + baseUrl} onChange={e => {
-                                        const [p, u] = e.target.value.split("|");
-                                        setProvider(p); setBaseUrl(u);
-                                    }} style={{ ...inputStyle, flex: 1 }}>
-                                        <option value="openai|https://api.openai.com/v1">OpenAI</option>
-                                        <option value="anthropic|https://api.anthropic.com">Anthropic</option>
-                                        <option value="deepseek|https://api.deepseek.com">DeepSeek</option>
-                                        <option value="groq|https://api.groq.com/openai/v1">Groq</option>
-                                        <option value="moonshot|https://api.moonshot.cn/v1">Moonshot</option>
-                                        <option value="openrouter|https://openrouter.ai/api/v1">OpenRouter</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                    <button onClick={() => { setProvider("custom"); setBaseUrl(""); }}
-                                        style={{ padding: "6px 10px", background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: 4, color: colors.text, cursor: "pointer", fontSize: 11 }}>自定义</button>
-                                </div>
+                                <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>服务商名称</label>
+                                <input value={newProviderName} onChange={(e: any) => setNewProviderName(e.target.value)}
+                                    placeholder="服务商名称"
+                                    style={{ ...inputStyle, fontSize: 13, fontWeight: 600 }} />
                             </div>
                             <div>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                                    <label style={{ fontSize: 11, color: colors.textSecondary }}>Model</label>
-                                    <button 
-                                        onClick={fetchRemoteModels}
-                                        disabled={fetchingModels || !baseUrl}
-                                        style={{ background: "transparent", border: "none", color: colors.accent, fontSize: 11, cursor: baseUrl ? "pointer" : "not-allowed", opacity: baseUrl ? 1 : 0.5 }}
-                                    >
-                                        {fetchingModels ? "获取中..." : "🔄 获取远端模型"}
-                                    </button>
-                                </div>
-                                <select value={model} onChange={e => setModel(e.target.value)} style={inputStyle}>
-                                    {customModels.length > 0 ? (
-                                        customModels.map(m => <option key={m} value={m}>{m}</option>)
-                                    ) : (
-                                        <>
-                                            {modelsList.map(m => <option key={m} value={m}>{m}</option>)}
-                                            {modelsList.length === 0 && (
-                                                <>
-                                                    <option value="gpt-4o">gpt-4o</option>
-                                                    <option value="gpt-4o-mini">gpt-4o-mini</option>
-                                                    <option value="deepseek-chat">deepseek-chat</option>
-                                                    <option value={model}>{model}</option>
-                                                </>
-                                            )}
-                                        </>
-                                    )}
-                                </select>
+                                <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>API Base URL</label>
+                                <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)}
+                                    placeholder="https://api.deepseek.com" style={inputStyle} />
                             </div>
                             <div>
                                 <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>API Key</label>
@@ -331,23 +347,29 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                     placeholder="sk-..." style={inputStyle} />
                             </div>
                             <div>
-                                <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>Base URL</label>
-                                <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={inputStyle} />
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                    <label style={{ fontSize: 11, color: colors.textSecondary }}>模型</label>
+                                    <button onClick={fetchRemoteModels} disabled={fetchingModels || !baseUrl}
+                                        style={{ background: "transparent", border: "none", color: colors.accent, fontSize: 11, cursor: baseUrl ? "pointer" : "not-allowed", opacity: baseUrl ? 1 : 0.5 }}>
+                                        {fetchingModels ? "拉取中..." : "🔄 拉取模型列表"}
+                                    </button>
+                                </div>
+                                <select value={model} onChange={e => setModel(e.target.value)} style={inputStyle}>
+                                    {customModels.map(m => <option key={m} value={m}>{m}</option>)}
+                                    {customModels.length === 0 && <option value={model}>{model || "(先拉取模型)"}</option>}
+                                </select>
                             </div>
 
-                            {/* Manual number inputs */}
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                                 <div>
                                     <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>上下文窗口 (tokens)</label>
                                     <input type="number" value={maxContext} min={1000} max={500000} step={1000}
-                                        onChange={e => setMaxContext(parseInt(e.target.value) || 24000)}
-                                        style={inputStyle} />
+                                        onChange={e => setMaxContext(parseInt(e.target.value) || 24000)} style={inputStyle} />
                                 </div>
                                 <div>
                                     <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>Temperature</label>
                                     <input type="number" value={temperature} min={0} max={2} step={0.05}
-                                        onChange={e => setTemperature(parseFloat(e.target.value) || 0.3)}
-                                        style={inputStyle} />
+                                        onChange={e => setTemperature(parseFloat(e.target.value) || 0.3)} style={inputStyle} />
                                 </div>
                             </div>
 
@@ -441,23 +463,19 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                         borderRadius: 6, padding: "6px 10px", fontSize: 12, outline: "none",
                                     }}
                                 >
-                                    <option value="gpt-4o-mini">gpt-4o-mini (cheapest)</option>
-                                    <option value="gpt-4o">gpt-4o (best multimodal)</option>
-                                    <option value="gpt-4-turbo">gpt-4-turbo</option>
-                                    <option value="claude-3-haiku">claude-3-haiku</option>
-                                    <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                                    <option value={visionModel}>{visionModel}</option>
                                 </select>
                             </div>
 
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                 <label style={{ fontSize: 11, color: colors.textSecondary }}>
-                                    Vision API Key <span style={{ color: colors.textMuted || colors.textSecondary }}>(optional — reuses main LLM key)</span>
+                                    Vision API Key <span style={{ color: colors.textSecondary || colors.textSecondary }}>(optional — reuses main LLM key)</span>
                                 </label>
                                 <input
                                     type="password"
                                     value={visionApiKey}
                                     onChange={e => setVisionApiKey(e.target.value)}
-                                    placeholder="Leave empty to use main API key"
+                                    placeholder={t("visionApiKeyPlaceholder")}
                                     style={{
                                         background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
                                         borderRadius: 6, padding: "6px 10px", fontSize: 12, outline: "none",
@@ -467,13 +485,13 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                 <label style={{ fontSize: 11, color: colors.textSecondary }}>
-                                    Vision Base URL <span style={{ color: colors.textMuted || colors.textSecondary }}>(optional)</span>
+                                    Vision Base URL <span style={{ color: colors.textSecondary || colors.textSecondary }}>(optional)</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={visionBaseUrl}
                                     onChange={e => setVisionBaseUrl(e.target.value)}
-                                    placeholder="Leave empty to use main base URL"
+                                    placeholder={t("visionBaseUrlPlaceholder")}
                                     style={{
                                         background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
                                         borderRadius: 6, padding: "6px 10px", fontSize: 12, outline: "none",
@@ -551,6 +569,45 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {activeTab === "providers" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>
+                                点击服务商自动填入配置 · 在 LLM API 页点 💾保存 添加
+                            </div>
+                            {savedProviders.map((p: any) => (
+                                <div key={p.name} onClick={() => switchProvider(p)} style={{
+                                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                                    padding: "10px 12px", borderRadius: 8, cursor: "pointer",
+                                    border: `1px solid ${colors.border}`,
+                                    backgroundColor: (p.provider===provider && p.base_url===baseUrl) ? (colors.accent+"15") : colors.bgSecondary,
+                                }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+                                        <div style={{ fontSize: 10, color: colors.textSecondary, marginTop: 2 }}>
+                                            {p.provider} · {p.model} · {p.base_url}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                        {(p.provider===provider && p.base_url===baseUrl) && (
+                                            <span style={{ fontSize: 9, color: "#22c55e", fontWeight: 600 }}>当前</span>
+                                        )}
+                                        {(
+                                        <button onClick={(e: any) => { e.stopPropagation(); deleteProvider(p.name); }}
+                                            style={{ padding: "3px 8px", fontSize: 10, borderRadius: 4, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer" }}>
+                                            删除
+                                        </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            {savedProviders.length === 0 && (
+                                <div style={{ color: colors.textSecondary, fontSize: 12, textAlign: "center", padding: 20 }}>
+                                    还没有保存的服务商<br/>在 LLM API 页配置后点 💾保存
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

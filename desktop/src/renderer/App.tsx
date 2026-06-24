@@ -18,6 +18,8 @@ import { MemoryDashboard } from "./components/layout/MemoryDashboard";
 import { SkinBrowser } from "./components/layout/SkinBrowser";
 import { RePanel } from "./components/layout/RePanel";
 import { DetectivePanel } from "./components/layout/DetectivePanel";
+import { AdminPanel } from "./components/layout/AdminPanel";
+import { GoalPanel } from "./components/layout/GoalPanel";
 import { t, setLang } from "./i18n";
 import { useGlobalShortcuts, getShortcutManager } from "./shortcuts";
 import { useInitializeTheme } from "./theme";
@@ -42,6 +44,8 @@ export default function App() {
     const [showSkins, setShowSkins] = useState(false);
     const [showRe, setShowRe] = useState(false);
     const [showDetective, setShowDetective] = useState(false);
+    const [showAdmin, setShowAdmin] = useState(false);
+    const [showGoal, setShowGoal] = useState(false);
         const [bgImage, setBgImage] = useState<string>('');
     const [panelOpacityL, setPanelOpacityL] = useState<number>(0.6);
     const [panelBgL, setPanelBgL] = useState<string>('');
@@ -186,6 +190,10 @@ export default function App() {
             <Toolbar
             onToggleMemory={() => setShowMemory(!showMemory)}
             showMemory={showMemory}
+            onToggleAdmin={() => setShowAdmin(!showAdmin)}
+            showAdmin={showAdmin}
+            onToggleGoal={() => setShowGoal(!showGoal)}
+            showGoal={showGoal}
             onToggleSkins={() => setShowSkins(!showSkins)}
             showSkins={showSkins}
             onToggleRe={() => setShowRe(!showRe)}
@@ -272,6 +280,8 @@ export default function App() {
             {showDetective && <DetectivePanel onClose={() => setShowDetective(false)} />}
             {showRe && <RePanel onClose={() => setShowRe(false)} />}
             {showSkins && <SkinBrowser onClose={() => setShowSkins(false)} />}
+            {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+            {showGoal && <GoalPanel onClose={() => setShowGoal(false)} />}
             {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
         </div>
     );

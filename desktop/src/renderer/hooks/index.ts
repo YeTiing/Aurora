@@ -1,4 +1,4 @@
-// Aurora hooks — Agent SSE通信 + 终端控制 (Codex SSE事件对齐)
+// Aurora hooks 鈥?Agent SSE闃熶紶 + 缁堢鎺у埗 (Codex SSE浜嬩欢瀵归綈)
 import { useEffect, useRef, useCallback } from "react";
 import { useStore } from "../store";
 import type { BackendMessage, SSEEvent } from "../../shared/types";
@@ -6,7 +6,7 @@ import type { BackendMessage, SSEEvent } from "../../shared/types";
 declare global {
     interface Window {
         aurora: {
-            chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; model?: string }) => Promise<any>;
+            chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; model?: string; history?: {role:string;content:string}[] }) => Promise<any>;
             cancel: (sessionId: string) => Promise<any>;
             terminal: {
                 create: (sessionId: string, cwd: string) => Promise<boolean>;
@@ -16,8 +16,8 @@ declare global {
                 onData: (cb: (data: { sessionId: string; data: string }) => void) => void;
                 onExit: (cb: (data: { sessionId: string; exitCode: number }) => void) => void;
             };
-            onAgentMessage: (cb: (msg: any) => void) => void;
-            onBackendConnected: (cb: () => void) => void;
+            onAgentMessage: (cb: (msg: any) => void) => (() => void);
+            onBackendConnected: (cb: () => void) => (() => void);
             dialog: {
                 openFolder: () => Promise<string | null>;
                 openFile: () => Promise<string | null>;
@@ -34,7 +34,6 @@ declare global {
     }
 }
 
-// 处理 Codex 格式的 SSE 事件名称
 function normalizeEventType(rawType: string): string {
     if (rawType.startsWith("codex/event/")) return rawType;
     const mapping: Record<string, string> = {
@@ -58,19 +57,19 @@ export function useAgent() {
     const setStreaming = useStore((s) => s.setStreaming);
     const setBackendConnected = useStore((s) => s.setBackendConnected);
     const streamingRef = useRef(false);
+    // Deduplicate assistant messages by content hash
+    const seenMessages = useRef(new Set<string>());
 
     useEffect(() => {
-        window.aurora?.onAgentMessage((raw: any) => {
+        const unsub = window.aurora?.onAgentMessage((raw: any) => {
             const sessionId = useStore.getState().activeSessionId;
             if (!sessionId) return;
 
-            //  SSE 
             const eventType = raw.type ? normalizeEventType(raw.type) : "";
             const data = raw.data || raw;
 
             switch (eventType) {
                 case "codex/event/task_started":
-                    addMessage(sessionId, { role: "system", content: `🚀 ${data.task || ""}`.trim() });
                     streamingRef.current = true;
                     setStreaming(true);
                     break;
@@ -78,10 +77,7 @@ export function useAgent() {
                 case "codex/event/agent_reasoning":
                 case "codex/event/agent_reasoning_delta":
                     if (data.status) {
-                        addMessage(sessionId, { role: "system", content: `🧠 ${data.status}` });
-                    }
-                    if (data.delta && data.delta.length < 200) {
-                        addMessage(sessionId, { role: "system", content: data.delta });
+                        addMessage(sessionId, { role: "system", content: `馃 ${data.status}` });
                     }
                     break;
 
@@ -110,69 +106,57 @@ export function useAgent() {
                     break;
 
                 case "codex/event/agent_message":
-                case "codex/event/agent_message_delta":
                 case "codex/event/agent_message_content_delta":
                     if (data.content || data.delta) {
-                        addMessage(sessionId, {
-                            role: "assistant",
-                            content: data.content || data.delta || "",
-                        });
-                    }
-                    if (raw.type === "response" && data.content) {
-                        setStreaming(false);
-                        if (data.plan) updatePlan(sessionId, data.plan);
+                        const msg = data.content || data.delta || "";
+                        const key = sessionId + ":" + msg.slice(0, 80);
+                        if (!seenMessages.current.has(key)) {
+                            seenMessages.current.add(key);
+                            addMessage(sessionId, { role: "assistant", content: msg });
+                        }
                     }
                     break;
 
                 case "codex/event/task_complete":
+                    seenMessages.current.clear();
                     setStreaming(false);
                     streamingRef.current = false;
-                    if (data.result) {
-                        addMessage(sessionId, { role: "system", content: `✅ 完成` });
-                    }
                     if (data.plan) updatePlan(sessionId, data.plan);
-                    if (raw.response) {
-                        addMessage(sessionId, { role: "assistant", content: raw.response });
-                    }
                     break;
 
                 case "codex/event/error":
                 case "codex/event/stream_error":
-                    addMessage(sessionId, { role: "system", content: `❌ ${data.error || raw.content || "Unknown error"}` });
+                    addMessage(sessionId, { role: "system", content: `鉂?${data.error || "Unknown error"}` });
                     setStreaming(false);
-                    break;
-
-                case "codex/event/warning":
-                    addMessage(sessionId, { role: "system", content: `⚠️ ${data.warning || ""}` });
                     break;
 
                 case "codex/event/turn_aborted":
+                    seenMessages.current.clear();
                     setStreaming(false);
                     streamingRef.current = false;
-                    addMessage(sessionId, { role: "system", content: "⏹ 已取消" });
                     break;
 
                 default:
-                    // Legacy 兼容
-                    if (raw.type === "status" && raw.content) {
-                        addMessage(sessionId, { role: "system", content: `[${raw.content}]` });
-                    } else if (raw.type === "response" && raw.content) {
-                        addMessage(sessionId, { role: "assistant", content: raw.content });
+                    if (raw.type === "done") {
+                        seenMessages.current.clear();
                         setStreaming(false);
                     } else if (raw.type === "error" && raw.content) {
-                        addMessage(sessionId, { role: "system", content: `❌ ${raw.content}` });
-                        setStreaming(false);
-                    } else if (raw.type === "done") {
+                        addMessage(sessionId, { role: "system", content: `鉂?${raw.content}` });
                         setStreaming(false);
                     }
                     break;
             }
         });
 
-        window.aurora?.onBackendConnected(() => {
+        const unsub2 = window.aurora?.onBackendConnected(() => {
             setBackendConnected(true);
         });
-    }, [addMessage, addToolLog, updatePlan, setStreaming, setBackendConnected]);
+
+        return () => {
+            unsub?.();
+            unsub2?.();
+        };
+    }, []);  // Empty deps - only run once
 
     const sendMessage = useCallback(async (message: string) => {
         const state = useStore.getState();
@@ -180,12 +164,19 @@ export function useAgent() {
         if (!sessionId) {
             sessionId = state.createSession(state.workspace);
         }
+        // Build history BEFORE adding current message (only user/assistant roles)
+        const session = state.sessions.find((s: any) => s.id === sessionId);
+        const history = (session?.messages || [])
+            .filter((m: any) => m.role === "user" || m.role === "assistant")
+            .slice(-8)
+            .map((m: any) => ({ role: m.role, content: m.content }));
         addMessage(sessionId, { role: "user", content: message });
         setStreaming(true);
-        await window.aurora?.chat({ message, workspace: state.workspace, sessionId, sandboxMode: state.sandboxMode, model: state.llmModel });
+        await window.aurora?.chat({ message, workspace: state.workspace, sessionId, sandboxMode: state.sandboxMode, model: state.llmModel, history });
     }, [addMessage, setStreaming]);
 
     const cancelRequest = useCallback(async () => {
+        seenMessages.current.clear();
         const sessionId = useStore.getState().activeSessionId;
         if (sessionId) {
             await window.aurora?.cancel(sessionId);
@@ -198,7 +189,6 @@ export function useAgent() {
 
 export function useTerminal(sessionId: string, cwd: string) {
     const created = useRef(false);
-
     useEffect(() => {
         if (!created.current) {
             window.aurora?.terminal.create(sessionId, cwd);

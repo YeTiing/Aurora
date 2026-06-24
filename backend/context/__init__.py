@@ -1,10 +1,6 @@
-from .token_counter import TokenCounter, MODEL_ENCODINGS, counter
-from .token_budget import TokenBudget as TokenAllocationBudget
-from .context_manager import ContextManager, CompactionManager, COMPACTION_PROMPT
-from .token_tracker import TokenTracker, TokenStats, TokenBudget, tracker, truncate_output
-
-__all__ = [
-    "TokenCounter", "MODEL_ENCODINGS", "counter",
-    "TokenAllocationBudget", "ContextManager", "CompactionManager", "COMPACTION_PROMPT",
-    "TokenTracker", "TokenStats", "TokenBudget", "tracker", "truncate_output",
-]
+"""Aurora context management package."""
+from backend.context.token_counter import TokenCounter
+from backend.context.token_budget import TokenBudget
+from backend.context.token_tracker import TokenTracker, tracker
+from backend.context.context_manager import ContextManager
+from backend.context.collapse import context_collapser, ContextCollapser, CollapseConfig

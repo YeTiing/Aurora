@@ -178,6 +178,17 @@ class LLMClient:
             return {**p.stats, "total_requests": self._total_requests, "total_tokens": self._total_tokens}
         return {"total_requests": self._total_requests, "total_tokens": self._total_tokens}
 
+
+    def set_model(self, model: str):
+        """Hot-swap model without re-creating provider"""
+        self.config.model = model
+        # Provider may expose model as readonly property; just update config
+        try:
+            if self._provider:
+                setattr(self._provider, "model", model)
+        except (AttributeError, TypeError):
+            pass
+
     def count_tokens(self, text_or_messages, model: str | None = None) -> int:
         """计算文本或消息列表的Token数"""
         m = model or self.config.model

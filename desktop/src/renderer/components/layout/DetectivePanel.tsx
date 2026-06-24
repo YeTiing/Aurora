@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useStore } from "../../store";
+import { t } from "../../i18n";
 
 export function DetectivePanel({ onClose }: { onClose: () => void }) {
     const colors = useStore((s) => s.themeColors);
@@ -63,7 +64,7 @@ export function DetectivePanel({ onClose }: { onClose: () => void }) {
                             )}
                             {result.suspicious_lines&&result.suspicious_lines.length>0 && (
                                 <div style={{marginBottom:14}}>
-                                    <div style={{fontWeight:600,marginBottom:4,color:colors.warning}}>Suspicious Lines</div>
+                                    <div style={{fontWeight:600,marginBottom:4,color:colors.warning}}>{t("suspiciousLines")}</div>
                                     {result.suspicious_lines.slice(0,20).map((sl:any,i:number)=>(
                                         <div key={i} style={{display:"flex",gap:8,padding:"3px 0",borderBottom:`1px solid ${colors.border}`}}>
                                             <span style={{color:colors.textSecondary,minWidth:36}}>L{sl.line}</span>
@@ -75,7 +76,7 @@ export function DetectivePanel({ onClose }: { onClose: () => void }) {
                             )}
                             {result.suspect_commits&&result.suspect_commits.length>0 && (
                                 <div>
-                                    <div style={{fontWeight:600,marginBottom:4,color:colors.error}}>Suspect Commits</div>
+                                    <div style={{fontWeight:600,marginBottom:4,color:colors.error}}>{t("suspectCommits")}</div>
                                     {result.suspect_commits.map((sc:any,i:number)=>(
                                         <div key={i} style={{padding:"4px 0",fontFamily:"monospace",fontSize:11}}>
                                             <span style={{color:colors.accent}}>{sc.hash}</span>{" "}

@@ -56,9 +56,19 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
     if not command:
         return {"success": False, "stdout": "", "stderr": "No command provided", "exit_code": -1}
 
-    # 安全校验
+    # 安全校验: 白名单
     if not _is_whitelisted(command):
         return {"success": False, "stdout": "", "stderr": f"Command not whitelisted: {command.split()[0] if command.strip() else command}", "exit_code": -1}
+
+    # Bash safety classification
+    try:
+        from backend.bash_classifier import get_classifier
+        classifier = get_classifier()
+        cls = classifier.classify_pipeline(command)
+        if cls.risk.value in ("blocked", "critical"):
+            return {"success": False, "stdout": "", "stderr": f"Command blocked: {cls.reason} (risk: {cls.risk.value})", "exit_code": -1}
+    except ImportError:
+        pass
 
     try:
         sanitize_command(command)

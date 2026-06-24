@@ -10,14 +10,57 @@ except ImportError:
     tomllib = None
 
 
-class Config:
-    """Three-tier config: global < user < project, supports TOML + JSON"""
+def _load_dotenv(project_root: Path) -> dict:
+    """Load .env file from project root, return env overrides dict."""
+    env_path = project_root / ".env"
+    if not env_path.exists():
+        return {}
+    overrides = {}
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip().strip("\"'")
+                if val:
+                    # Map .env vars to config keys
+                    overrides[key] = val
+    return _map_env_to_config(overrides)
 
-    def __init__(self, project_root: str | Path = "."):
+
+def _map_env_to_config(env: dict) -> dict:
+    """Map AURORA_ env vars to config keys."""
+    result = {}
+    mapping = {
+        "AURORA_LLM_API_KEY": ("llm.api_key", "llm", "api_key"),
+        "AURORA_LLM_MODEL": ("llm.model", "llm", "model"),
+        "AURORA_LLM_BASE_URL": ("llm.base_url", "llm", "base_url"),
+        "AURORA_LLM_PROVIDER": ("llm.provider", "llm", "provider"),
+        "AURORA_VISION_API_KEY": ("vision_fallback.api_key", "vision_fallback", "api_key"),
+        "AURORA_VISION_MODEL": ("vision_fallback.model", "vision_fallback", "model"),
+        "AURORA_HOST": ("server.host", "server", "host"),
+        "AURORA_PORT": ("server.port", "server", "port"),
+    }
+    for env_key, (_, section, field) in mapping.items():
+        if env_key in env:
+            result.setdefault(section, {})[field] = env[env_key]
+    return result
+
+
+class Config:
+    """Three-tier config: global < user < project, supports TOML + JSON + .env"""
+
+    def __init__(self, project_root: str | Path = ".", test_mode: bool = False):
         self.project_root = Path(project_root).resolve()
+        self._test_mode = test_mode
         self._global = self._load(self._global_path())
         self._user = self._load(self._user_path())
         self._project = self._load(self.project_root / "aurora.json")
+        # Load .env overrides (highest priority)
+        self._env = _load_dotenv(self.project_root)
 
     @staticmethod
     def _global_path() -> Path:
@@ -60,7 +103,8 @@ class Config:
         return base
 
     def get(self, key: str, default: Any = None) -> Any:
-        chain = [self._project, self._user, self._global]
+        # Priority: .env > project > user > global
+        chain = [self._env, self._project, self._user, self._global]
         for section in chain:
             val = section
             for part in key.split("."):
@@ -77,6 +121,7 @@ class Config:
         result = copy.deepcopy(self._global)
         self._deep_merge(result, self._user)
         self._deep_merge(result, self._project)
+        self._deep_merge(result, self._env)
         return result
 
     # Convenience properties
@@ -86,7 +131,10 @@ class Config:
 
     @property
     def llm_api_key(self) -> str:
-        return self.get("llm.api_key", "")
+        key = self.get("llm.api_key", "")
+        if not key:
+            key = os.environ.get("AURORA_LLM_API_KEY", "")
+        return key
 
     @property
     def llm_base_url(self) -> str:

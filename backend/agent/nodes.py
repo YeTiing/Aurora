@@ -1,6 +1,6 @@
 # Agent 六步节点实现 — Planner / ToolSelect / Executor / Observer / Synthesizer
 from __future__ import annotations
-import json, time, re, traceback
+import asyncio, json, time, re, traceback
 from typing import Any, Callable
 from .state import AgentState, Message, PlanStep, ToolInvocation, ToolResult
 from .llm_client import LLMClient
@@ -8,6 +8,7 @@ from .llm_providers import LLMResponse, StreamChunk
 from .system_prompt import get_cli_prompt, get_desktop_prompt, BU, TOOL_GUIDELINES, CORE_IDENTITY
 from backend.goal import goal_manager
 from backend.context.token_tracker import TokenBudget
+from backend.agent.integration_hooks import post_file_edit_hook, post_session_hook
 
 SYSTEM_PROMPT = get_desktop_prompt()
 
@@ -216,6 +217,16 @@ async def executor_node(
         ))
         results.append(asdict(tr))
 
+        # Post-edit LSP diagnostic injection
+        if tr.success and inv.name in ("apply_patch", "file_rw"):
+            try:
+                lsp_note = await post_file_edit_hook(inv.name, inv.arguments, {"success": True, "output": tr.output})
+                if lsp_note:
+                    tr.output += lsp_note
+                    state.messages[-1].content += lsp_note
+            except Exception:
+                pass
+
     return {"tool_results": results}
 
 
@@ -295,6 +306,13 @@ async def synthesizer_node(state: AgentState, llm: LLMClient) -> dict:
         state.add_message(Message.assistant(content=state.final_response))
 
     state.done = True
+
+    # AutoDream background memory consolidation (fire-and-forget)
+    try:
+        asyncio.create_task(post_session_hook())
+    except Exception:
+        pass
+
     return {"done": True, "final_response": state.final_response}
 
 

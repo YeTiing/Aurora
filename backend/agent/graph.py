@@ -16,7 +16,7 @@ from .nodes import (
 
 )
 
-from .llm_client import LLMClient, MockLLMClient
+from .llm_client import LLMClient
 
 from .checkpoint import CheckpointManager
 
@@ -84,7 +84,7 @@ class AgentGraph:
 
     # ══ 核心执行循环 ══
 
-    async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "") -> AgentState:
+    async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "", history: list[dict] | None = None) -> AgentState:
 
         ws = workspace or self.workspace
 
@@ -141,18 +141,25 @@ class AgentGraph:
                 from backend.dual_memory import get_closed_loop
                 cl = get_closed_loop()
                 mem = cl.system_prompt(user_input)
-                sys_prompt = "You are Aurora, a helpful AI assistant.\n\n" + mem + "\n\nAnswer concisely and naturally."
-                resp = await self.llm.chat_simple(
-
-                    user_message=user_input,
-
-                    system_prompt=sys_prompt,
-
-                    max_tokens=2000,
-
-                )
-
-                state.final_response = resp if isinstance(resp, str) else (resp.content if hasattr(resp, "content") else str(resp))
+                soul_text = ""
+                try:
+                    from pathlib import Path
+                    for p in [Path(".aurora") / "SOUL.md", Path("..") / ".aurora" / "SOUL.md"]:
+                        if p.exists():
+                            soul_text = p.read_text(encoding="utf-8").strip()
+                            break
+                except: pass
+                sys_prompt = (soul_text + "\n\n" + mem + "\n\nAnswer concisely and naturally.") if soul_text else ("You are Aurora, a helpful AI assistant.\n\n" + mem + "\n\nAnswer concisely and naturally.")
+                # Build messages with conversation history
+                messages = [{"role": "system", "content": sys_prompt}]
+                if history:
+                    for h in history[-8:]:
+                        r = h.get("role","user")
+                        if r in ("user", "assistant"):
+                            messages.append({"role": r, "content": h.get("content","")})
+                messages.append({"role": "user", "content": user_input})
+                resp = await self.llm.chat(messages, max_tokens=2000)
+                state.final_response = resp.content if hasattr(resp, "content") else str(resp)
 
             except Exception as e:
 
@@ -369,7 +376,7 @@ class AgentGraph:
 
 
 
-    async def run_with_stream(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = ""):
+    async def run_with_stream(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "", history: list[dict] | None = None):
 
         """流式执行 — 每步 yield SSE 进度更新"""
 

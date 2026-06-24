@@ -137,7 +137,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                 {/* Capture bar */}
                 <div style={{padding:"8px 16px",display:"flex",gap:8,borderBottom:`1px solid ${colors.border}`}}>
                     <input value={captureUrl} onChange={e=>setCaptureUrl(e.target.value)} placeholder="https://target.com" style={{flex:1,background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:6,padding:"5px 10px",fontSize:12}} />
-                    {capturing && <span style={{color:colors.success,fontSize:12,whiteSpace:"nowrap"}}>Capturing...</span>}
+                    {capturing && <span style={{color:colors.success,fontSize:12,whiteSpace:"nowrap"}}>{t("capturing")}</span>}
                 </div>
 
                 {/* Tabs */}
@@ -203,7 +203,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                         <div style={{margin:"4px 0 8px 16px",padding:10,background:colors.bg,borderRadius:8,border:`1px solid ${colors.border}`,fontSize:11}}>
                                             <div style={{display:"flex",gap:6,marginBottom:8}}>
                                                 <button onClick={copyCurl} style={{background:colors.accent,color:"#fff",border:"none",borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>Copy cURL</button>
-                                                <button onClick={()=>replayRequest(req.id)} style={{background:"transparent",color:colors.accent,border:`1px solid ${colors.accent}`,borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>Replay</button>
+                                                <button onClick={()=>replayRequest(req.id)} style={{background:"transparent",color:colors.accent,border:`1px solid ${colors.accent}`,borderRadius:4,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>{t("replay")}</button>
                                                 <button onClick={()=>{setDetail(null);setReplayResult(null);}} style={{background:"transparent",color:colors.textSecondary,border:"none",fontSize:11,cursor:"pointer"}}>关闭</button>
                                             </div>
                                             {curlCmd && (
@@ -251,7 +251,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                 <div style={{fontSize:12}}>
                                     {analysis.scenes&&analysis.scenes.length>0 && (
                                         <div style={{marginBottom:14}}>
-                                            <div style={{fontWeight:600,marginBottom:6,color:colors.accent}}>Scene Detection</div>
+                                            <div style={{fontWeight:600,marginBottom:6,color:colors.accent}}>{t("sceneDetection")}</div>
                                             {analysis.scenes.map((s:any)=>(
                                                 <div key={s.scene} style={{display:"flex",gap:8,padding:"3px 0"}}><span>{s.scene}</span><span style={{color:colors.textSecondary}}>{s.score}%</span></div>
                                             ))}
@@ -267,7 +267,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                     )}
                                     {analysis.auth_tokens&&analysis.auth_tokens.length>0 && (
                                         <div style={{marginBottom:14}}>
-                                            <div style={{fontWeight:600,marginBottom:6,color:colors.success}}>Auth Tokens</div>
+                                            <div style={{fontWeight:600,marginBottom:6,color:colors.success}}>{t("authTokens")}</div>
                                             {analysis.auth_tokens.map((t:any,i:number)=>(
                                                 <div key={i} style={{padding:"3px 0"}}><span style={{color:colors.textSecondary}}>{t.type}:</span> <span style={{fontFamily:"monospace",wordBreak:"break-all"}}>{t.value}</span></div>
                                             ))}
@@ -294,7 +294,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                 style={{minHeight:120,background:colors.bg,color:colors.text,border:`1px solid ${colors.border}`,borderRadius:8,padding:10,fontSize:12,resize:"vertical",fontFamily:"monospace"}} />
                             <button onClick={runDeobfuscate} disabled={!deobCode.trim()}
                                 style={{background:colors.accent,color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",fontSize:12,cursor:"pointer",alignSelf:"flex-start"}}>
-                                Deobfuscate + Trace
+                                {t("deobfuscate")}
                             </button>
                             {deobResult && (
                                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -303,7 +303,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                         <pre style={{background:colors.bg,color:colors.text,padding:8,borderRadius:6,fontSize:11,maxHeight:300,overflow:"auto"}}>
                                             {JSON.stringify(deobResult.obfuscation,null,2)}
                                         </pre>
-                                        <div style={{fontWeight:600,fontSize:12,marginTop:8,marginBottom:4,color:colors.warning}}>Crypto Calls</div>
+                                        <div style={{fontWeight:600,fontSize:12,marginTop:8,marginBottom:4,color:colors.warning}}>{t("cryptoCalls")}</div>
                                         <pre style={{background:colors.bg,color:colors.text,padding:8,borderRadius:6,fontSize:11,maxHeight:200,overflow:"auto"}}>
                                             {JSON.stringify(deobResult.crypto_calls?.slice(0,20),null,2)}
                                         </pre>
@@ -311,11 +311,11 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                     <div>
                                         {sigResult && (
                                             <>
-                                                <div style={{fontWeight:600,fontSize:12,marginBottom:4,color:colors.success}}>Signature Trace</div>
+                                                <div style={{fontWeight:600,fontSize:12,marginBottom:4,color:colors.success}}>{t("signatureTrace")}</div>
                                                 <div style={{background:colors.bg,padding:8,borderRadius:6,marginBottom:8,fontSize:12,color:colors.accent}}>{sigResult.summary}</div>
                                                 {sigResult.key_variables&&sigResult.key_variables.length>0 && (
                                                     <>
-                                                        <div style={{fontWeight:600,fontSize:11,marginBottom:2,color:colors.error}}>Keys Found</div>
+                                                        <div style={{fontWeight:600,fontSize:11,marginBottom:2,color:colors.error}}>{t("keysFound")}</div>
                                                         <pre style={{background:colors.bg,color:colors.text,padding:8,borderRadius:6,fontSize:11,maxHeight:150,overflow:"auto"}}>
                                                             {JSON.stringify(sigResult.key_variables,null,2)}
                                                         </pre>
@@ -329,7 +329,7 @@ export function RePanel({ onClose }: { onClose: () => void }) {
                                         </pre>
                                         {deobResult.secrets&&deobResult.secrets.length>0 && (
                                             <>
-                                                <div style={{fontWeight:600,fontSize:12,marginTop:8,marginBottom:4,color:colors.error}}>Secrets Found</div>
+                                                <div style={{fontWeight:600,fontSize:12,marginTop:8,marginBottom:4,color:colors.error}}>{t("secretsFound")}</div>
                                                 <pre style={{background:colors.bg,color:colors.text,padding:8,borderRadius:6,fontSize:11,maxHeight:150,overflow:"auto"}}>
                                                     {JSON.stringify(deobResult.secrets,null,2)}
                                                 </pre>

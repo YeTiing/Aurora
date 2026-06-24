@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useStore } from "../../store";
 import { useTheme } from "../../hooks";
+import { t } from "../../i18n";
 
 interface Command {
     id: string;

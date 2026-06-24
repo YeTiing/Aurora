@@ -5,6 +5,10 @@ import { t } from "../../i18n";
 interface ToolbarProps {
     onToggleMemory?: () => void;
     showMemory?: boolean;
+    onToggleAdmin?: () => void;
+    showAdmin?: boolean;
+    onToggleGoal?: () => void;
+    showGoal?: boolean;
     onToggleSkins?: () => void;
     showSkins?: boolean;
     onToggleRe?: () => void;
@@ -13,7 +17,14 @@ interface ToolbarProps {
     showDetective?: boolean;
 }
 
-export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, onToggleRe, showRe, onToggleDetective, showDetective, onToggleDocGhost, showDocGhost }: ToolbarProps) {
+export function Toolbar({
+    onToggleMemory, showMemory,
+    onToggleAdmin, showAdmin,
+    onToggleGoal, showGoal,
+    onToggleSkins, showSkins,
+    onToggleRe, showRe,
+    onToggleDetective, showDetective
+}: ToolbarProps) {
     const colors = useStore((s) => s.themeColors);
     const createSession = useStore((s) => s.createSession);
     const showRightPanel = useStore((s) => s.showRightPanel);
@@ -29,10 +40,27 @@ export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, 
                 </span>
             </div>
             <div className="aurora-toolbar-right">
-                
+                {onToggleMemory && (
+                    <button className={`toolbar-btn ${showMemory ? "active" : ""}`}
+                        onClick={onToggleMemory} title="Memory Dashboard (SOUL / Memory / Cron)">
+                        🧠
+                    </button>
+                )}
+                {onToggleGoal && (
+                    <button className={`toolbar-btn ${showGoal ? "active" : ""}`}
+                        onClick={onToggleGoal} title="Goal Tracker">
+                        🎯
+                    </button>
+                )}
+                {onToggleAdmin && (
+                    <button className={`toolbar-btn ${showAdmin ? "active" : ""}`}
+                        onClick={onToggleAdmin} title="Admin Panel (Plugins / MCP / Browser)">
+                        🔧
+                    </button>
+                )}
                 {onToggleDetective && (
                     <button className={`toolbar-btn ${showDetective ? "active" : ""}`}
-                        onClick={onToggleDetective} title="Diff Detective">
+                        onClick={onToggleDetective} title={t("diffDetective")}>
                         🕵
                     </button>
                 )}
@@ -44,7 +72,7 @@ export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, 
                 )}
                 {onToggleSkins && (
                     <button className={`toolbar-btn ${showSkins ? "active" : ""}`}
-                        onClick={onToggleSkins} title="主题皮肤">
+                        onClick={onToggleSkins} title="Theme Skins">
                         🎨
                     </button>
                 )}
@@ -52,7 +80,7 @@ export function Toolbar({ onToggleMemory, showMemory, onToggleSkins, showSkins, 
                     onClick={toggleRightPanel} title="📁">
                     📁
                 </button>
-            <button className="toolbar-btn" onClick={toggleSettings} title={t("settings")}>
+                <button className="toolbar-btn" onClick={toggleSettings} title={t("settings")}>
                     ⚙️
                 </button>
             </div>

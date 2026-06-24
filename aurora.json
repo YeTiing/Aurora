@@ -1,8 +1,9 @@
 {
     "llm": {
-        "model": "gpt-4o",
+        "model": "deepseek-v4-flash",
         "api_key": "",
-        "base_url": "https://api.openai.com/v1"
+        "base_url": "https://api.deepseek.com",
+        "provider": "deepseek"
     },
     "agent": {
         "max_turn_iter": 30,
@@ -35,14 +36,14 @@
         "host": "127.0.0.1",
         "port": 9876
     },
-    "provider": "openai",
+    "provider": "deepseek",
     "workspace": "./workspace",
     "max_context_tokens": 128000,
     "sandbox_mode": "danger-full-access",
     "approval_policy": "never",
     "language": "zh",
     "theme": "aurora-dark",
-    "model": "gpt-4o",
+    "model": "deepseek-v4-flash",
     "vision_fallback": {
         "model": "gpt-4o-mini",
         "provider": "openai",

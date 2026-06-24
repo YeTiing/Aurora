@@ -7,8 +7,8 @@ import type { Session } from "../../../shared/types";
 
 interface ContextMenuState {
     open: boolean;
-    x: number;
-    y: number;
+    x: string;
+    y: string;
     sessionId: string;
 }
 
@@ -24,7 +24,7 @@ export const SessionPanel: React.FC = () => {
     const togglePinSession = useStore((s) => s.togglePinSession);
     const toggleArchiveSession = useStore((s) => s.toggleArchiveSession);
     const [search, setSearch] = useState("");
-    const [contextMenu, setContextMenu] = useState<ContextMenuState>({ open: false, x: 0, y: 0, sessionId: "" });
+    const [contextMenu, setContextMenu] = useState<ContextMenuState>({ open: false, x: "0px", y: "0px", sessionId: "" });
     const [renaming, setRenaming] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState("");
@@ -147,7 +147,7 @@ export const SessionPanel: React.FC = () => {
             <div style={{ padding: "6px 8px" }}>
                 <input
                     type="text"
-                    placeholder={t("搜索对话记录...")}
+                    placeholder={t("searchSessions")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={{

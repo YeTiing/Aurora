@@ -108,6 +108,11 @@ export const useStore = create<AuroraState>((set, get) => ({
         try {
             const sessions = await db.loadAllSessions();
             const theme = await db.loadSetting("theme");
+            const savedProvider = await db.loadSetting("llmProvider");
+            const savedModel = await db.loadSetting("llmModel");
+            const extraSettings: any = {};
+            if (savedProvider) extraSettings.llmProvider = savedProvider;
+            if (savedModel) extraSettings.llmModel = savedModel;
             if (sessions.length > 0) {
                 set({
                     sessions,
@@ -115,10 +120,12 @@ export const useStore = create<AuroraState>((set, get) => ({
                     sessionsLoaded: true,
                     theme: theme || "dark",
                     themeColors: theme === "light" ? lightTheme : darkTheme,
+                    ...extraSettings,
                 });
             } else {
                 set({ sessionsLoaded: true, theme: theme || "dark",
                     themeColors: theme === "light" ? lightTheme : darkTheme,
+                    ...extraSettings,
                 });
             }
         } catch {
@@ -244,8 +251,8 @@ export const useStore = create<AuroraState>((set, get) => ({
     llmBaseUrl: "https://api.openai.com/v1",
     llmMaxContext: 24000,
     llmTemperature: 0.3,
-    setLLMProvider(v) { set({ llmProvider: v }); },
-    setLLMModel(v) { set({ llmModel: v }); },
+    setLLMProvider(v) { set({ llmProvider: v }); db.saveSetting("llmProvider", v).catch(() => {}); },
+    setLLMModel(v) { set({ llmModel: v }); db.saveSetting("llmModel", v).catch(() => {}); },
     setLLMApiKey(v) { set({ llmApiKey: v }); },
     setLLMBaseUrl(v) { set({ llmBaseUrl: v }); },
     setLLMMaxContext(v) { set({ llmMaxContext: v }); },

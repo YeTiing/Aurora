@@ -1,4 +1,4 @@
-# Model Discovery -- multi-provider model enumeration, benchmarking, recommendation
+﻿# Model Discovery -- multi-provider model enumeration, benchmarking, recommendation
 from __future__ import annotations
 import httpx, asyncio, time, json
 from dataclasses import dataclass, field
@@ -86,7 +86,20 @@ class ModelDiscovery:
         info["context_window"] = info.get("context_window", info.get("max_tokens", 128000))
         return ModelInfo(**{k: v for k, v in info.items() if k in ModelInfo.__dataclass_fields__})
 
-    async def discover_openai_models(self, api_key: str, base_url: str = "https://api.openai.com/v1") -> list[ModelInfo]:
+    def _fallback_known_models(self, provider: str) -> list[ModelInfo]:
+        """Return known models for a provider when network discovery fails."""
+        models: list[ModelInfo] = []
+        provider_models = {
+            "openai": ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "gpt-5.2", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+            "groq": ["llama-3.3-70b", "mixtral-8x7b", "gemma2-9b-it"],
+            "deepseek": ["deepseek-chat", "deepseek-reasoner"],
+        }
+        for mid in provider_models.get(provider, []):
+            if mid in KNOWN_MODELS:
+                models.append(self._make_model(mid, provider=provider))
+        return models
+
+    async def discover_openai_models(self, api_key: str, base_url: str = "https://api.openai.com/v1", provider: str = "openai") -> list[ModelInfo]:
         models: list[ModelInfo] = []
         url = base_url.rstrip("/") + "/models"
         try:
@@ -97,14 +110,13 @@ class ModelDiscovery:
                     for m in data.get("data", []):
                         mid = m.get("id", "")
                         if mid and not any(skip in mid.lower() for skip in ["dall-e", "tts-", "whisper", "embedding", "moderation", "audio", "davinci", "babbage", "curie", "ada"]):
-                            info = self._make_model(mid, provider="openai", owned_by=m.get("owned_by", "openai"))
+                            info = self._make_model(mid, provider=provider, owned_by=m.get("owned_by", "openai"))
                             models.append(info)
         except Exception:
             pass
+        # Fallback: return known models when network discovery fails
         if not models:
-            for mid, pinfo in KNOWN_MODELS.items():
-                if pinfo.get("provider") == "openai":
-                    models.append(self._make_model(mid, provider="openai"))
+            models = self._fallback_known_models(provider)
         return models
 
     async def discover_ollama_models(self, base_url: str = "http://localhost:11434") -> list[ModelInfo]:
@@ -146,9 +158,7 @@ class ModelDiscovery:
         except Exception:
             pass
         if not models:
-            for mid, pinfo in KNOWN_MODELS.items():
-                if pinfo.get("provider") == "groq":
-                    models.append(self._make_model(mid, provider="groq"))
+            models = self._fallback_known_models("groq")
         return models
 
     async def discover_deepseek_models(self, api_key: str) -> list[ModelInfo]:
@@ -167,9 +177,7 @@ class ModelDiscovery:
         except Exception:
             pass
         if not models:
-            for mid, pinfo in KNOWN_MODELS.items():
-                if pinfo.get("provider") == "deepseek":
-                    models.append(self._make_model(mid, provider="deepseek"))
+            models = self._fallback_known_models("deepseek")
         return models
 
     async def discover_all(self, api_key: str = "", ollama_url: str = "http://localhost:11434",
@@ -288,11 +296,11 @@ class ModelDiscovery:
             ages[key] = round(remaining, 1)
         return ages
 
-    async def list_models(self, base_url: str, api_key: str, timeout: float = 10.0) -> list[ModelInfo]:
+    async def list_models(self, base_url: str, api_key: str, provider: str = "openai", timeout: float = 10.0) -> list[ModelInfo]:
         cache_key = f"{base_url}:{api_key[:8]}"
         if cache_key in self._cache and time.time() < self._cache_ttl.get(cache_key, 0):
             return self._cache[cache_key]
-        models = await self.discover_openai_models(api_key, base_url)
+        models = await self.discover_openai_models(api_key, base_url, provider)
         self._cache[cache_key] = models
         self._cache_ttl[cache_key] = time.time() + 3600
         return models

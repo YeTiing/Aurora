@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useStore } from "../../store";
+import { t } from "../../i18n";
 import { useTheme } from "../../hooks";
 
 interface DiffBlock {

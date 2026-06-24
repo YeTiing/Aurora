@@ -304,8 +304,8 @@ ipcMain.handle("search:inFiles", async (_event, params: { query: string; workspa
     return results;
 });
 
-ipcMain.handle("agent:chat", async (_event, { message, workspace, sessionId, sandboxMode, model }) => {
-    sendToBackend({ type: "chat", message, workspace, sessionId, sandboxMode, model });
+ipcMain.handle("agent:chat", async (_event, { message, workspace, sessionId, sandboxMode, model, history }) => {
+    sendToBackend({ type: "chat", message, workspace, sessionId, sandboxMode, model, history });
     return { sent: true };
 });
 

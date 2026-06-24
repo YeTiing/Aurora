@@ -8,12 +8,12 @@ interface SkinBrowserProps {
 }
 
 const BUILTIN_SKINS = [
-    { name: "aurora-dark", label: "Aurora Dark", bg_preview: "#09090b", surface_preview: "#18181b", text_preview: "#f4f4f5", accent: "#3b82f6", accent_color_name: "blue" },
-    { name: "aurora-light", label: "Aurora Light", bg_preview: "#ffffff", surface_preview: "#f4f4f5", text_preview: "#09090b", accent: "#2563eb", accent_color_name: "blue" },
-    { name: "ocean-blue", label: "Ocean Blue", bg_preview: "#0f172a", surface_preview: "#1e293b", text_preview: "#f8fafc", accent: "#0ea5e9", accent_color_name: "blue" },
-    { name: "midnight-purple", label: "Midnight Purple", bg_preview: "#171026", surface_preview: "#281b40", text_preview: "#fdfcff", accent: "#a855f7", accent_color_name: "purple" },
-    { name: "forest-green", label: "Forest Green", bg_preview: "#05160d", surface_preview: "#0c2817", text_preview: "#f1fbf4", accent: "#22c55e", accent_color_name: "green" },
-    { name: "sunset-orange", label: "Sunset Orange", bg_preview: "#1e100a", surface_preview: "#331c12", text_preview: "#fff6f0", accent: "#f97316", accent_color_name: "orange" },
+    { name: "aurora-dark", label: "Aurora Dark", bg_preview: "#09090b", surface_preview: "#18181b", text_preview: "#f4f4f5", accent: "#3b82f6", accent_color_name: "blue", is_builtin: true },
+    { name: "aurora-light", label: "Aurora Light", bg_preview: "#ffffff", surface_preview: "#f4f4f5", text_preview: "#09090b", accent: "#2563eb", accent_color_name: "blue", is_builtin: true },
+    { name: "ocean-blue", label: "Ocean Blue", bg_preview: "#0f172a", surface_preview: "#1e293b", text_preview: "#f8fafc", accent: "#0ea5e9", accent_color_name: "blue", is_builtin: true },
+    { name: "midnight-purple", label: "Midnight Purple", bg_preview: "#171026", surface_preview: "#281b40", text_preview: "#fdfcff", accent: "#a855f7", accent_color_name: "purple", is_builtin: true },
+    { name: "forest-green", label: "Forest Green", bg_preview: "#05160d", surface_preview: "#0c2817", text_preview: "#f1fbf4", accent: "#22c55e", accent_color_name: "green", is_builtin: true },
+    { name: "sunset-orange", label: "Sunset Orange", bg_preview: "#1e100a", surface_preview: "#331c12", text_preview: "#fff6f0", accent: "#f97316", accent_color_name: "orange", is_builtin: true },
     { name: "rose-dawn", label: "Rose Dawn", bg_preview: "#201014", surface_preview: "#361b23", text_preview: "#fff4f6", accent: "#f43f5e", accent_color_name: "rose" },
     { name: "monochrome", label: "Monochrome", bg_preview: "#000000", surface_preview: "#111111", text_preview: "#ffffff", accent: "#ffffff", accent_color_name: "white" },
     { name: "ayanami-pink", label: "Ayanami Pink", bg_preview: "#20111a", surface_preview: "#351c2c", text_preview: "#fce7f3", accent: "#ec4899", accent_color_name: "pink" }
@@ -29,7 +29,7 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
 
     const handleApply = async (skinName: string) => {
         try {
-            await useStore.getState().changeTheme(skinName);
+            console.log('Theme apply:', skinName);
         } catch (e: any) {
             console.error("Theme Fail:", e);
         }

@@ -41,6 +41,7 @@ class MultiAgentOrchestrator:
         self._pending: set[str] = set()
         self._lock = asyncio.Lock()
         self._task_registry: dict[str, asyncio.Task] = {}
+        self._executor_registry: dict[str, Callable[[AgentNode], Coroutine]] = {}
 
     async def spawn(self, parent_id: str | None, name: str, task: str, priority: int = 0, metadata: dict | None = None) -> AgentNode:
         agent = AgentNode(id=f"agent_{uuid.uuid4().hex[:8]}", name=name, parent_id=parent_id, task=task, priority=priority, metadata=metadata or {})
@@ -50,6 +51,22 @@ class MultiAgentOrchestrator:
                 self.agents[parent_id].children.append(agent.id)
         return agent
 
+    async def _wrap_run(self, agent: AgentNode, executor: Callable[[AgentNode], Coroutine], agent_id: str | None = None):
+        """Execute agent task, handle result/error, and drain queue."""
+        aid = agent_id or agent.id
+        try:
+            result = await executor(agent)
+            agent.result = str(result)[:10000] if result else ""
+            agent.status = AgentStatus.DONE
+        except Exception as e:
+            agent.error = f"{type(e).__name__}: {str(e)[:500]}"
+            agent.status = AgentStatus.ERROR
+        finally:
+            agent.finished_at = time.time()
+            async with self._lock:
+                self._running.discard(aid)
+            await self._drain_queue()
+
     async def start(self, agent_id: str, executor: Callable[[AgentNode], Coroutine]):
         agent = self.agents.get(agent_id)
         if not agent: return
@@ -57,26 +74,13 @@ class MultiAgentOrchestrator:
             if len(self._running) >= self.max_parallel:
                 self._pending.add(agent_id)
                 agent.status = AgentStatus.WAITING
+                self._executor_registry[agent_id] = executor
                 return
             self._running.add(agent_id)
             agent.status = AgentStatus.RUNNING
             agent.started_at = time.time()
 
-        async def _run():
-            try:
-                result = await executor(agent)
-                agent.result = str(result)[:10000] if result else ""
-                agent.status = AgentStatus.DONE
-            except Exception as e:
-                agent.error = f"{type(e).__name__}: {str(e)[:500]}"
-                agent.status = AgentStatus.ERROR
-            finally:
-                agent.finished_at = time.time()
-                async with self._lock:
-                    self._running.discard(agent_id)
-                await self._drain_queue()
-
-        task = asyncio.create_task(_run())
+        task = asyncio.create_task(self._wrap_run(agent, executor, agent_id))
         self._task_registry[agent_id] = task
 
     async def _drain_queue(self):
@@ -92,6 +96,9 @@ class MultiAgentOrchestrator:
                     self._running.add(aid)
                     agent.status = AgentStatus.RUNNING
                     agent.started_at = time.time()
+                    executor = self._executor_registry.pop(aid, None)
+                    if executor:
+                        asyncio.create_task(self._wrap_run(agent, executor))
 
     async def send(self, target_id: str, message: str, interrupt: bool = False) -> bool:
         agent = self.agents.get(target_id)

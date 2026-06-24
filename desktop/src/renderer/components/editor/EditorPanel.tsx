@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { useStore } from "../../store";
+import { t } from "../../i18n";
 import type { editor } from "monaco-editor";
 
 export function EditorPanel() {
@@ -192,7 +193,7 @@ export function EditorPanel() {
                     }}>
                         <span style={{ fontSize: 48, opacity: 0.3 }}>✦</span>
                         <span>Open a file or start a chat to begin</span>
-                        <span style={{ fontSize: 11, opacity: 0.5 }}>Ctrl+O to open · Ctrl+S to save</span>
+                        <span style={{ fontSize: 11, opacity: 0.5 }}>{t("openSaveHint")}</span>
                     </div>
                 )}
             </div>

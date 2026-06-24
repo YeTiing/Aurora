@@ -45,21 +45,14 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
     try {
       const res = await fetch("http://127.0.0.1:9876/models");
       const data = await res.json();
-      if (data.models?.length) {
-        setAvailableModels(data.models.map((m: any) => ({
-          id: m.id,
-          label: m.id,
-          provider: m.provider || "custom",
-        })));
-      }
+      setAvailableModels((data.models || []).map((m: any) => ({
+        id: m.id,
+        label: m.id,
+        provider: m.provider || "custom",
+      })));
     } catch {
-      // Fallback if backend not reachable
-      setAvailableModels([
-        { id: "gpt-4o", label: "gpt-4o", provider: "openai" },
-        { id: "gpt-4o-mini", label: "gpt-4o-mini", provider: "openai" },
-        { id: "claude-3-5-sonnet", label: "claude-3-5-sonnet", provider: "claude" },
-        { id: "deepseek-chat", label: "deepseek-chat", provider: "deepseek" },
-      ]);
+      // Backend not reachable - keep current models
+      setAvailableModels([]);
     }
   };
 
@@ -432,7 +425,7 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
                   <>
                     <div className="model-menu-backdrop" onClick={() => setModelMenuOpen(false)} />
                     <div className="model-menu">
-                      {(availableModels.length > 0 ? availableModels : [{id:llmModel, label:llmModel, provider:"current"}]).map(m => (
+                      {availableModels.map(m => (
                         <button
                           key={m.id}
                           className={`model-menu-item${m.id === llmModel ? " active" : ""}`}

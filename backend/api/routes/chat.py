@@ -1,0 +1,176 @@
+"""Aurora API - chat routes"""
+from __future__ import annotations
+import asyncio, json, time, uuid, os
+from pathlib import Path
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, UploadFile, File, Form
+from fastapi.responses import StreamingResponse, JSONResponse
+from typing import Any, Optional
+
+router = APIRouter()
+
+from backend.api.models import ChatRequest, AgentResponse
+
+from backend.config import config as _cfg_module
+from backend.agent.llm_client import LLMClient, LLMConfig
+
+
+# Shared lazy deps
+from backend.api.deps import (
+    get_config as _get_cfg,
+    get_llm as _get_llm,
+    get_graph as _get_graph,
+    get_rag as _get_rag,
+    get_skills as _get_skills,
+    get_plugins as _get_plugins,
+)
+
+# Alias for backward compatibility with existing route code
+_cfg = None; _llm = None; _graph = None; _rag = None; _skills = None; _plugins = None
+
+def _init_cfg():
+    global _cfg
+    _cfg = _get_cfg()
+
+def _init_llm():
+    global _llm
+    _llm = _get_llm()
+
+def _init_graph():
+    global _graph
+    _graph = _get_graph()
+
+def _init_rag():
+    global _rag
+    _rag = _get_rag()
+
+def _init_skills():
+    global _skills
+    _skills = _get_skills()
+
+def _init_plugins():
+    global _plugins
+    _plugins = _get_plugins()
+
+
+
+@router.post("/soul")
+async def soul_update(req: dict):
+    """Update SOUL.md personality."""
+    from pathlib import Path
+    sp = Path(".aurora") / "SOUL.md"
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    sp.write_text(req.get("content", ""), encoding="utf-8")
+    return {"updated": True, "path": str(sp)}
+
+# Health
+@router.get("/health")
+async def health():
+    return {"status":"ok","version":"0.2.0","timestamp":time.time()}
+
+# Chat
+@router.post("/chat")
+async def chat(req: ChatRequest):
+    sid = req.session_id or f"session_{uuid.uuid4().hex[:8]}"
+    _init_graph(); _init_skills()
+    skills_ctx = ""; rag_ctx = ""
+    if _skills:
+        triggered = _skills.match(req.message)
+        skills_ctx = _skills.inject(triggered)
+    _init_rag()
+    if _rag and _rag.vector_store.count() > 0:
+        chunks = _rag.search(req.message, top_k=5, llm_client=_llm)
+        if chunks: rag_ctx = _rag.format_context(chunks)
+    full = f"{skills_ctx}\
+{rag_ctx}\
+User: {req.message}" if (skills_ctx or rag_ctx) else req.message
+    history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
+    state = await _graph.run(full, session_id=sid, workspace=req.workspace, history=history)
+    return AgentResponse(session_id=sid, response=state.final_response, plan=[p.to_dict() for p in state.plan], diffs=state.diffs)
+
+@router.post("/chat/stream")
+async def chat_stream(req: ChatRequest):
+    sid = req.session_id or f"session_{uuid.uuid4().hex[:8]}"
+    _init_graph(); _init_skills(); _init_rag()
+    full = req.message
+    history2 = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
+    async def gen():
+        async for chunk in _graph.run_with_stream(full, session_id=sid, workspace=req.workspace, history=history2):
+            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\
+\
+"
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+# WebSocket
+_ws_connections: dict[str, list[WebSocket]] = {}
+
+@router.websocket("/ws/{session_id}")
+async def websocket_endpoint(ws: WebSocket, session_id: str):
+    await ws.accept()
+    _ws_connections.setdefault(session_id, []).append(ws)
+
+    # Subscribe to SSE bus and forward to WebSocket
+    from backend.agent.sse_events import sse_bus
+    async def forward_event(event):
+        try:
+            await ws.send_text(json.dumps(event.to_dict(), ensure_ascii=False))
+        except Exception:
+            pass
+    sse_bus.subscribe(session_id, forward_event)
+
+    try:
+        while True:
+            data = await ws.receive_text()
+            msg = json.loads(data)
+            if msg.get("type") == "chat":
+                _init_graph()
+                sandbox_mode = msg.get("sandboxMode", "full-access")
+                model = msg.get("model", "")
+                user_text = msg.get("message","")
+                # Send user message event
+                await ws.send_text(json.dumps({
+                    "type": "codex/event/user_message",
+                    "data": {"content": user_text},
+                }, ensure_ascii=False))
+                try:
+                    history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (msg.get("history") or [])]
+                    state = await _graph.run(
+                        user_text,
+                        session_id=session_id,
+                        workspace=msg.get("workspace","."),
+                        sandbox_mode=sandbox_mode,
+                        model=model,
+                        history=history,
+                    )
+                    # Send final response
+                    if state.final_response:
+                        await ws.send_text(json.dumps({
+                            "type": "codex/event/agent_message",
+                            "data": {"content": state.final_response},
+                        }, ensure_ascii=False))
+                    await ws.send_text(json.dumps({
+                        "type": "done",
+                        "response": state.final_response,
+                        "tokens": state.total_turns,
+                    }, ensure_ascii=False))
+                except Exception as e:
+                    import traceback
+                    tb = traceback.format_exc()
+                    await ws.send_text(json.dumps({
+                        "type": "codex/event/error",
+                        "data": {"error": str(e), "traceback": tb[:500]},
+                    }, ensure_ascii=False))
+            elif msg.get("type") == "cancel":
+                # Cancel handled by breaking the loop conceptually
+                await ws.send_text(json.dumps({"type": "codex/event/turn_aborted", "data": {"reason": "user_cancelled"}}))
+    except WebSocketDisconnect: pass
+    finally:
+        sse_bus.unsubscribe(session_id, forward_event)
+        if session_id in _ws_connections: _ws_connections[session_id].remove(ws)
+
+# Files
+@router.get("/files")
+async def list_files_api(path: str = "."):
+    p = Path(path)
+    if not p.exists(): raise HTTPException(404, "Not found")
+    return {"path":str(p),"entries":[{"name":e.name,"isDirectory":e.is_dir(),"isFile":e.is_file()} for e in sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))]}
+

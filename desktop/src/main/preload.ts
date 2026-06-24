@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld("aurora", {
         ipcRenderer.invoke("agent:chat", data),
     cancel: (sessionId: string) =>
         ipcRenderer.invoke("agent:cancel", { sessionId }),
+    threadControl: (data: any) =>
+        ipcRenderer.invoke("agent:threadControl", data),
 
     // Terminal
     terminal: {

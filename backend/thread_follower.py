@@ -48,6 +48,9 @@ class ThreadFollower:
         self._event_emit = event_emit
         self._collapser = collapser or ContextCollapser()
 
+    def set_event_emit(self, event_emit: EventEmit) -> None:
+        self._event_emit = event_emit
+
     async def start_turn(
         self,
         thread_id: str,

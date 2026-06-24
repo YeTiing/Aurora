@@ -8,6 +8,7 @@ declare global {
         aurora: {
             chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; model?: string; history?: {role:string;content:string}[] }) => Promise<any>;
             cancel: (sessionId: string) => Promise<any>;
+            threadControl: (data: any) => Promise<any>;
             terminal: {
                 create: (sessionId: string, cwd: string) => Promise<boolean>;
                 write: (sessionId: string, data: string) => Promise<any>;
@@ -221,6 +222,30 @@ export function useAgent() {
         await window.aurora?.chat({ message, workspace: state.workspace, sessionId, sandboxMode: state.sandboxMode, model: state.llmModel, history });
     }, [addMessage, setStreaming]);
 
+    const controlThread = useCallback(async (action: string, payload: Record<string, any> = {}) => {
+        const state = useStore.getState();
+        const threadId = state.threadFollower.activeThreadId || state.activeSessionId;
+        if (!threadId) return { sent: false, error: "No active thread" };
+        return window.aurora?.threadControl({
+            action,
+            threadId,
+            sessionId: state.activeSessionId || threadId,
+            ...payload,
+        });
+    }, []);
+
+    const steerThread = useCallback((instruction: string) =>
+        controlThread("steer", { instruction }), [controlThread]);
+
+    const compactThread = useCallback((tokenUsageRatio = 0.9) =>
+        controlThread("compact", { tokenUsageRatio }), [controlThread]);
+
+    const updateThreadSettings = useCallback((settings: Record<string, any>) =>
+        controlThread("settings", settings), [controlThread]);
+
+    const setQueuedFollowups = useCallback((followups: string[]) =>
+        controlThread("followups", { followups }), [controlThread]);
+
     const cancelRequest = useCallback(async () => {
         seenMessages.current.clear();
         const sessionId = useStore.getState().activeSessionId;
@@ -230,7 +255,7 @@ export function useAgent() {
         }
     }, [setStreaming]);
 
-    return { sendMessage, cancelRequest };
+    return { sendMessage, cancelRequest, steerThread, compactThread, updateThreadSettings, setQueuedFollowups };
 }
 
 export function useTerminal(sessionId: string, cwd: string) {

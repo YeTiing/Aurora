@@ -6,7 +6,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Re
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Any, Optional
 
+from backend.thread_follower import ThreadFollower, ThreadSettings
+
 router = APIRouter()
+thread_follower = ThreadFollower()
 
 from backend.api.models import ChatRequest, AgentResponse
 
@@ -120,6 +123,7 @@ async def desktop_websocket(ws: WebSocket):
         except Exception:
             pass
     sse_bus.subscribe("desktop", forward_event)
+    thread_follower.set_event_emit(sse_bus.emit)
 
     try:
         while True:
@@ -149,6 +153,17 @@ async def desktop_websocket(ws: WebSocket):
                 try:
                     _init_graph(); graph = _graph
                     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (msg.get("history") or [])]
+                    await thread_follower.start_turn(
+                        thread_id=session_id,
+                        session_id=session_id,
+                        message=user_text,
+                        settings=ThreadSettings(
+                            model=model,
+                            sandbox_policy=sandbox_mode,
+                            approval_mode=msg.get("approvalMode", "on-request"),
+                            reasoning_effort=msg.get("reasoningEffort", "medium"),
+                        ),
+                    )
                     state = await graph.run(
                         user_text,
                         session_id=session_id,
@@ -178,13 +193,63 @@ async def desktop_websocket(ws: WebSocket):
                     }, ensure_ascii=False))
                 continue
             
+            # ThreadFollower controls from desktop
+            if msg.get("type") == "thread_control":
+                session_id = msg.get("sessionId") or msg.get("threadId") or "desktop"
+                thread_id = msg.get("threadId") or session_id
+                action = msg.get("action", "")
+                try:
+                    if action == "steer":
+                        result = await thread_follower.steer_turn(thread_id, msg.get("instruction", ""))
+                    elif action == "interrupt":
+                        result = await thread_follower.interrupt_turn(thread_id, msg.get("reason", "user_requested"))
+                    elif action == "compact":
+                        result = await thread_follower.compact_thread(thread_id, float(msg.get("tokenUsageRatio", 0.9)))
+                    elif action == "settings":
+                        current = thread_follower.get_thread(thread_id).settings
+                        result = await thread_follower.update_thread_settings(
+                            thread_id,
+                            ThreadSettings(
+                                model=msg.get("model", current.model),
+                                reasoning_effort=msg.get("reasoningEffort", current.reasoning_effort),
+                                sandbox_policy=msg.get("sandboxMode", current.sandbox_policy),
+                                approval_mode=msg.get("approvalMode", current.approval_mode),
+                            ),
+                        )
+                    elif action == "followups":
+                        result = await thread_follower.set_queued_followups(thread_id, msg.get("followups", []))
+                    else:
+                        result = {"error": f"Unknown thread control action: {action}"}
+                    await ws.send_text(json.dumps({
+                        "type": "thread_control_result",
+                        "action": action,
+                        "data": result,
+                        "session_id": session_id,
+                        "thread_id": thread_id,
+                    }, ensure_ascii=False))
+                except KeyError:
+                    await ws.send_text(json.dumps({
+                        "type": "codex/event/error",
+                        "data": {"error": f"Unknown thread: {thread_id}"},
+                        "session_id": session_id,
+                        "thread_id": thread_id,
+                    }, ensure_ascii=False))
+                continue
+
             # Cancel message
             if msg.get("type") == "cancel":
+                session_id = msg.get("sessionId") or "desktop"
+                try:
+                    await thread_follower.interrupt_turn(session_id, "user_cancelled")
+                except KeyError:
+                    pass
                 await ws.send_text(json.dumps({
                     "type": "codex/event/turn_aborted",
-                    "data": {"reason": "user_cancelled"}
+                    "data": {"reason": "user_cancelled"},
+                    "session_id": session_id,
+                    "thread_id": session_id,
                 }, ensure_ascii=False))
-                
+
     except WebSocketDisconnect:
         pass
     finally:

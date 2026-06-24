@@ -582,6 +582,15 @@ ipcMain.handle("agent:cancel", async (_event, { sessionId }) => {
     return { cancelled: true };
 });
 
+ipcMain.handle("agent:threadControl", async (_event, data) => {
+    const allowedActions = new Set(["steer", "interrupt", "compact", "settings", "followups"]);
+    if (!data || !allowedActions.has(data.action)) {
+        return { sent: false, error: "Unsupported thread control action" };
+    }
+    sendToBackend({ ...data, type: "thread_control" });
+    return { sent: true };
+});
+
 ipcMain.handle("terminal:create", async (_event, { sessionId, cwd }) => {
     return createPty(sessionId, cwd);
 });

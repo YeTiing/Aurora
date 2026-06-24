@@ -62,11 +62,16 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
 
     # Approval check
     try:
-        from backend.approval import approval_manager, RiskLevel
-        risk = approval_manager.assess_risk("shell_command", arguments)
-        if approval_manager.needs_approval(risk, "shell_command"):
-            req = approval_manager.create_request("shell_command", cmd=command, risk=risk, description=f"Shell: {command[:80]}")
-            approval_manager.approve(req.id)
+        from backend.approval import approval_bridge
+        risk = approval_bridge.manager.assess_risk("shell_command", arguments)
+        if approval_bridge.manager.needs_approval(risk, "shell_command"):
+            await approval_bridge.request_command_approval(
+                session_id=str(arguments.get("session_id", "")),
+                thread_id=str(arguments.get("thread_id", arguments.get("session_id", ""))),
+                command=command,
+                risk=risk,
+                description=f"Shell: {command[:80]}",
+            )
     except ImportError:
         pass
 

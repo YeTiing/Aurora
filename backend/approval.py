@@ -3,7 +3,9 @@ from __future__ import annotations
 import time, uuid, asyncio
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable, Coroutine, Awaitable
+
+from backend.agent.sse_events import SSEEvent, SSEEventType, sse_bus
 
 class ApprovalPolicy(Enum):
     NEVER = "never"           # 自动执行，无需审批
@@ -106,4 +108,92 @@ class ApprovalManager:
             "denied": sum(1 for r in self._history if r.status == "denied"),
         }
 
+
+EventEmit = Callable[[SSEEvent], Awaitable[None]]
+
+
+class ApprovalBridge:
+    def __init__(self, manager: ApprovalManager, event_emit: EventEmit | None = None):
+        self.manager = manager
+        self._event_emit = event_emit
+
+    def set_event_emit(self, event_emit: EventEmit) -> None:
+        self._event_emit = event_emit
+
+    async def request_command_approval(
+        self,
+        session_id: str,
+        thread_id: str,
+        command: str,
+        risk: RiskLevel = RiskLevel.HIGH,
+        description: str = "",
+    ) -> ApprovalRequest:
+        request = self.manager.create_request(
+            "exec_command",
+            cmd=command,
+            risk=risk,
+            description=description or command,
+        )
+        await self._emit(
+            SSEEventType.EXEC_APPROVAL_REQUEST,
+            session_id,
+            thread_id,
+            {
+                "request_id": request.id,
+                "command": command,
+                "risk": request.risk_level.value,
+                "description": request.description,
+            },
+        )
+        return request
+
+    async def request_file_approval(
+        self,
+        session_id: str,
+        thread_id: str,
+        file_path: str,
+        description: str = "",
+    ) -> ApprovalRequest:
+        request = self.manager.create_request(
+            "apply_patch",
+            file_path=file_path,
+            risk=RiskLevel.MEDIUM,
+            description=description or file_path,
+        )
+        await self._emit(
+            SSEEventType.APPLY_PATCH_APPROVAL_REQUEST,
+            session_id,
+            thread_id,
+            {
+                "request_id": request.id,
+                "file_path": file_path,
+                "risk": request.risk_level.value,
+                "description": request.description,
+            },
+        )
+        return request
+
+    async def decide(self, request_id: str, action: str, session_id: str, thread_id: str) -> dict:
+        request = self.manager._pending.get(request_id)
+        request_type = request.type if request else ""
+        ok = self.manager.approve(request_id) if action == "approve" else self.manager.deny(request_id)
+        event_type = (
+            SSEEventType.THREAD_FOLLOWER_FILE_APPROVAL_DECISION
+            if request_type in ("apply_patch", "file_write", "file_delete")
+            else SSEEventType.THREAD_FOLLOWER_COMMAND_APPROVAL_DECISION
+        )
+        await self._emit(
+            event_type,
+            session_id,
+            thread_id,
+            {"request_id": request_id, "decision": action, "ok": ok},
+        )
+        return {"request_id": request_id, "action": action, "ok": ok}
+
+    async def _emit(self, event_type: SSEEventType, session_id: str, thread_id: str, data: dict) -> None:
+        if self._event_emit is None:
+            return
+        await self._event_emit(SSEEvent(type=event_type, data=data, session_id=session_id, thread_id=thread_id))
+
 approval_manager = ApprovalManager()
+approval_bridge = ApprovalBridge(approval_manager, sse_bus.emit)

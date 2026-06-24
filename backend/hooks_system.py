@@ -144,16 +144,29 @@ class HookRegistry:
 
 # Built-in hooks
 
-def builtin_approval_hook(ctx: HookContext) -> HookResult:
+async def builtin_approval_hook(ctx: HookContext) -> HookResult:
     """Built-in: approval check before tool execution."""
     if ctx.hook_point != HookPoint.PRE_TOOL_EXEC:
         return HookResult(allow=True)
     try:
-        from backend.approval import approval_manager
-        risk = approval_manager.assess_risk(ctx.tool_name, ctx.tool_args)
-        if approval_manager.needs_approval(risk, ctx.tool_name):
-            req = approval_manager.create_request(ctx.tool_name, description=f"{ctx.tool_name}: {str(ctx.tool_args)[:80]}")
-            approval_manager.approve(req.id)
+        from backend.approval import approval_bridge
+        risk = approval_bridge.manager.assess_risk(ctx.tool_name, ctx.tool_args)
+        if approval_bridge.manager.needs_approval(risk, ctx.tool_name):
+            if ctx.tool_name in ("apply_patch", "file_rw"):
+                await approval_bridge.request_file_approval(
+                    ctx.session_id,
+                    ctx.thread_id,
+                    str(ctx.tool_args.get("file_path", ctx.tool_args.get("file", ""))),
+                    description=f"{ctx.tool_name}: {str(ctx.tool_args)[:80]}",
+                )
+            else:
+                await approval_bridge.request_command_approval(
+                    ctx.session_id,
+                    ctx.thread_id,
+                    str(ctx.tool_args.get("command", ctx.tool_args)),
+                    risk=risk,
+                    description=f"{ctx.tool_name}: {str(ctx.tool_args)[:80]}",
+                )
     except ImportError:
         pass
     return HookResult(allow=True)
@@ -186,7 +199,7 @@ def get_hook_registry() -> HookRegistry:
     if _registry is None:
         _registry = HookRegistry()
         # Register built-in hooks
-        _registry.register(HookPoint.PRE_TOOL_EXEC, builtin_approval_hook)
+        _registry.register(HookPoint.PRE_TOOL_EXEC, builtin_approval_hook, async_cb=True)
         _registry.register(HookPoint.PRE_TOOL_EXEC, builtin_metrics_hook)
         _registry.register(HookPoint.POST_TOOL_EXEC, builtin_metrics_hook)
     return _registry

@@ -140,18 +140,16 @@ async def approval_status():
 
 @router.get("/approval/pending")
 async def approval_pending():
-    from backend.approval import approval_manager
-    pending = approval_manager.get_pending()
+    from backend.approval import approval_bridge
+    pending = approval_bridge.manager.get_pending()
     return {"count": len(pending), "requests": [{"id": r.id, "type": r.type, "risk": r.risk_level.value, "description": r.description} for r in pending]}
 
 @router.post("/approval/{action}")
 async def approval_act(action: str, req: ApprovalAction):
-    from backend.approval import approval_manager
-    if action == "approve":
-        ok = approval_manager.approve(req.request_id)
-    else:
-        ok = approval_manager.deny(req.request_id)
-    return {"request_id": req.request_id, "action": action, "ok": ok}
+    from backend.approval import approval_bridge
+    if action not in ("approve", "deny"):
+        raise HTTPException(400, "action must be approve or deny")
+    return await approval_bridge.decide(req.request_id, action, session_id="system", thread_id="system")
 
 # ═══════════ Threads ═══════════
 @router.get("/threads")

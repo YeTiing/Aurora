@@ -107,26 +107,23 @@ _desktop_ws: WebSocket | None = None
 async def desktop_websocket(ws: WebSocket):
     global _desktop_ws
     await ws.accept()
-    from backend.cdp_relay import cdp_relay
-    cdp_relay.set_ws(ws)
+    from backend.browser_relay import browser_relay
+    browser_relay.set_ws(ws)
     _desktop_ws = ws
     try:
         while True:
             data = await ws.receive_text()
             msg = json.loads(data)
-            # Handle CDP results from desktop
-            if msg.get("type") == "browser:cdp_result":
-                cdp_relay.on_result(msg.get("id", 0), msg.get("result", {}))
-            # Handle browser state updates
-            elif msg.get("type") == "browser:state":
-                pass  # Desktop reporting state
+            # Handle browser command results from desktop
+            if msg.get("type") == "browser_result":
+                browser_relay.on_result(msg.get("id", ""), msg.get("result", {}))
     except WebSocketDisconnect:
         pass
     finally:
-        cdp_relay.clear_ws()
+        browser_relay.clear_ws()
         _desktop_ws = None
 
-# WebSocket — Session connections
+# WebSocket — Session connections# WebSocket — Session connections
 _ws_connections: dict[str, list[WebSocket]] = {}
 
 @router.websocket("/ws/{session_id}")

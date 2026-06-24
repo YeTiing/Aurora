@@ -14,7 +14,6 @@ let browserView: BrowserView | null = null;
 let browserViewVisible = false;
 
 const BACKEND_URL = "ws://127.0.0.1:9876";
-let browserDebuggerAttached = false;
 let browserControlledByAI = false;
 
 // Check if --minimized flag was passed
@@ -162,7 +161,7 @@ mainWindow.on("closed", () => { mainWindow = null; });
 }
 
 // Backend connection
-// ─── Browser CDP handler (AI controls BrowserView) ───
+// ─── Browser command handler (uses native Electron APIs, NO debugger needed) ───
 
 async function ensureBrowserViewForAI(url?: string) {
     if (!mainWindow) return false;
@@ -184,196 +183,133 @@ async function ensureBrowserViewForAI(url?: string) {
             height: bounds.height - 60,
         });
         browserView.setAutoResize({ width: true, height: true, horizontal: true, vertical: true });
-
         browserView.webContents.on("did-navigate", (_e, navUrl) => {
             mainWindow?.webContents.send("browser:navigated", { url: navUrl });
         });
-        browserView.webContents.on("did-navigate-in-page", (_e, navUrl) => {
-            mainWindow?.webContents.send("browser:navigated", { url: navUrl });
-        });
     }
-
-    // Attach debugger for CDP
-    if (!browserDebuggerAttached) {
-        try {
-            browserView.webContents.debugger.attach("1.3");
-            browserDebuggerAttached = true;
-        } catch (_) {
-            // Already attached
-            browserDebuggerAttached = true;
-        }
-    }
-
     browserViewVisible = true;
     browserControlledByAI = true;
     mainWindow.webContents.send("browser:ai_control", { active: true });
-
     if (url && url !== "about:blank") {
         await browserView.webContents.loadURL(url);
     }
     return true;
 }
 
-async function handleBrowserCDP(msg: { id: number; method: string; params: any }) {
+async function handleBrowserCommand(msg: { id: string; method: string; params: any }) {
     const { id, method, params } = msg;
     const sendResult = (result: any) => {
         if (ws?.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "browser:cdp_result", id, result }));
+            ws.send(JSON.stringify({ type: "browser_result", id, result }));
         }
     };
 
     try {
         switch (method) {
-            case "Browser.open": {
+            case "open": {
                 await ensureBrowserViewForAI(params?.url || "about:blank");
-                sendResult({ success: true, url: browserView?.webContents.getURL() });
+                sendResult({ success: true, url: browserView?.webContents.getURL() || "" });
                 break;
             }
-
-            case "Browser.navigate": {
+            case "navigate": {
                 if (!browserView) await ensureBrowserViewForAI();
-                if (browserView && params?.url) {
-                    await browserView.webContents.loadURL(params.url);
+                if (params?.url) {
+                    await browserView?.webContents.loadURL(params.url);
                 }
-                sendResult({ success: true, url: browserView?.webContents.getURL() });
+                sendResult({ success: true, url: browserView?.webContents.getURL() || "" });
                 break;
             }
-
-            case "Browser.screenshot": {
-                if (!browserView || !browserDebuggerAttached) {
-                    sendResult({ error: "BrowserView not ready" });
-                    break;
-                }
+            case "screenshot": {
+                if (!browserView) { sendResult({ error: "BrowserView not open" }); break; }
                 try {
-                    const result = await browserView.webContents.debugger.sendCommand(
-                        "Page.captureScreenshot", { format: "png" }
-                    );
+                    const image = await browserView.webContents.capturePage();
+                    const png = image.toPNG();
+                    const base64 = png.toString("base64");
                     sendResult({
-                        data_url: `data:image/png;base64,${result.data}`,
-                        width: 1920, height: 1080,
+                        data_url: "data:image/png;base64," + base64,
+                        width: image.getSize().width,
+                        height: image.getSize().height,
                     });
                 } catch (e: any) {
                     sendResult({ error: e.message });
                 }
                 break;
             }
-
-            case "Browser.listPages": {
-                const url = browserView?.webContents.getURL() || "";
-                sendResult({ url, title: "BrowserView" });
-                break;
-            }
-
-            case "Runtime.evaluate": {
-                if (!browserView || !browserDebuggerAttached) {
-                    sendResult({ error: "BrowserView not ready" });
-                    break;
-                }
+            case "click": {
+                if (!browserView) { sendResult({ error: "BrowserView not open" }); break; }
+                const sel = (params?.selector || "body").replace(/'/g, "\'");
+                const js = "(function(){var el=document.querySelector('" + sel + "');if(!el)return null;var r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};})()";
                 try {
-                    const result = await browserView.webContents.debugger.sendCommand(
-                        "Runtime.evaluate", {
-                            expression: params?.expression || "",
-                            returnByValue: true,
-                        }
+                    const posCode = await browserView.webContents.executeJavaScript(js);
+                    const pos = JSON.parse(JSON.stringify(posCode));
+                    if (!pos) { sendResult({ error: "Element not found: " + params?.selector }); break; }
+                    await browserView.webContents.executeJavaScript(
+                        "document.querySelector('" + sel + "').click()"
                     );
-                    sendResult(result);
+                    sendResult({ success: true, clicked: params?.selector, position: pos });
                 } catch (e: any) {
                     sendResult({ error: e.message });
                 }
                 break;
             }
-
-            case "Runtime.evaluate_and_click": {
-                if (!browserView || !browserDebuggerAttached) {
-                    sendResult({ error: "BrowserView not ready" });
-                    break;
-                }
+            case "type": {
+                if (!browserView) { sendResult({ error: "BrowserView not open" }); break; }
+                const tsel = (params?.selector || "input").replace(/'/g, "\'");
+                const ttext = params?.text || "";
                 try {
-                    const selector = params?.selector || "body";
-                    // Get element position
-                    const posResult = await browserView.webContents.debugger.sendCommand(
-                        "Runtime.evaluate", {
-                            expression: `(()=>{const el=document.querySelector('${selector.replace(/'/g, "\'")}');if(!el)return null;const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height,visible:true};})()`,
-                            returnByValue: true,
-                        }
+                    await browserView.webContents.executeJavaScript(
+                        "(function(){var el=document.querySelector('" + tsel + "');if(el){el.focus();el.value='" +
+                        ttext.replace(/'/g, "\'") +
+                        "';el.dispatchEvent(new Event('input',{bubbles:true}));}})()"
                     );
-                    const pos = posResult?.result?.value;
-                    if (!pos) {
-                        sendResult({ error: `Element not found: ${selector}` });
-                        break;
-                    }
-                    // Click
-                    await browserView.webContents.debugger.sendCommand("Input.dispatchMouseEvent", {
-                        type: "mousePressed", x: pos.x, y: pos.y, button: "left", clickCount: 1,
-                    });
-                    await browserView.webContents.debugger.sendCommand("Input.dispatchMouseEvent", {
-                        type: "mouseReleased", x: pos.x, y: pos.y, button: "left", clickCount: 1,
-                    });
-                    sendResult({ clicked: selector, position: { x: pos.x, y: pos.y } });
+                    sendResult({ success: true, typed: ttext.substring(0, 50) });
                 } catch (e: any) {
                     sendResult({ error: e.message });
                 }
                 break;
             }
-
-            case "Runtime.getHTML": {
-                if (!browserView || !browserDebuggerAttached) {
-                    sendResult({ error: "BrowserView not ready" });
-                    break;
-                }
+            case "get_html": {
+                if (!browserView) { sendResult({ error: "BrowserView not open" }); break; }
                 try {
-                    const result = await browserView.webContents.debugger.sendCommand(
-                        "Runtime.evaluate", {
-                            expression: "document.documentElement.outerHTML",
-                            returnByValue: true,
-                        }
+                    const html = await browserView.webContents.executeJavaScript(
+                        "document.documentElement.outerHTML"
                     );
-                    sendResult({ html: result?.result?.value || "" });
+                    sendResult({ html: String(html).substring(0, 50000) });
                 } catch (e: any) {
                     sendResult({ error: e.message });
                 }
                 break;
             }
-
-            case "Input.type": {
-                if (!browserView || !browserDebuggerAttached) {
-                    sendResult({ error: "BrowserView not ready" });
-                    break;
-                }
+            case "evaluate": {
+                if (!browserView) { sendResult({ error: "BrowserView not open" }); break; }
                 try {
-                    const selector = params?.selector || "input";
-                    const text = params?.text || "";
-                    // Focus element
-                    await browserView.webContents.debugger.sendCommand("Runtime.evaluate", {
-                        expression: `(()=>{const el=document.querySelector('${selector.replace(/'/g, "\'")}');if(el){el.focus();el.value='';}return!!el;})()`,
-                        returnByValue: true,
-                    });
-                    // Type character by character
-                    for (const ch of text) {
-                        await browserView.webContents.debugger.sendCommand("Input.dispatchKeyEvent", {
-                            type: "keyDown", text: ch, key: ch,
-                        });
-                        await browserView.webContents.debugger.sendCommand("Input.dispatchKeyEvent", {
-                            type: "keyUp", text: ch, key: ch,
-                        });
-                    }
-                    sendResult({ typed: text.substring(0, 50) });
+                    const result = await browserView.webContents.executeJavaScript(params?.js || "null");
+                    sendResult({ result: JSON.parse(JSON.stringify(result)) });
                 } catch (e: any) {
                     sendResult({ error: e.message });
                 }
                 break;
             }
-
+            case "get_state": {
+                sendResult({
+                    url: browserView?.webContents.getURL() || "",
+                    title: browserView?.webContents.getTitle() || "",
+                    visible: browserViewVisible,
+                });
+                break;
+            }
             default: {
-                sendResult({ error: `Unknown CDP method: ${method}` });
+                sendResult({ error: "Unknown method: " + method });
+                break;
             }
         }
     } catch (e: any) {
-        sendResult({ error: `CDP handler error: ${e.message}` });
+        sendResult({ error: "Handler error: " + e.message });
     }
 }
 
 function connectBackend() {
+
     if (ws) {
         try { ws.close(); } catch (_) {}
     }
@@ -389,8 +325,8 @@ function connectBackend() {
             const msg = JSON.parse(data.toString());
 
             // ── Browser CDP commands from backend ──
-            if (msg.type === "browser:cdp") {
-                await handleBrowserCDP(msg);
+            if (msg.type === "browser_cmd") {
+                await handleBrowserCommand(msg);
                 return;
             }
 
@@ -657,10 +593,6 @@ ipcMain.handle("browser:open", async (_event, url: string) => {
 
 ipcMain.handle("browser:close", async () => {
     if (browserView && mainWindow) {
-        if (browserDebuggerAttached) {
-            try { browserView.webContents.debugger.detach(); } catch (_) {}
-            browserDebuggerAttached = false;
-        }
         mainWindow.removeBrowserView(browserView);
         (browserView.webContents as any).destroy?.();
         browserView = null;

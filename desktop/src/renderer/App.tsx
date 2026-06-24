@@ -295,6 +295,19 @@ export default function App() {
             {showSkins && <SkinBrowser onClose={() => setShowSkins(false)} />}
             {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
             {showGoal && <GoalPanel onClose={() => setShowGoal(false)} />}
+            {showBrowser && (
+              <div className="absolute top-12 right-12 z-50 w-[75vw] h-[85vh] bg-[--bg-panel] border border-[--border] rounded-xl shadow-2xl overflow-hidden">
+                <BrowserPanel />
+                <button onClick={() => setShowBrowser(false)}
+                  className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center rounded-full bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border]"
+                >✕</button>
+              </div>
+            )}
+            {showSocial && (
+              <div className="absolute top-12 right-12 z-50 w-[720px] h-[75vh] bg-[--bg-panel] border border-[--border] rounded-xl shadow-2xl overflow-hidden">
+                <SocialPanel onClose={() => setShowSocial(false)} />
+              </div>
+            )}
             {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
         </div>
     );

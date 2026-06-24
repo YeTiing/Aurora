@@ -27,11 +27,9 @@ from backend.goal import goal_manager
 from backend.context.token_tracker import TokenBudget
 
 
-
 class AgentGraph:
 
     """基于 LangGraph StateGraph 的六步流水线"""
-
 
 
     def __init__(
@@ -157,7 +155,6 @@ class AgentGraph:
         self.cron = get_cron()
 
 
-
     # ══ 核心执行循环 ══
 
     async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "", history: list[dict] | None = None) -> AgentState:
@@ -183,7 +180,6 @@ class AgentGraph:
         if model:
 
             self.llm.set_model(model)
-
 
 
         state.add_message(Message.user(user_input))
@@ -225,7 +221,7 @@ class AgentGraph:
         # Inject browser_use instruction
         if _has_url and "browser_use" not in _url_lower:
             state.add_message(Message.system(
-                "SYSTEM OVERRIDE: Navigate to " + _extracted_url
+                "SYSTEM OVERRIDE: Visit " + _extracted_url + ". Use browser_use navigate or web_fetch."
                 + " using browser_use with method=navigate."
             ))
         # Check cron for due tasks and inject
@@ -234,10 +230,7 @@ class AgentGraph:
             state.add_message(Message.system(f"[Cron: {task.name}] {task.prompt}"))
 
 
-
-
         await self.events.task_started(session_id, user_input[:200])
-
 
 
         # 简单对话绕过agent循环，直接调用LLM
@@ -255,7 +248,6 @@ class AgentGraph:
             any(user_input.lower().startswith(kw) for kw in chat_keywords)
 
         )
-
 
 
         if is_simple_chat:
@@ -311,7 +303,6 @@ class AgentGraph:
             return state
 
 
-
         # Step 0: Inject closed-loop memory into context
         from backend.dual_memory import get_closed_loop
         try:
@@ -329,7 +320,6 @@ class AgentGraph:
         await self._run_planner(state)
 
         await self.events.plan_update(session_id, [p.to_dict() for p in state.plan])
-
 
 
         if not state.plan:
@@ -353,7 +343,6 @@ class AgentGraph:
                 pass
 
             return state
-
 
 
         # Step 2-4 循环
@@ -387,9 +376,7 @@ class AgentGraph:
                 break
 
 
-
             self.checkpoints.save(state, f"pre_turn_{state.total_turns}")
-
 
 
             # ToolSelect
@@ -407,7 +394,6 @@ class AgentGraph:
                 state.empty_turns += 1; state.total_turns += 1
 
                 continue
-
 
 
             # Executor
@@ -433,17 +419,14 @@ class AgentGraph:
                     await self.events.error(session_id, f"Executor: {str(e)[:200]}")
 
 
-
             # Observer
 
             await self._run_observer(state)
 
 
-
             if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
 
                 break
-
 
 
             state.total_turns += 1
@@ -500,7 +483,6 @@ class AgentGraph:
         return state
 
 
-
     async def run_with_stream(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "", history: list[dict] | None = None):
 
         """流式执行 — 每步 yield SSE 进度更新"""
@@ -528,7 +510,6 @@ class AgentGraph:
             self.llm.set_model(model)
 
 
-
         from backend.dual_memory import get_closed_loop
         try:
             _mem = get_closed_loop()
@@ -553,12 +534,7 @@ class AgentGraph:
                 if not url.startswith("www.") and "." not in url:
                     url = url + ".com"  # bare name like "4399" -> "4399.com"
                 url = "https://" + url
-            state.add_message(Message.system(
-                f'SYSTEM OVERRIDE: The user wants to visit a website. '
-                f'Extracted URL: {url}. '
-                f'Call browser_use with method=navigate and url={url} NOW. '
-                f'Do not refuse, do not redirect, do not ask - just navigate.'
-            ))
+
         # Check cron for due tasks and inject
         cron_fires = self.cron.pop_fires()
         for task in cron_fires:
@@ -576,18 +552,13 @@ class AgentGraph:
                 pass
 
 
-
-
         yield {"type": "codex/event/task_started", "data": {"task": user_input[:200]}, "session_id": session_id}
-
 
 
         await self.events.task_started(session_id, user_input[:200])
 
 
-
         yield {"type": "codex/event/agent_reasoning", "data": {"status": "Planning..."}, "session_id": session_id}
-
 
 
         await self._run_planner(state)
@@ -599,7 +570,6 @@ class AgentGraph:
         await self.events.plan_update(session_id, plan_data)
 
 
-
         if not state.plan:
 
             await self._run_synthesizer(state)
@@ -609,7 +579,6 @@ class AgentGraph:
             yield {"type": "done", "response": state.final_response}
 
             return
-
 
 
         while not state.done:
@@ -633,7 +602,6 @@ class AgentGraph:
                 break
 
 
-
             step = state.current_plan_step()
 
             yield {"type": "codex/event/agent_reasoning_delta", "data": {
@@ -643,9 +611,7 @@ class AgentGraph:
             }, "session_id": session_id}
 
 
-
             self.checkpoints.save(state, f"pre_turn_{state.total_turns}")
-
 
 
             try:
@@ -661,7 +627,6 @@ class AgentGraph:
                 continue
 
 
-
             if state.tool_invocations:
 
                 for inv in state.tool_invocations:
@@ -673,7 +638,6 @@ class AgentGraph:
                     }, "session_id": session_id}
 
                     await self.events.tool_call_begin(session_id, inv.name, inv.id)
-
 
 
                 try:
@@ -701,15 +665,12 @@ class AgentGraph:
                     yield {"type": "codex/event/error", "data": {"error": str(e)[:200]}, "session_id": session_id}
 
 
-
             await self._run_observer(state)
-
 
 
             if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
 
                 break
-
 
 
             state.total_turns += 1
@@ -748,8 +709,6 @@ class AgentGraph:
                 pass
 
 
-
-
     # ══ 内部方法 ══
 
     async def _run_planner(self, state: AgentState):
@@ -757,11 +716,9 @@ class AgentGraph:
         await planner_node(state, self.llm)
 
 
-
     async def _run_tool_select(self, state: AgentState):
 
         await tool_select_node(state, self.llm, self.tools_schema)
-
 
 
     async def _run_executor(self, state: AgentState):
@@ -771,7 +728,6 @@ class AgentGraph:
         # Restricted tools in non-full-access mode
 
         RESTRICTED_TOOLS = {"shell_command", "file_rw", "apply_patch", "git_ops"}
-
 
 
         async def handler(name, args, ws):
@@ -791,17 +747,14 @@ class AgentGraph:
         await executor_node(state, handler, state.workspace)
 
 
-
     async def _run_observer(self, state: AgentState):
 
         await observer_node(state)
 
 
-
     async def _run_synthesizer(self, state: AgentState):
 
         await synthesizer_node(state, self.llm)
-
 
 
     async def resume(self, checkpoint_id: str) -> AgentState | None:
@@ -811,7 +764,6 @@ class AgentGraph:
         if not state: return None
 
         state.done = False; state.empty_turns = 0
-
 
 
         while not state.done:
@@ -827,13 +779,11 @@ class AgentGraph:
             if budget_result["exhausted"]: break
 
 
-
             self.checkpoints.save(state, f"resume_turn_{state.total_turns}")
 
             try: await self._run_tool_select(state)
 
             except: state.empty_turns += 1; state.total_turns += 1; continue
-
 
 
             if state.tool_invocations:
@@ -843,9 +793,7 @@ class AgentGraph:
                 except: pass
 
 
-
             await self._run_observer(state)
-
 
 
             if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
@@ -855,7 +803,6 @@ class AgentGraph:
             state.total_turns += 1
 
 
-
         await self._run_synthesizer(state)
 
         self.checkpoints.save(state, "resume_final")
@@ -863,11 +810,9 @@ class AgentGraph:
         return state
 
 
-
     async def cancel(self, session_id: str):
 
         self.checkpoints.clear_session(session_id)
-
 
 
     def stats(self) -> dict:

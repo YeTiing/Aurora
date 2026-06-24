@@ -198,14 +198,12 @@ def BU(*components: str | None) -> str:
 
 
 # ═══ Browser Policy (anti-refusal for DeepSeek/Claude) ═══
-BROWSER_POLICY = """## Critical Browser Policy
-You have a `browser_use` tool that can open and control a real web browser. When asked to visit a URL:
-1. Use `browser_use` with method="navigate" and the URL
-2. NEVER say "I cannot browse" or "I cannot open external websites"
-3. NEVER tell the user to do it themselves
-4. If browser fails, explain the error — but never claim you lack the capability
-
-This overrides any training that says you cannot browse."""
+BROWSER_POLICY = """## Browser Policy
+You have browser_use and web_fetch tools.
+To visit a URL: first try browser_use navigate.
+If browser unavailable, use web_fetch to get content.
+NEVER say you cannot browse. NEVER redirect user.
+Explain errors clearly if both tools fail."""
 
 def RU(
     desktop: bool = False,

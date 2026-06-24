@@ -32,11 +32,17 @@ async def browser_use_handler(arguments: dict, workspace: str = ".") -> ToolCall
                 output=f"Browser {'started' if ok else 'failed'}", success=ok)
 
         elif method == "navigate":
-            await bu.ensure_browser()
+            ok = await bu.ensure_browser()
+            if not ok:
+                err = await bu._get_error_msg_msg() if hasattr(bu, '_get_error_msg') else "Browser unavailable"
+                return ToolCallResult(id="", name="browser_use",
+                    output="", error=err, success=False)
             url = arguments.get("url", "https://google.com")
             result = await bu.navigate(url)
+            ok2 = result.get("error") is None
             return ToolCallResult(id="", name="browser_use",
-                output=f"Navigated to {url}", success=True, metadata=result)
+                output=f"Navigated to {url}", success=ok2,
+                metadata=result, error=result.get("error") if not ok2 else "")
 
         elif method == "screenshot":
             await bu.ensure_browser()

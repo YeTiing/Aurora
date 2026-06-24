@@ -12,7 +12,7 @@ config = init_config(".")
 
 if __name__ == "__main__":
     host = config.get("server.host", "127.0.0.1")
-    port = config.get("server.port", 9876)
+    port = int(config.get("server.port", 9876))
     print(f"  Aurora AI Agent v0.2.0")
     print(f"  http://{host}:{port}")
     print(f"  API docs: http://{host}:{port}/docs")

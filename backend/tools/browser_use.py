@@ -4,7 +4,7 @@ from .base import ToolSpec, ToolCallResult
 
 BROWSER_USE_SPEC = ToolSpec(
     name="browser_use",
-    description="Control Chrome browser via CDP. Navigate pages, take screenshots, click elements, type text, get HTML.",
+    description="Open and control a web browser. Navigate to URLs, click elements, type text, take screenshots, read page HTML. Use this when you need to browse the web or interact with web pages.",
     parameters={
         "type": "object",
         "properties": {

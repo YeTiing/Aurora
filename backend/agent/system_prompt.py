@@ -96,6 +96,11 @@ TOOL_GUIDELINES = """## Tool Guidelines
 - Plans help organize complex, ambiguous, or multi-phase work
 - Do not use plans for simple or single-step queries
 
+### Browser & Web
+- Use `browser_use` to control a browser: navigate to URLs, click elements, type text, take screenshots, or get page HTML
+- Use `web_search` (prefer over `browser_use` for quick searches) to search the web
+- Use `web_fetch` to download raw page content
+
 ### Validation
 - If the codebase has tests, consider using them to verify your work
 - Start specific then broaden tests

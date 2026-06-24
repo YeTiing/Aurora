@@ -55,7 +55,7 @@ class BrowserUse:
             # Desktop BrowserView failed, fall back
             self._use_desktop = False
 
-        # Fallback: launch Chrome with CDP
+        # Fallback: try existing Chrome with CDP first
         self._use_desktop = False
         port = self.config.remote_debugging_port
         try:
@@ -66,23 +66,43 @@ class BrowserUse:
                     return True
         except: pass
 
-        args = [
+        # Try to launch Chrome
+        chrome_paths = [
             self.config.chrome_path,
-            f"--remote-debugging-port={port}",
-            "--no-first-run", "--no-default-browser-check",
-            "--disable-extensions", "--disable-background-networking",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            "chrome", "google-chrome", "chromium", "chromium-browser",
         ]
-        if self.config.headless:
-            args.append("--headless=new")
-        if self.config.user_data_dir:
-            args.append(f"--user-data-dir={self.config.user_data_dir}")
-
-        try:
-            subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            await asyncio.sleep(2)
-        except FileNotFoundError:
+        launched = False
+        for chrome in chrome_paths:
+            try:
+                args = [chrome, f"--remote-debugging-port={port}",
+                        "--no-first-run", "--no-default-browser-check",
+                        "--disable-extensions", "--disable-background-networking"]
+                if self.config.headless:
+                    args.append("--headless=new")
+                if self.config.user_data_dir:
+                    args.append(f"--user-data-dir={self.config.user_data_dir}")
+                subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                await asyncio.sleep(2)
+                launched = True
+                break
+            except FileNotFoundError:
+                continue
+        if not launched:
+            self._last_error = "Desktop not connected and Chrome not found. Start Aurora desktop or install Chrome."
             return False
-        return True
+        
+        # Verify it started
+        try:
+            import httpx
+            async with httpx.AsyncClient() as c:
+                resp = await c.get(f"http://127.0.0.1:{port}/json/version", timeout=3)
+                if resp.status_code == 200:
+                    return True
+        except: pass
+        self._last_error = f"Chrome started but CDP on port {port} not responding. Check if port is blocked."
+        return False
 
     async def navigate(self, url: str, target_id: str = ""):
         """导航到URL"""

@@ -62,7 +62,7 @@ const SOCIALS = [
 export function SocialPanel({ onClose }: { onClose: () => void }) {
     const openLink = (url: string) => {
         if (window.auroraAPI?.browser?.open) {
-            window.auroraAPI.browser.open(url);
+            window.auroraAPI?.browser?.open(url);
         } else {
             window.open(url, "_blank");
         }

@@ -196,29 +196,24 @@ export default function App() {
             showMemory={showMemory}
             onToggleAdmin={() => setShowAdmin(!showAdmin)}
             showAdmin={showAdmin}
-            onToggleGoal={() => setShowGoal(!showGoal)
-              }}
-            />
-            <button
-              onClick={() => setShowBrowser(!showBrowser)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
-                bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border]"
-              title="Embedded Browser (Ctrl+Shift+B)"
-            >🌐 Browser</button>
-            <button
-              onClick={() => setShowSocial(!showSocial)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
-                bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border]"
-              title="Social & Resources"
-            >🔗 Social</button>}
+            onToggleGoal={() => setShowGoal(!showGoal)}
             showGoal={showGoal}
             onToggleSkins={() => setShowSkins(!showSkins)}
             showSkins={showSkins}
             onToggleRe={() => setShowRe(!showRe)}
             showRe={showRe}
             onToggleDetective={() => setShowDetective(!showDetective)}
-            showDetective={showDetective} />
+            showDetective={showDetective}
+            />
 
+            <div style={{ display: "flex", gap: 6, padding: "2px 16px 8px" }}>
+              <button onClick={() => setShowBrowser(!showBrowser)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border] transition-all"
+                title="Browser (Ctrl+Shift+B)">🌐 Browser</button>
+              <button onClick={() => setShowSocial(!showSocial)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border] transition-all"
+                title="Social & Resources">🔗 Social</button>
+            </div>
             <div className="aurora-main">
                 {/* Left: Session list - NOW ABSOLUTE */}
                 <div className="aurora-left-sidebar" style={{ borderRight: `none` }}>

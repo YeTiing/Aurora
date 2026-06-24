@@ -486,8 +486,6 @@ ipcMain.handle("browser:getState", async () => {
 
 // App lifecycle
 app.whenReady().then(() => {
-// App lifecycle
-app.whenReady().then(() => {
     createWindow();
     createTray();
     connectBackend();

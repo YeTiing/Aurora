@@ -4,16 +4,18 @@ import { useStore } from "../../store";
 // Electron preload bridge
 declare global {
     interface Window {
-        auroraAPI: {
-            browserOpen: (url: string) => Promise<any>;
-            browserClose: () => Promise<any>;
-            browserNavigate: (url: string) => Promise<any>;
-            browserBack: () => Promise<any>;
-            browserForward: () => Promise<any>;
-            browserReload: () => Promise<any>;
-            browserGetState: () => Promise<{ visible: boolean; url: string }>;
-            onBrowserState: (cb: (data: any) => void) => void;
-            onBrowserNavigated: (cb: (data: any) => void) => void;
+        auroraAPI?: {
+            browser?: {
+                open: (url: string) => Promise<any>;
+                close: () => Promise<any>;
+                navigate: (url: string) => Promise<any>;
+                back: () => Promise<any>;
+                forward: () => Promise<any>;
+                reload: () => Promise<any>;
+                getState: () => Promise<{ visible: boolean; url: string }>;
+                onState: (cb: (data: any) => void) => void;
+                onNavigated: (cb: (data: any) => void) => void;
+            };
         };
     }
 }
@@ -40,7 +42,7 @@ export function BrowserPanel() {
         setError("");
         try {
             if (window.auroraAPI) {
-                const result = await window.auroraAPI.browserOpen(targetUrl);
+                const result = await window.auroraAPI?.browser?.open(targetUrl);
                 if (result.error) {
                     setError(result.error);
                 } else {
@@ -61,7 +63,7 @@ export function BrowserPanel() {
     const closeBrowser = useCallback(async () => {
         try {
             if (window.auroraAPI) {
-                await window.auroraAPI.browserClose();
+                await window.auroraAPI?.browser?.close();
             }
             setCurrentUrl("");
         } catch (_) {}
@@ -80,8 +82,8 @@ export function BrowserPanel() {
     }, [navigate]);
 
     React.useEffect(() => {
-        if (window.auroraAPI?.onBrowserState) {
-            window.auroraAPI.onBrowserState((data: any) => {
+        if (window.auroraAPI?.browser?.onState) {
+            window.auroraAPI?.browser?.onState((data: any) => {
                 if (data.url) setCurrentUrl(data.url);
             });
         }
@@ -101,11 +103,11 @@ export function BrowserPanel() {
             }}>
                 <button onClick={closeBrowser}
                     style={btnStyle} title="Close browser">✕</button>
-                <button onClick={() => window.auroraAPI?.browserBack()}
+                <button onClick={() => window.auroraAPI?.browser?.back()}
                     style={btnStyle} title="Back">◀</button>
-                <button onClick={() => window.auroraAPI?.browserForward()}
+                <button onClick={() => window.auroraAPI?.browser?.forward()}
                     style={btnStyle} title="Forward">▶</button>
-                <button onClick={() => window.auroraAPI?.browserReload()}
+                <button onClick={() => window.auroraAPI?.browser?.reload()}
                     style={btnStyle} title="Reload">↻</button>
                 <input
                     type="text"

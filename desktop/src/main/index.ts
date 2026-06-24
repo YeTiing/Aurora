@@ -308,6 +308,96 @@ async function handleBrowserCommand(msg: { id: string; method: string; params: a
     }
 }
 
+// Start Python backend on app launch
+function startBackend() {
+    const cwd = path.resolve(__dirname, "..", "..", "..");
+    console.log("[Aurora] Starting backend in", cwd);
+    try {
+        backendProcess = spawn("python", ["main.py"], {
+            cwd,
+            stdio: "pipe",
+            env: { ...process.env, PYTHONUNBUFFERED: "1" },
+        });
+        backendProcess.stdout?.on("data", (d: Buffer) => {
+            console.log("[Aurora backend]", d.toString().trim());
+        });
+        backendProcess.stderr?.on("data", (d: Buffer) => {
+            console.log("[Aurora backend]", d.toString().trim());
+        });
+    } catch (e: any) {
+        console.error("[Aurora] Backend error:", e.message);
+    }
+}
+
+async function handleBrowserNative(msg: { id: string; method: string; params: any }): Promise<any> {
+    const { method, params } = msg;
+    try {
+        switch (method) {
+            case "open":
+            case "navigate": {
+                const url = params?.url || "about:blank";
+                if (!browserView) {
+                    browserView = new BrowserView({
+                        webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+                    });
+                    mainWindow?.addBrowserView(browserView);
+                    const bounds = mainWindow!.getContentBounds();
+                    const bvWidth = Math.floor(bounds.width * 0.45);
+                    browserView.setBounds({ x: bounds.width - bvWidth, y: 60, width: bvWidth, height: bounds.height - 60 });
+                    browserView.setAutoResize({ width: true, height: true, horizontal: true, vertical: true });
+                    browserView.webContents.on("did-navigate", (_e, navUrl) => {
+                        mainWindow?.webContents.send("browser:navigated", { url: navUrl });
+                    });
+                }
+                browserViewVisible = true;
+                browserControlledByAI = true;
+                mainWindow?.webContents.send("browser:ai_control", { active: true });
+                await browserView.webContents.loadURL(url);
+                return { success: true, url };
+            }
+            case "screenshot": {
+                if (!browserView) return { error: "BrowserView not open" };
+                const img = await browserView.webContents.capturePage();
+                return { data_url: "data:image/png;base64," + img.toPNG().toString("base64") };
+            }
+            case "click": {
+                if (!browserView) return { error: "BrowserView not open" };
+                const sel = (params?.selector || "body").replace(/'/g, "\\'");
+                const pos = await browserView.webContents.executeJavaScript(
+                    "(function(){var el=document.querySelector('" + sel + "');if(!el)return null;el.click();var r=el.getBoundingClientRect();return{x:r.x,y:r.y};})()"
+                );
+                return pos ? { success: true, clicked: params?.selector, position: pos } : { error: "Element not found" };
+            }
+            case "type": {
+                if (!browserView) return { error: "BrowserView not open" };
+                const tsel = (params?.selector || "input").replace(/'/g, "\\'");
+                const ttext = (params?.text || "").replace(/'/g, "\\'");
+                await browserView.webContents.executeJavaScript(
+                    "(function(){var el=document.querySelector('" + tsel + "');if(el){el.focus();el.value='" + ttext + "';el.dispatchEvent(new Event('input',{bubbles:true}));}})()"
+                );
+                return { success: true, typed: (params?.text || "").substring(0, 50) };
+            }
+            case "get_html": {
+                if (!browserView) return { error: "BrowserView not open" };
+                const html = await browserView.webContents.executeJavaScript("document.documentElement.outerHTML");
+                return { html: String(html).substring(0, 50000) };
+            }
+            case "evaluate": {
+                if (!browserView) return { error: "BrowserView not open" };
+                const result = await browserView.webContents.executeJavaScript(params?.js || "null");
+                return { result: JSON.parse(JSON.stringify(result)) };
+            }
+            case "get_state": {
+                return { url: browserView?.webContents.getURL() || "", title: browserView?.webContents.getTitle() || "", visible: browserViewVisible };
+            }
+            default:
+                return { error: "Unknown method: " + method };
+        }
+    } catch (e: any) {
+        return { error: e.message || String(e) };
+    }
+}
+
 function connectBackend() {
 
     if (ws) {
@@ -323,6 +413,13 @@ function connectBackend() {
     ws.on("message", async (data: WebSocket.Data) => {
         try {
             const msg = JSON.parse(data.toString());
+            
+            // Browser command from backend
+            if (msg.type === "browser_cmd") {
+                const result = await handleBrowserNative(msg);
+                ws?.send(JSON.stringify({ type: "browser_result", id: msg.id, result }));
+                return;
+            }
 
             // ── Browser CDP commands from backend ──
             if (msg.type === "browser_cmd") {
@@ -556,6 +653,8 @@ ipcMain.handle("shell:openExternal", async (_event, url: string) => {
 });
 
 // Browser View handlers
+// Native browser control via Electron APIs (executeJavaScript + capturePage)
+
 ipcMain.handle("browser:open", async (_event, url: string) => {
     if (!mainWindow) return { error: "No main window" };
     if (!browserView) {
@@ -601,6 +700,8 @@ ipcMain.handle("browser:close", async () => {
     browserControlledByAI = false;
     mainWindow?.webContents.send("browser:state", { visible: false });
     mainWindow?.webContents.send("browser:ai_control", { active: false });
+    mainWindow?.webContents.send("browser:ai_control", { active: false });
+    browserControlledByAI = false;
     return { success: true };
 });
 
@@ -643,7 +744,9 @@ ipcMain.handle("browser:getState", async () => {
 });
 
 // App lifecycle
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+    startBackend();
+    await new Promise(r => setTimeout(r, 2500));
     createWindow();
     createTray();
     connectBackend();
@@ -659,6 +762,7 @@ app.whenReady().then(() => {
 
 app.on("before-quit", () => {
     isQuitting = true;
+    if (backendProcess) { try { backendProcess.kill(); } catch (_) {} }
 });
 
 app.on("window-all-closed", () => {

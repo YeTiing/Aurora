@@ -105,25 +105,94 @@ _desktop_ws: WebSocket | None = None
 
 @router.websocket("/ws/desktop")
 async def desktop_websocket(ws: WebSocket):
+    """Desktop WebSocket - handles chat + browser relay."""
     global _desktop_ws
     await ws.accept()
     from backend.browser_relay import browser_relay
     browser_relay.set_ws(ws)
     _desktop_ws = ws
+    
+    # Subscribe to SSE events for this connection
+    from backend.agent.sse_events import sse_bus
+    async def forward_event(event):
+        try:
+            await ws.send_text(json.dumps(event.to_dict(), ensure_ascii=False))
+        except Exception:
+            pass
+    sse_bus.subscribe("desktop", forward_event)
+
     try:
         while True:
             data = await ws.receive_text()
             msg = json.loads(data)
-            # Handle browser command results from desktop
+            
+            # Browser command results from desktop
             if msg.get("type") == "browser_result":
                 browser_relay.on_result(msg.get("id", ""), msg.get("result", {}))
+                continue
+            
+            # Chat message from desktop - handle it
+            if msg.get("type") == "chat":
+                from backend.api.deps import get_graph as _get_graph
+                session_id = msg.get("sessionId") or f"session_{uuid.uuid4().hex[:8]}"
+                sandbox_mode = msg.get("sandboxMode", "full-access")
+                model = msg.get("model", "")
+                user_text = msg.get("message", "")
+                workspace = msg.get("workspace", ".")
+                
+                await ws.send_text(json.dumps({
+                    "type": "codex/event/user_message",
+                    "data": {"content": user_text},
+                    "session_id": session_id,
+                }, ensure_ascii=False))
+                
+                try:
+                    _init_graph(); graph = _graph
+                    history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (msg.get("history") or [])]
+                    state = await graph.run(
+                        user_text,
+                        session_id=session_id,
+                        workspace=workspace,
+                        sandbox_mode=sandbox_mode,
+                        model=model,
+                        history=history,
+                    )
+                    if state.final_response:
+                        await ws.send_text(json.dumps({
+                            "type": "codex/event/agent_message",
+                            "data": {"content": state.final_response},
+                            "session_id": session_id,
+                        }, ensure_ascii=False))
+                    await ws.send_text(json.dumps({
+                        "type": "done",
+                        "response": state.final_response,
+                        "session_id": session_id,
+                        "tokens": state.total_turns,
+                    }, ensure_ascii=False))
+                except Exception as e:
+                    import traceback
+                    await ws.send_text(json.dumps({
+                        "type": "codex/event/error",
+                        "data": {"error": str(e), "traceback": traceback.format_exc()[:500]},
+                        "session_id": session_id,
+                    }, ensure_ascii=False))
+                continue
+            
+            # Cancel message
+            if msg.get("type") == "cancel":
+                await ws.send_text(json.dumps({
+                    "type": "codex/event/turn_aborted",
+                    "data": {"reason": "user_cancelled"}
+                }, ensure_ascii=False))
+                
     except WebSocketDisconnect:
         pass
     finally:
+        sse_bus.unsubscribe("desktop", forward_event)
         browser_relay.clear_ws()
         _desktop_ws = None
 
-# WebSocket — Session connections# WebSocket — Session connections
+# WebSocket — Session connections (kept for backward compat)
 _ws_connections: dict[str, list[WebSocket]] = {}
 
 @router.websocket("/ws/{session_id}")

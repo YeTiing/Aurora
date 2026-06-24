@@ -339,3 +339,142 @@ async def get_swarm_layouts():
     from backend.swarm.layout import TeammateLayout
     layout = TeammateLayout()
     return layout.to_dict()
+
+
+# ── Tool Metrics Routes ───────────────────────────────────────
+
+@router.get("/metrics")
+async def get_tool_metrics(tool: str = ""):
+    """Get tool call metrics: count, success rate, latency percentiles."""
+    try:
+        from backend.tools.tool_metrics import get_metrics
+        m = get_metrics()
+        if tool:
+            return m.get_stats(tool)
+        return {"summary": m.get_summary(), "tools": m.get_stats()}
+    except ImportError:
+        return {"error": "metrics not available"}
+
+@router.get("/metrics/recent")
+async def get_recent_metrics(limit: int = 20):
+    """Get recent tool call timeline."""
+    try:
+        from backend.tools.tool_metrics import get_metrics
+        return {"recent": get_metrics().get_recent(limit)}
+    except ImportError:
+        return {"error": "metrics not available"}
+
+
+# ── Plan Verification Routes ──────────────────────────────────
+
+@router.post("/verify-plan")
+async def verify_plan_step(req: dict):
+    """Verify a plan step was actually executed."""
+    try:
+        from backend.tools.verify_plan import verify_plan_handler
+        result = await verify_plan_handler(req)
+        return result
+    except ImportError:
+        return {"error": "verifier not available"}
+
+
+# ── Transcript Index Routes ───────────────────────────────────
+
+@router.get("/transcripts/search")
+async def search_transcripts(q: str = "", limit: int = 20, session_id: str = "", regex: bool = False):
+    """Full-text search across session transcripts."""
+    try:
+        from backend.transcript_index import get_transcript_index
+        idx = get_transcript_index()
+        idx.build()
+        hits = idx.search(q, limit=limit, session_id=session_id, regex=regex)
+        return {
+            "query": q,
+            "hits": [{"session_id": h.session_id, "line": h.line_number, "type": h.event_type, "preview": h.content_preview[:300]} for h in hits],
+            "count": len(hits),
+        }
+    except ImportError:
+        return {"error": "transcript_index not available"}
+
+@router.get("/transcripts/sessions")
+async def list_transcript_sessions(limit: int = 50):
+    """List all indexed transcript sessions."""
+    try:
+        from backend.transcript_index import get_transcript_index
+        idx = get_transcript_index()
+        return {"sessions": idx.list_sessions(limit), "stats": idx.stats()}
+    except ImportError:
+        return {"error": "transcript_index not available"}
+
+@router.post("/transcripts/rebuild")
+async def rebuild_transcript_index():
+    """Force rebuild the transcript index."""
+    try:
+        from backend.transcript_index import get_transcript_index
+        idx = get_transcript_index()
+        count = idx.build(force=True)
+        return {"rebuilt": True, "sessions": count, "stats": idx.stats()}
+    except ImportError:
+        return {"error": "transcript_index not available"}
+
+
+# ── Hook System Routes ────────────────────────────────────────
+
+@router.get("/hooks/stats")
+async def get_hook_stats():
+    """Get hook system statistics."""
+    try:
+        from backend.hooks_system import get_hook_registry
+        return {"stats": get_hook_registry().stats()}
+    except ImportError:
+        return {"error": "hooks not available"}
+
+@router.post("/hooks/register")
+async def register_hook(req: dict):
+    """Register a new hook (point + callback name)."""
+    try:
+        from backend.hooks_system import get_hook_registry, HookPoint
+        registry = get_hook_registry()
+        point = HookPoint(req.get("point", "post_model_output"))
+        # For now, register a no-op placeholder
+        hook_id = registry.register(point, lambda ctx: True)
+        return {"registered": hook_id, "point": point.value}
+    except ImportError:
+        return {"error": "hooks not available"}
+
+
+# ── Task Monitor Routes ───────────────────────────────────────
+
+@router.get("/monitor/targets")
+async def list_monitor_targets():
+    """List all watch targets."""
+    try:
+        from backend.task_monitor import get_monitor
+        return {"targets": get_monitor().get_targets()}
+    except ImportError:
+        return {"error": "monitor not available"}
+
+@router.post("/monitor/add")
+async def add_monitor_target(req: dict):
+    """Add a watch target."""
+    try:
+        from backend.task_monitor import get_monitor
+        tid = get_monitor().add_target(
+            name=req.get("name", "watch"),
+            path=req.get("path", "."),
+            watch_type=req.get("type", "file"),
+            interval_sec=req.get("interval", 60),
+        )
+        return {"target_id": tid, "status": "added"}
+    except ImportError:
+        return {"error": "monitor not available"}
+
+@router.get("/monitor/events")
+async def get_monitor_events(since: float = 0):
+    """Get recent change events."""
+    try:
+        from backend.task_monitor import get_monitor
+        events = get_monitor().get_events(since)
+        return {"events": [{"target": e.target_name, "type": e.change_type, "detail": e.detail, "timestamp": e.timestamp} for e in events]}
+    except ImportError:
+        return {"error": "monitor not available"}

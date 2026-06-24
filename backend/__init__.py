@@ -37,4 +37,10 @@ from .computer_use.gates import CuGates, CuPermission, get_gates
 
 from .bash_classifier import BashClassifier, BashRisk, classify_command, get_classifier
 from .agent.integration_hooks import post_file_edit_hook, post_session_hook, pre_shell_exec_hook
+from .tools.lsp_tool import LSP_TOOL_SPEC, lsp_handler
+from .tools.verify_plan import VERIFY_TOOL_SPEC, verify_plan_handler, PlanVerifier, get_verifier
+from .tools.tool_metrics import ToolMetrics, get_metrics
+from .transcript_index import TranscriptIndex, get_transcript_index
+from .hooks_system import HookRegistry, HookPoint, HookContext, HookResult, get_hook_registry
+from .task_monitor import BackgroundMonitor, get_monitor
 __version__ = "0.2.0"

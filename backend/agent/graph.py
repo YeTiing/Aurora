@@ -75,6 +75,11 @@ class AgentGraph:
         self.events = event_bus or sse_bus
 
         self.token_budget = token_budget or TokenBudget(24000)
+        self._monitor = None
+        self._monitor_started = False
+        self._hook_registry = None
+        self._transcript_index = None
+        self._worktree = None
         # Worktree support
         self._worktree_active = False
         try:
@@ -85,6 +90,15 @@ class AgentGraph:
 
         # Start cron scheduler
         from backend.cron_scheduler import get_cron
+
+        # Start background services (lazy init)
+        if self._monitor and not self._monitor_started:
+            try:
+                self._monitor_started = True
+                asyncio.create_task(self._monitor.start(60))
+            except Exception:
+                pass
+
 
         # Quality gate check (non-blocking)
         try:
@@ -101,6 +115,28 @@ class AgentGraph:
             heartbeat_manager.configure(interval=300, enabled=True)
         except ImportError:
             pass
+
+        # Initialize background task monitor
+        try:
+            from backend.task_monitor import get_monitor
+            self._monitor = get_monitor()
+        except ImportError:
+            self._monitor = None
+
+        # Initialize transcript index
+        try:
+            from backend.transcript_index import get_transcript_index
+            self._transcript_index = get_transcript_index()
+            self._transcript_index.build()
+        except ImportError:
+            self._transcript_index = None
+
+        # Initialize hook system
+        try:
+            from backend.hooks_system import get_hook_registry
+            self._hook_registry = get_hook_registry()
+        except ImportError:
+            self._hook_registry = None
         self.cron = get_cron()
 
 

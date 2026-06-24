@@ -186,9 +186,21 @@ async def executor_node(
             continue
 
         start = time.time()
+        # Tool metrics: record start
+        try:
+            from backend.tools.tool_metrics import get_metrics
+            get_metrics().record_start(inv.name, inv.arguments)
+        except ImportError:
+            pass
         try:
             result = await tool_handler(inv.name, inv.arguments, ws)
             duration = (time.time() - start) * 1000
+            # Record metrics
+            try:
+                from backend.tools.tool_metrics import get_metrics
+                get_metrics().record_end(inv.name, result.get("success", False), result.get("error", ""), len(str(result.get("output", ""))))
+            except ImportError:
+                pass
             tr = ToolResult(
                 invocation_id=inv.id,
                 name=inv.name,

@@ -77,3 +77,5 @@ __all__ = [
     "DETECTIVE_SPEC", "detective_handler",
     "SESSION_EXPORT_SPEC", "session_export_handler",
 ]
+from .lsp_tool import LSP_TOOL_SPEC, lsp_handler
+from .verify_plan import VERIFY_TOOL_SPEC, verify_plan_handler

@@ -1,6 +1,6 @@
 // Aurora Zustand 状态管理 — 集成 IndexedDB 持久化
 import { create } from "zustand";
-import type { Session, AgentMessage, PlanStep, ThemeColors, FileEntry, ToolLog } from "../../shared/types";
+import type { Session, AgentMessage, PlanStep, ThemeColors, FileEntry, ToolLog, ThreadFollowerState } from "../../shared/types";
 import { darkTheme, lightTheme } from "../../shared/types";
 import * as db from "./db";
 
@@ -46,6 +46,10 @@ interface AuroraState {
     setBackendConnected: (v: boolean) => void;
     isStreaming: boolean;
     setStreaming: (v: boolean) => void;
+
+    // Codex Thread Follower
+    threadFollower: ThreadFollowerState;
+    updateThreadFollower: (patch: Partial<ThreadFollowerState>) => void;
 
     // Theme
     theme: "dark" | "light";
@@ -275,6 +279,16 @@ export const useStore = create<AuroraState>((set, get) => ({
     setBackendConnected(v) { set({ backendConnected: v }); },
     isStreaming: false,
     setStreaming(v) { set({ isStreaming: v }); },
+    threadFollower: {
+        activeThreadId: null,
+        status: "idle",
+        summary: "",
+        queuedFollowups: [],
+        settings: null,
+    },
+    updateThreadFollower(patch) {
+        set((s) => ({ threadFollower: { ...s.threadFollower, ...patch } }));
+    },
     addToolLog(sessionId, log) { set((s) => { const sessions = s.sessions.map((ses) => ses.id === sessionId ? { ...ses, toolLogs: [...(ses.toolLogs || []), { ...log, timestamp: Date.now() }], updatedAt: Date.now() } : ses); return { sessions }; }); },
 
     theme: "dark",

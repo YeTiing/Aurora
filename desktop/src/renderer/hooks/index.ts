@@ -54,6 +54,7 @@ export function useAgent() {
     const addMessage = useStore((s) => s.addMessage);
     const addToolLog = useStore((s) => s.addToolLog);
     const updatePlan = useStore((s) => s.updatePlan);
+    const updateThreadFollower = useStore((s) => s.updateThreadFollower);
     const setStreaming = useStore((s) => s.setStreaming);
     const setBackendConnected = useStore((s) => s.setBackendConnected);
     const streamingRef = useRef(false);
@@ -69,6 +70,49 @@ export function useAgent() {
             const data = raw.data || raw;
 
             switch (eventType) {
+                case "codex/event/thread_follower_start_turn":
+                    updateThreadFollower({
+                        activeThreadId: raw.thread_id || data.thread_id || null,
+                        status: "running",
+                        settings: data.settings || null,
+                    });
+                    break;
+
+                case "codex/event/thread_follower_steer_turn":
+                    updateThreadFollower({
+                        activeThreadId: raw.thread_id || data.thread_id || null,
+                    });
+                    break;
+
+                case "codex/event/thread_follower_interrupt_turn":
+                    updateThreadFollower({
+                        activeThreadId: raw.thread_id || data.thread_id || null,
+                        status: "interrupted",
+                    });
+                    break;
+
+                case "codex/event/thread_follower_compact_thread":
+                    updateThreadFollower({
+                        activeThreadId: raw.thread_id || data.thread_id || null,
+                        status: data.compacted === false ? "running" : "compacting",
+                        summary: data.summary || "",
+                    });
+                    break;
+
+                case "codex/event/thread_follower_set_queued_followups_state":
+                    updateThreadFollower({
+                        activeThreadId: raw.thread_id || data.thread_id || null,
+                        queuedFollowups: data.queued_followups || [],
+                    });
+                    break;
+
+                case "codex/event/thread_follower_update_thread_settings":
+                    updateThreadFollower({
+                        activeThreadId: raw.thread_id || data.thread_id || null,
+                        settings: data.settings || null,
+                    });
+                    break;
+
                 case "codex/event/task_started":
                     streamingRef.current = true;
                     setStreaming(true);
@@ -122,6 +166,7 @@ export function useAgent() {
                     setStreaming(false);
                     streamingRef.current = false;
                     if (data.plan) updatePlan(sessionId, data.plan);
+                    updateThreadFollower({ status: "completed" });
                     break;
 
                 case "codex/event/error":
@@ -140,6 +185,7 @@ export function useAgent() {
                     if (raw.type === "done") {
                         seenMessages.current.clear();
                         setStreaming(false);
+                        updateThreadFollower({ status: "completed" });
                     } else if (raw.type === "error" && raw.content) {
                         addMessage(sessionId, { role: "system", content: `鉂?${raw.content}` });
                         setStreaming(false);

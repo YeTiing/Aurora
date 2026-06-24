@@ -1,4 +1,4 @@
-# Aurora SSE event system — complete 46 Codex events
+# Aurora SSE event system — Codex-compatible events
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
@@ -7,7 +7,22 @@ import json, time, uuid
 
 
 class SSEEventType(Enum):
-    """Complete Codex SSE event type registry — 46 events"""
+    """Codex SSE event type registry."""
+
+    # Thread Follower Controls
+    THREAD_FOLLOWER_START_TURN = "codex/event/thread_follower_start_turn"
+    THREAD_FOLLOWER_STEER_TURN = "codex/event/thread_follower_steer_turn"
+    THREAD_FOLLOWER_INTERRUPT_TURN = "codex/event/thread_follower_interrupt_turn"
+    THREAD_FOLLOWER_EDIT_LAST_USER_TURN = "codex/event/thread_follower_edit_last_user_turn"
+    THREAD_FOLLOWER_COMPACT_THREAD = "codex/event/thread_follower_compact_thread"
+    THREAD_FOLLOWER_LOAD_COMPLETE_HISTORY = "codex/event/thread_follower_load_complete_history"
+    THREAD_FOLLOWER_COMMAND_APPROVAL_DECISION = "codex/event/thread_follower_command_approval_decision"
+    THREAD_FOLLOWER_FILE_APPROVAL_DECISION = "codex/event/thread_follower_file_approval_decision"
+    THREAD_FOLLOWER_PERMISSIONS_REQUEST_APPROVAL_RESPONSE = "codex/event/thread_follower_permissions_request_approval_response"
+    THREAD_FOLLOWER_SUBMIT_USER_INPUT = "codex/event/thread_follower_submit_user_input"
+    THREAD_FOLLOWER_SUBMIT_MCP_SERVER_ELICITATION_RESPONSE = "codex/event/thread_follower_submit_mcp_server_elicitation_response"
+    THREAD_FOLLOWER_SET_QUEUED_FOLLOWUPS_STATE = "codex/event/thread_follower_set_queued_followups_state"
+    THREAD_FOLLOWER_UPDATE_THREAD_SETTINGS = "codex/event/thread_follower_update_thread_settings"
 
     # Session / Task Lifecycle
     SESSION_CONFIGURED = "codex/event/session_configured"
@@ -133,6 +148,22 @@ class SSEEventBus:
         return [e.to_dict() for e in events[-limit:]]
 
     # ── Convenience emitters ──
+
+    async def thread_follower_start_turn(self, session_id: str, thread_id: str, settings: dict):
+        await self.emit(SSEEvent(type=SSEEventType.THREAD_FOLLOWER_START_TURN,
+            data={"settings": settings}, session_id=session_id, thread_id=thread_id))
+
+    async def thread_follower_steer_turn(self, session_id: str, thread_id: str, instruction: str):
+        await self.emit(SSEEvent(type=SSEEventType.THREAD_FOLLOWER_STEER_TURN,
+            data={"instruction": instruction}, session_id=session_id, thread_id=thread_id))
+
+    async def thread_follower_interrupt_turn(self, session_id: str, thread_id: str, reason: str):
+        await self.emit(SSEEvent(type=SSEEventType.THREAD_FOLLOWER_INTERRUPT_TURN,
+            data={"reason": reason}, session_id=session_id, thread_id=thread_id))
+
+    async def thread_follower_compact_thread(self, session_id: str, thread_id: str, summary: str):
+        await self.emit(SSEEvent(type=SSEEventType.THREAD_FOLLOWER_COMPACT_THREAD,
+            data={"summary": summary}, session_id=session_id, thread_id=thread_id))
 
     async def session_configured(self, session_id: str, **kwargs):
         await self.emit(SSEEvent(type=SSEEventType.SESSION_CONFIGURED,

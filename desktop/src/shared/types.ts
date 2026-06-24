@@ -60,8 +60,22 @@ export interface SSEEvent {
     timestamp?: number;
 }
 
-// Complete 46 SSE Event types — synced with backend sse_events.py
+// Codex SSE Event types — synced with backend sse_events.py
 export type SSEEventType =
+    // Thread Follower Controls
+    | "codex/event/thread_follower_start_turn"
+    | "codex/event/thread_follower_steer_turn"
+    | "codex/event/thread_follower_interrupt_turn"
+    | "codex/event/thread_follower_edit_last_user_turn"
+    | "codex/event/thread_follower_compact_thread"
+    | "codex/event/thread_follower_load_complete_history"
+    | "codex/event/thread_follower_command_approval_decision"
+    | "codex/event/thread_follower_file_approval_decision"
+    | "codex/event/thread_follower_permissions_request_approval_response"
+    | "codex/event/thread_follower_submit_user_input"
+    | "codex/event/thread_follower_submit_mcp_server_elicitation_response"
+    | "codex/event/thread_follower_set_queued_followups_state"
+    | "codex/event/thread_follower_update_thread_settings"
     // Session / Task Lifecycle
     | "codex/event/session_configured"
     | "codex/event/task_started"
@@ -126,6 +140,19 @@ export interface BackendMessage {
     diffs?: string[];
     data?: Record<string, any>;
     response?: string;
+}
+
+export interface ThreadFollowerState {
+    activeThreadId: string | null;
+    status: "idle" | "running" | "interrupted" | "compacting" | "completed";
+    summary: string;
+    queuedFollowups: string[];
+    settings: {
+        model: string;
+        reasoning_effort: "low" | "medium" | "high" | "xhigh";
+        sandbox_policy: string;
+        approval_mode: string;
+    } | null;
 }
 
 export interface FileEntry {

@@ -21,6 +21,75 @@ interface ChatPanelProps {
 
 
 
+
+/* ── Mermaid diagram renderer ────────────────────────────────────────── */
+const MermaidBlock: React.FC<{ code: string }> = ({ code }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [svg, setSvg] = React.useState<string>("");
+  const [error, setError] = React.useState<string>("");
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const renderMermaid = async () => {
+      try {
+        // Dynamic import of mermaid
+        const mermaid = (window as any).__mermaid__;
+        if (!mermaid) {
+          // Load mermaid from CDN dynamically
+          if (!document.getElementById("mermaid-script")) {
+            const script = document.createElement("script");
+            script.id = "mermaid-script";
+            script.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+            script.onload = () => {
+              if (!cancelled) renderMermaid();
+            };
+            document.head.appendChild(script);
+            return;
+          }
+          setError("Loading Mermaid...");
+          return;
+        }
+        const id = "mermaid-" + Math.random().toString(36).slice(2, 10);
+        const { svg: result } = await mermaid.render(id, code);
+        if (!cancelled) setSvg(result);
+      } catch (e: any) {
+        if (!cancelled) setError(e.message || "Mermaid render failed");
+      }
+    };
+    renderMermaid();
+    return () => { cancelled = true; };
+  }, [code]);
+
+  if (error) {
+    return (
+      <div style={{ padding: 12, margin: "8px 0", borderRadius: 8, background: "rgba(247,118,142,0.1)", border: "1px solid rgba(247,118,142,0.3)" }}>
+        <div style={{ fontSize: 10, color: "#f7768e", marginBottom: 6 }}>Mermaid Diagram (render error)</div>
+        <pre style={{ fontSize: 11, color: "var(--aurora-text)", margin: 0, whiteSpace: "pre-wrap" }}>{code}</pre>
+        <div style={{ fontSize: 10, color: "#f7768e", marginTop: 4 }}>{error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        padding: 12, margin: "8px 0", borderRadius: 8,
+        background: "var(--aurora-bg-card, #1a1b26)",
+        border: "1px solid var(--aurora-border, #252636)",
+        overflow: "auto",
+      }}
+    >
+      <div style={{ fontSize: 10, color: "var(--aurora-text-muted)", marginBottom: 8 }}>Mermaid Diagram</div>
+      <div
+        dangerouslySetInnerHTML={{ __html: svg || "<div style='padding:20px;color:var(--aurora-text-muted)'>Loading diagram...</div>" }}
+        style={{ display: "flex", justifyContent: "center" }}
+      />
+    </div>
+  );
+};
+
+
 export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
   const colors = useStore((s) => s.themeColors);
   const sessions = useStore((s) => s.sessions);

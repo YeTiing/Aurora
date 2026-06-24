@@ -67,7 +67,7 @@ async def update_config(req: ConfigUpdateRequest): _init(); return {"key":req.ke
 
 # Plugins
 @router.get("/plugins")
-async def list_plugins(): _init_plugins(); return {"plugins":_plugins.list()}
+async def list_plugins(): _init_plugins(); return {"plugins":_plugins.list_all()}
 
 @router.post("/plugins/{name}/reload")
 async def reload_plugin(name: str): _init_plugins(); return {"name":name,"reloaded":_plugins.reload(name)}

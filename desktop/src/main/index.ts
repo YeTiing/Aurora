@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, nativeImage } from "electron";
+import { app, BrowserWindow, BrowserView, Tray, Menu, Notification, ipcMain, dialog, shell, nativeImage } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { spawn, ChildProcess } from "child_process";
@@ -10,6 +10,8 @@ let ws: WebSocket | null = null;
 let backendProcess: ChildProcess | null = null;
 let minimizeToTray = true;
 let isQuitting = false;
+let browserView: BrowserView | null = null;
+let browserViewVisible = false;
 
 const BACKEND_URL = "ws://127.0.0.1:9876";
 
@@ -136,7 +138,20 @@ function createWindow() {
         }
     });
 
-    mainWindow.on("closed", () => { mainWindow = null; });
+    mainWindow.on("resize", () => {
+        if (browserView && browserViewVisible) {
+            const bounds = mainWindow!.getContentBounds();
+            const bvWidth = Math.floor(bounds.width * 0.45);
+            browserView.setBounds({
+                x: bounds.width - bvWidth,
+                y: 60,
+                width: bvWidth,
+                height: bounds.height - 60,
+            });
+        }
+    });
+
+mainWindow.on("closed", () => { mainWindow = null; });
 
     // If minimized flag, don't show initially
     if (startMinimized && mainWindow) {
@@ -384,6 +399,93 @@ ipcMain.handle("shell:openExternal", async (_event, url: string) => {
     await shell.openExternal(url);
 });
 
+// Browser View handlers
+ipcMain.handle("browser:open", async (_event, url: string) => {
+    if (!mainWindow) return { error: "No main window" };
+    if (!browserView) {
+        browserView = new BrowserView({
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                sandbox: true,
+            },
+        });
+        mainWindow.addBrowserView(browserView);
+        const bounds = mainWindow.getContentBounds();
+        // Position on right side, 45% width
+        const bvWidth = Math.floor(bounds.width * 0.45);
+        browserView.setBounds({
+            x: bounds.width - bvWidth,
+            y: 60,
+            width: bvWidth,
+            height: bounds.height - 60,
+        });
+        browserView.setAutoResize({ width: true, height: true, horizontal: true, vertical: true });
+
+        browserView.webContents.on("did-navigate", (_e, navUrl) => {
+            mainWindow?.webContents.send("browser:navigated", { url: navUrl });
+        });
+        browserView.webContents.on("did-navigate-in-page", (_e, navUrl) => {
+            mainWindow?.webContents.send("browser:navigated", { url: navUrl });
+        });
+    }
+    browserViewVisible = true;
+    await browserView.webContents.loadURL(url);
+    mainWindow.webContents.send("browser:state", { visible: true, url });
+    return { success: true };
+});
+
+ipcMain.handle("browser:close", async () => {
+    if (browserView && mainWindow) {
+        mainWindow.removeBrowserView(browserView);
+        (browserView.webContents as any).destroy?.();
+        browserView = null;
+    }
+    browserViewVisible = false;
+    mainWindow?.webContents.send("browser:state", { visible: false });
+    return { success: true };
+});
+
+ipcMain.handle("browser:navigate", async (_event, url: string) => {
+    if (browserView) {
+        await browserView.webContents.loadURL(url);
+        return { success: true };
+    }
+    return { error: "No browser view" };
+});
+
+ipcMain.handle("browser:back", async () => {
+    if (browserView && browserView.webContents.canGoBack()) {
+        browserView.webContents.goBack();
+        return { success: true };
+    }
+    return { error: "Cannot go back" };
+});
+
+ipcMain.handle("browser:forward", async () => {
+    if (browserView && browserView.webContents.canGoForward()) {
+        browserView.webContents.goForward();
+        return { success: true };
+    }
+    return { error: "Cannot go forward" };
+});
+
+ipcMain.handle("browser:reload", async () => {
+    if (browserView) {
+        browserView.webContents.reload();
+        return { success: true };
+    }
+    return { error: "No browser view" };
+});
+
+ipcMain.handle("browser:getState", async () => {
+    const bv = browserView;
+    const url = bv ? bv.webContents.getURL() : "";
+    return { visible: browserViewVisible, url };
+});
+
+// App lifecycle
+app.whenReady().then(() => {
 // App lifecycle
 app.whenReady().then(() => {
     createWindow();

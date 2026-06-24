@@ -43,4 +43,6 @@ from .tools.tool_metrics import ToolMetrics, get_metrics
 from .transcript_index import TranscriptIndex, get_transcript_index
 from .hooks_system import HookRegistry, HookPoint, HookContext, HookResult, get_hook_registry
 from .task_monitor import BackgroundMonitor, get_monitor
+from .security_scanner import SecurityScanner, ScanFinding, ScanReport, get_scanner
+from .plugin_hotreload import PluginHotReload, get_hotreload
 __version__ = "0.2.0"

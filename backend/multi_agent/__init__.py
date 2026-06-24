@@ -171,4 +171,21 @@ class MultiAgentOrchestrator:
             statuses[a.status.value] = statuses.get(a.status.value, 0) + 1
         return {"total":len(self.agents),"by_status":statuses,"max_parallel":self.max_parallel,"running":len(self._running)}
 
+    async def cleanup(self):
+        """Cancel all running tasks and clear state. Call at teardown."""
+        for aid, task in list(self._task_registry.items()):
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
+        self._task_registry.clear()
+        self._running.clear()
+        self._pending.clear()
+        self._executor_registry.clear()
+        for agent in self.agents.values():
+            if agent.status not in (AgentStatus.DONE, AgentStatus.ERROR, AgentStatus.CLOSED):
+                agent.status = AgentStatus.CLOSED
+
 orchestrator = MultiAgentOrchestrator()

@@ -8,7 +8,7 @@ from .llm_providers import LLMResponse, StreamChunk
 from .system_prompt import get_cli_prompt, get_desktop_prompt, BU, TOOL_GUIDELINES, CORE_IDENTITY
 from backend.goal import goal_manager
 from backend.context.token_tracker import TokenBudget
-from backend.agent.integration_hooks import post_file_edit_hook, post_session_hook
+from backend.agent.integration_hooks import post_file_edit_hook, post_session_hook, post_edit_security_hook
 
 SYSTEM_PROMPT = get_desktop_prompt()
 
@@ -236,6 +236,18 @@ async def executor_node(
                 if lsp_note:
                     tr.output += lsp_note
                     state.messages[-1].content += lsp_note
+            except Exception:
+                pass
+
+        # Post-edit security scan
+        if tr.success and inv.name in ("apply_patch", "file_rw"):
+            try:
+                sec_note = await post_edit_security_hook(
+                    inv.arguments.get("file_path") or inv.arguments.get("path") or ""
+                )
+                if sec_note:
+                    tr.output += sec_note
+                    state.messages[-1].content += sec_note
             except Exception:
                 pass
 

@@ -99,7 +99,11 @@ async def search_rag(query: str, top_k: int = 5):
 _sessions_meta: dict[str, dict] = {}
 @router.get("/sessions")
 async def list_sessions():
-    return {"sessions":list(_sessions_meta.values()),"ws_connections":sum(len(v) for v in _ws_connections.values())}
+    try:
+        from backend.api.routes.chat import _ws_connections as _ws_conns
+    except ImportError:
+        _ws_conns = {}
+    return {"sessions":list(_sessions_meta.values()),"ws_connections":sum(len(v) for v in _ws_conns.values())}
 
 # Tools
 @router.get("/tools")

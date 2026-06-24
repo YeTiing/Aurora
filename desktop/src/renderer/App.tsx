@@ -19,6 +19,8 @@ import { SkinBrowser } from "./components/layout/SkinBrowser";
 import { RePanel } from "./components/layout/RePanel";
 import { DetectivePanel } from "./components/layout/DetectivePanel";
 import { AdminPanel } from "./components/layout/AdminPanel";
+import { BrowserPanel } from "./components/layout/BrowserPanel";
+import { SocialPanel } from "./components/layout/SocialPanel";
 import { GoalPanel } from "./components/layout/GoalPanel";
 import { t, setLang } from "./i18n";
 import { useGlobalShortcuts, getShortcutManager } from "./shortcuts";
@@ -46,6 +48,8 @@ export default function App() {
     const [showDetective, setShowDetective] = useState(false);
     const [showAdmin, setShowAdmin] = useState(false);
     const [showGoal, setShowGoal] = useState(false);
+    const [showBrowser, setShowBrowser] = useState(false);
+    const [showSocial, setShowSocial] = useState(false);
         const [bgImage, setBgImage] = useState<string>('');
     const [panelOpacityL, setPanelOpacityL] = useState<number>(0.6);
     const [panelBgL, setPanelBgL] = useState<string>('');
@@ -192,7 +196,21 @@ export default function App() {
             showMemory={showMemory}
             onToggleAdmin={() => setShowAdmin(!showAdmin)}
             showAdmin={showAdmin}
-            onToggleGoal={() => setShowGoal(!showGoal)}
+            onToggleGoal={() => setShowGoal(!showGoal)
+              }}
+            />
+            <button
+              onClick={() => setShowBrowser(!showBrowser)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
+                bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border]"
+              title="Embedded Browser (Ctrl+Shift+B)"
+            >🌐 Browser</button>
+            <button
+              onClick={() => setShowSocial(!showSocial)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
+                bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border]"
+              title="Social & Resources"
+            >🔗 Social</button>}
             showGoal={showGoal}
             onToggleSkins={() => setShowSkins(!showSkins)}
             showSkins={showSkins}

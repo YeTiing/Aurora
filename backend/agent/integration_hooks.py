@@ -157,3 +157,16 @@ def pre_shell_exec_hook(command: str, approval_policy: str = "on-request") -> di
         return {"allowed": True, "risk": "unknown", "reason": "classifier unavailable"}
     except Exception as e:
         return {"allowed": True, "risk": "error", "reason": str(e)}
+
+# ── Hook 4: Post-File-Edit Security Scan ──────────────────────
+
+async def post_edit_security_hook(filepath: str) -> Optional[str]:
+    """After file edit, run quick secrets scan. Returns warning or None."""
+    try:
+        from backend.security_scanner import get_scanner
+        scanner = get_scanner()
+        return await scanner.post_edit_scan(filepath)
+    except ImportError:
+        return None
+    except Exception:
+        return None

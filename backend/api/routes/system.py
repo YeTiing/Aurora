@@ -60,15 +60,11 @@ class ApprovalAction(BaseModel):
     request_id: str
     action: str  # approve / deny
 
-@router.post("/approval/{action}")
 class CreateThreadRequest(BaseModel):
     title: str = ""; workspace: str = ""; model: str = ""; reasoning_effort: str = "medium"; thread_source: str = "user"
 
-@router.post("/threads/{thread_id}/fork")
 class DiffMergeRequest(BaseModel):
     base: str; ours: str; theirs: str
-
-@router.post("/auth/logout")
 
 @router.post("/plugins/{name}/load")
 async def load_plugin(name: str): _init_plugins(); return {"name":name,"loaded":_plugins.load(name)}
@@ -148,6 +144,7 @@ async def approval_pending():
     pending = approval_manager.get_pending()
     return {"count": len(pending), "requests": [{"id": r.id, "type": r.type, "risk": r.risk_level.value, "description": r.description} for r in pending]}
 
+@router.post("/approval/{action}")
 async def approval_act(action: str, req: ApprovalAction):
     from backend.approval import approval_manager
     if action == "approve":
@@ -163,6 +160,7 @@ async def list_threads(status: str = ""):
     threads = thread_manager.list_threads(status)
     return {"count": len(threads), "threads": [{"id": t.id, "title": t.title, "status": t.status, "model": t.model, "reasoning_effort": t.reasoning_effort} for t in threads]}
 
+@router.post("/threads/{thread_id}/fork")
 async def fork_thread(thread_id: str, req: dict = {}):
     from backend.thread_manager import thread_manager
     t = thread_manager.fork(thread_id, req.get("title", ""))

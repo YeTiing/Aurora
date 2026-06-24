@@ -12,6 +12,25 @@ from backend.multi_agent import (
     MultiAgentOrchestrator,
 )
 
+@pytest.fixture(autouse=True)
+def cleanup_orchestrator():
+    """Clean up orchestrator tasks after each test."""
+    yield
+    from backend.multi_agent import orchestrator
+    # Sync cleanup: cancel all pending tasks without awaiting
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        for aid, task in list(orchestrator._task_registry.items()):
+            if not task.done():
+                task.cancel()
+        orchestrator._task_registry.clear()
+        orchestrator._running.clear()
+        orchestrator._pending.clear()
+        orchestrator._executor_registry.clear()
+    except Exception:
+        pass
+
 
 # ═══════════════════════════════════════════════════════
 # AgentNode tests

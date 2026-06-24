@@ -77,6 +77,7 @@ class AgentGraph:
         self.token_budget = token_budget or TokenBudget(24000)
         self._monitor = None
         self._monitor_started = False
+        self._pending_tasks: list = []
         self._hook_registry = None
         self._transcript_index = None
         self._worktree = None
@@ -91,11 +92,27 @@ class AgentGraph:
         # Start cron scheduler
         from backend.cron_scheduler import get_cron
 
+        # Start plugin hot-reload
+        try:
+            from backend.plugin_hotreload import get_hotreload
+            from backend.plugins import plugin_manager
+            hr = get_hotreload()
+            # Add plugin dirs
+            hr.add_dir("plugins")
+            if hasattr(plugin_manager, "_plugin_dirs"):
+                for d in plugin_manager._plugin_dirs:
+                    hr.add_dir(d)
+            hr.set_manager(plugin_manager)
+            if not hr.is_running:
+                self._pending_tasks.append(lambda: hr.start())
+        except ImportError:
+            pass
+
         # Start background services (lazy init)
         if self._monitor and not self._monitor_started:
             try:
                 self._monitor_started = True
-                asyncio.create_task(self._monitor.start(60))
+                self._pending_tasks.append(lambda: self._monitor.start(60))
             except Exception:
                 pass
 
@@ -146,6 +163,14 @@ class AgentGraph:
     async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "", history: list[dict] | None = None) -> AgentState:
 
         ws = workspace or self.workspace
+
+        # Start deferred background tasks
+        for task_fn in self._pending_tasks:
+            try:
+                asyncio.create_task(task_fn())
+            except Exception:
+                pass
+        self._pending_tasks.clear()
 
         state = AgentState(session_id=session_id, workspace=ws)
 
@@ -440,6 +465,14 @@ class AgentGraph:
         """流式执行 — 每步 yield SSE 进度更新"""
 
         ws = workspace or self.workspace
+
+        # Start deferred background tasks
+        for task_fn in self._pending_tasks:
+            try:
+                asyncio.create_task(task_fn())
+            except Exception:
+                pass
+        self._pending_tasks.clear()
 
         state = AgentState(session_id=session_id, workspace=ws)
 

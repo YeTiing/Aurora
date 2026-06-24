@@ -478,3 +478,81 @@ async def get_monitor_events(since: float = 0):
         return {"events": [{"target": e.target_name, "type": e.change_type, "detail": e.detail, "timestamp": e.timestamp} for e in events]}
     except ImportError:
         return {"error": "monitor not available"}
+
+
+# ── Security Scanner Routes ───────────────────────────────────
+
+@router.post("/security/scan")
+async def run_security_scan(req: dict = None):
+    """Run security scan (secrets + bandit + semgrep)."""
+    req = req or {}
+    try:
+        from backend.security_scanner import get_scanner
+        scanner = get_scanner()
+        layers = req.get("layers", ["secrets"])
+        filepath = req.get("filepath", "")
+        report = await scanner.scan(filepath, layers)
+        return report.to_dict()
+    except ImportError:
+        return {"error": "security_scanner not available"}
+
+@router.post("/security/scan-secrets")
+async def scan_secrets(filepath: str = ""):
+    """Fast secrets-only scan."""
+    try:
+        from backend.security_scanner import get_scanner
+        scanner = get_scanner()
+        findings = scanner.scan_secrets(filepath)
+        return {
+            "findings": [f.to_dict() for f in findings],
+            "count": len(findings),
+            "critical": sum(1 for f in findings if f.severity == "critical"),
+        }
+    except ImportError:
+        return {"error": "security_scanner not available"}
+
+
+# ── Plugin Hot-Reload Routes ──────────────────────────────────
+
+@router.get("/plugins/hotreload/status")
+async def get_hotreload_status():
+    """Get plugin hot-reload status."""
+    try:
+        from backend.plugin_hotreload import get_hotreload
+        return get_hotreload().stats()
+    except ImportError:
+        return {"error": "hotreload not available"}
+
+@router.post("/plugins/hotreload/reload-all")
+async def reload_all_plugins():
+    """Force reload all loaded plugins."""
+    try:
+        from backend.plugin_hotreload import get_hotreload
+        return get_hotreload().reload_all()
+    except ImportError:
+        return {"error": "hotreload not available"}
+
+@router.post("/plugins/hotreload/start")
+async def start_hotreload():
+    """Start plugin hot-reload watcher."""
+    try:
+        from backend.plugin_hotreload import get_hotreload
+        from backend.plugins import plugin_manager
+        hr = get_hotreload()
+        hr.add_dir("plugins")
+        hr.set_manager(plugin_manager)
+        if not hr.is_running:
+            await hr.start()
+        return {"status": "started", "stats": hr.stats()}
+    except ImportError:
+        return {"error": "hotreload not available"}
+
+@router.post("/plugins/hotreload/stop")
+async def stop_hotreload():
+    """Stop plugin hot-reload watcher."""
+    try:
+        from backend.plugin_hotreload import get_hotreload
+        await get_hotreload().stop()
+        return {"status": "stopped"}
+    except ImportError:
+        return {"error": "hotreload not available"}

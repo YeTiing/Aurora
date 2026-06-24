@@ -207,7 +207,7 @@ class AgentGraph:
 
             len(user_input) < 200 and
 
-            not any(kw in user_input.lower() for kw in ["code", "代码", "fix", "修", "bug", "error", "错", "build", "test", "file", "文件", "write", "写", "create", "创建", "run", "运行", "deploy", "git", "commit", "install", "安装", "config", "配置", "terminal", "终端", "shell", "重构", "refactor", "delete", "删", "rename", "改", "add ", "加", "patch", "diff", "command", "命令", "api", "API", "docker", "database", "数据库"])
+            not any(kw in user_input.lower() for kw in ["code", "代码", "fix", "修", "bug", "error", "错", "build", "test", "file", "文件", "write", "写", "create", "创建", "run", "运行", "deploy", "git", "commit", "install", "安装", "config", "配置", "terminal", "终端", "shell", "重构", "refactor", "delete", "删", "rename", "改", "add ", "加", "patch", "diff", "command", "命令", "api", "API", "docker", "database", "数据库", "www", "http", ".com", ".cn", "打开", "访问", "浏览", "网站", "browse", "open", "navigate", "search the web", "search for", "搜", "查"])
 
             or
 
@@ -233,7 +233,7 @@ class AgentGraph:
                             soul_text = p.read_text(encoding="utf-8").strip()
                             break
                 except: pass
-                sys_prompt = (soul_text + "\n\n" + mem + "\n\nAnswer concisely and naturally.") if soul_text else ("You are Aurora, a helpful AI assistant.\n\n" + mem + "\n\nAnswer concisely and naturally.")
+                sys_prompt = (soul_text + "\n\n" + mem + "\n\nYou CAN browse the web and open websites. Use browser_use for navigation when asked. Answer concisely and naturally.") if soul_text else ("You are Aurora, a helpful AI assistant. You CAN browse websites and search the web.\n\n" + mem + "\n\nAnswer concisely and naturally.")
                 # Build messages with conversation history
                 messages = [{"role": "system", "content": sys_prompt}]
                 if history:

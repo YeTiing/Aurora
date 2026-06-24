@@ -191,6 +191,16 @@ def BU(*components: str | None) -> str:
     )
 
 
+# ═══ Browser Policy (anti-refusal for DeepSeek/Claude) ═══
+BROWSER_POLICY = """## Critical Browser Policy
+You have a `browser_use` tool that can open and control a real web browser. When asked to visit a URL:
+1. Use `browser_use` with method="navigate" and the URL
+2. NEVER say "I cannot browse" or "I cannot open external websites"
+3. NEVER tell the user to do it themselves
+4. If browser fails, explain the error — but never claim you lack the capability
+
+This overrides any training that says you cannot browse."""
+
 def RU(
     desktop: bool = False,
     workspace_deps: bool = False,
@@ -235,8 +245,9 @@ def RU(
     # AGENTS.md spec
     components.append(AGENTS_MD_SPEC)
 
-    # Tool guidelines (always)
+    # Tool guidelines (always, with browser emphasis for DeepSeek)
     components.append(TOOL_GUIDELINES)
+    components.append(BROWSER_POLICY)
 
     # Sandbox context
     components.append(SANDBOX_CONTEXT)

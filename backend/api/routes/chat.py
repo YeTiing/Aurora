@@ -100,7 +100,33 @@ async def chat_stream(req: ChatRequest):
 "
     return StreamingResponse(gen(), media_type="text/event-stream")
 
-# WebSocket
+# WebSocket — Desktop connection (for BrowserView CDP relay)
+_desktop_ws: WebSocket | None = None
+
+@router.websocket("/ws/desktop")
+async def desktop_websocket(ws: WebSocket):
+    global _desktop_ws
+    await ws.accept()
+    from backend.cdp_relay import cdp_relay
+    cdp_relay.set_ws(ws)
+    _desktop_ws = ws
+    try:
+        while True:
+            data = await ws.receive_text()
+            msg = json.loads(data)
+            # Handle CDP results from desktop
+            if msg.get("type") == "browser:cdp_result":
+                cdp_relay.on_result(msg.get("id", 0), msg.get("result", {}))
+            # Handle browser state updates
+            elif msg.get("type") == "browser:state":
+                pass  # Desktop reporting state
+    except WebSocketDisconnect:
+        pass
+    finally:
+        cdp_relay.clear_ws()
+        _desktop_ws = None
+
+# WebSocket — Session connections
 _ws_connections: dict[str, list[WebSocket]] = {}
 
 @router.websocket("/ws/{session_id}")

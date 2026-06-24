@@ -14,6 +14,8 @@ let browserView: BrowserView | null = null;
 let browserViewVisible = false;
 
 const BACKEND_URL = "ws://127.0.0.1:9876";
+let browserDebuggerAttached = false;
+let browserControlledByAI = false;
 
 // Check if --minimized flag was passed
 const startMinimized = process.argv.includes("--minimized");
@@ -160,6 +162,217 @@ mainWindow.on("closed", () => { mainWindow = null; });
 }
 
 // Backend connection
+// ─── Browser CDP handler (AI controls BrowserView) ───
+
+async function ensureBrowserViewForAI(url?: string) {
+    if (!mainWindow) return false;
+    if (!browserView) {
+        browserView = new BrowserView({
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                sandbox: true,
+            },
+        });
+        mainWindow.addBrowserView(browserView);
+        const bounds = mainWindow.getContentBounds();
+        const bvWidth = Math.floor(bounds.width * 0.45);
+        browserView.setBounds({
+            x: bounds.width - bvWidth,
+            y: 60,
+            width: bvWidth,
+            height: bounds.height - 60,
+        });
+        browserView.setAutoResize({ width: true, height: true, horizontal: true, vertical: true });
+
+        browserView.webContents.on("did-navigate", (_e, navUrl) => {
+            mainWindow?.webContents.send("browser:navigated", { url: navUrl });
+        });
+        browserView.webContents.on("did-navigate-in-page", (_e, navUrl) => {
+            mainWindow?.webContents.send("browser:navigated", { url: navUrl });
+        });
+    }
+
+    // Attach debugger for CDP
+    if (!browserDebuggerAttached) {
+        try {
+            browserView.webContents.debugger.attach("1.3");
+            browserDebuggerAttached = true;
+        } catch (_) {
+            // Already attached
+            browserDebuggerAttached = true;
+        }
+    }
+
+    browserViewVisible = true;
+    browserControlledByAI = true;
+    mainWindow.webContents.send("browser:ai_control", { active: true });
+
+    if (url && url !== "about:blank") {
+        await browserView.webContents.loadURL(url);
+    }
+    return true;
+}
+
+async function handleBrowserCDP(msg: { id: number; method: string; params: any }) {
+    const { id, method, params } = msg;
+    const sendResult = (result: any) => {
+        if (ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "browser:cdp_result", id, result }));
+        }
+    };
+
+    try {
+        switch (method) {
+            case "Browser.open": {
+                await ensureBrowserViewForAI(params?.url || "about:blank");
+                sendResult({ success: true, url: browserView?.webContents.getURL() });
+                break;
+            }
+
+            case "Browser.navigate": {
+                if (!browserView) await ensureBrowserViewForAI();
+                if (browserView && params?.url) {
+                    await browserView.webContents.loadURL(params.url);
+                }
+                sendResult({ success: true, url: browserView?.webContents.getURL() });
+                break;
+            }
+
+            case "Browser.screenshot": {
+                if (!browserView || !browserDebuggerAttached) {
+                    sendResult({ error: "BrowserView not ready" });
+                    break;
+                }
+                try {
+                    const result = await browserView.webContents.debugger.sendCommand(
+                        "Page.captureScreenshot", { format: "png" }
+                    );
+                    sendResult({
+                        data_url: `data:image/png;base64,${result.data}`,
+                        width: 1920, height: 1080,
+                    });
+                } catch (e: any) {
+                    sendResult({ error: e.message });
+                }
+                break;
+            }
+
+            case "Browser.listPages": {
+                const url = browserView?.webContents.getURL() || "";
+                sendResult({ url, title: "BrowserView" });
+                break;
+            }
+
+            case "Runtime.evaluate": {
+                if (!browserView || !browserDebuggerAttached) {
+                    sendResult({ error: "BrowserView not ready" });
+                    break;
+                }
+                try {
+                    const result = await browserView.webContents.debugger.sendCommand(
+                        "Runtime.evaluate", {
+                            expression: params?.expression || "",
+                            returnByValue: true,
+                        }
+                    );
+                    sendResult(result);
+                } catch (e: any) {
+                    sendResult({ error: e.message });
+                }
+                break;
+            }
+
+            case "Runtime.evaluate_and_click": {
+                if (!browserView || !browserDebuggerAttached) {
+                    sendResult({ error: "BrowserView not ready" });
+                    break;
+                }
+                try {
+                    const selector = params?.selector || "body";
+                    // Get element position
+                    const posResult = await browserView.webContents.debugger.sendCommand(
+                        "Runtime.evaluate", {
+                            expression: `(()=>{const el=document.querySelector('${selector.replace(/'/g, "\'")}');if(!el)return null;const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height,visible:true};})()`,
+                            returnByValue: true,
+                        }
+                    );
+                    const pos = posResult?.result?.value;
+                    if (!pos) {
+                        sendResult({ error: `Element not found: ${selector}` });
+                        break;
+                    }
+                    // Click
+                    await browserView.webContents.debugger.sendCommand("Input.dispatchMouseEvent", {
+                        type: "mousePressed", x: pos.x, y: pos.y, button: "left", clickCount: 1,
+                    });
+                    await browserView.webContents.debugger.sendCommand("Input.dispatchMouseEvent", {
+                        type: "mouseReleased", x: pos.x, y: pos.y, button: "left", clickCount: 1,
+                    });
+                    sendResult({ clicked: selector, position: { x: pos.x, y: pos.y } });
+                } catch (e: any) {
+                    sendResult({ error: e.message });
+                }
+                break;
+            }
+
+            case "Runtime.getHTML": {
+                if (!browserView || !browserDebuggerAttached) {
+                    sendResult({ error: "BrowserView not ready" });
+                    break;
+                }
+                try {
+                    const result = await browserView.webContents.debugger.sendCommand(
+                        "Runtime.evaluate", {
+                            expression: "document.documentElement.outerHTML",
+                            returnByValue: true,
+                        }
+                    );
+                    sendResult({ html: result?.result?.value || "" });
+                } catch (e: any) {
+                    sendResult({ error: e.message });
+                }
+                break;
+            }
+
+            case "Input.type": {
+                if (!browserView || !browserDebuggerAttached) {
+                    sendResult({ error: "BrowserView not ready" });
+                    break;
+                }
+                try {
+                    const selector = params?.selector || "input";
+                    const text = params?.text || "";
+                    // Focus element
+                    await browserView.webContents.debugger.sendCommand("Runtime.evaluate", {
+                        expression: `(()=>{const el=document.querySelector('${selector.replace(/'/g, "\'")}');if(el){el.focus();el.value='';}return!!el;})()`,
+                        returnByValue: true,
+                    });
+                    // Type character by character
+                    for (const ch of text) {
+                        await browserView.webContents.debugger.sendCommand("Input.dispatchKeyEvent", {
+                            type: "keyDown", text: ch, key: ch,
+                        });
+                        await browserView.webContents.debugger.sendCommand("Input.dispatchKeyEvent", {
+                            type: "keyUp", text: ch, key: ch,
+                        });
+                    }
+                    sendResult({ typed: text.substring(0, 50) });
+                } catch (e: any) {
+                    sendResult({ error: e.message });
+                }
+                break;
+            }
+
+            default: {
+                sendResult({ error: `Unknown CDP method: ${method}` });
+            }
+        }
+    } catch (e: any) {
+        sendResult({ error: `CDP handler error: ${e.message}` });
+    }
+}
+
 function connectBackend() {
     if (ws) {
         try { ws.close(); } catch (_) {}
@@ -171,9 +384,16 @@ function connectBackend() {
         mainWindow?.webContents.send("backend:connected");
     });
 
-    ws.on("message", (data: WebSocket.Data) => {
+    ws.on("message", async (data: WebSocket.Data) => {
         try {
             const msg = JSON.parse(data.toString());
+
+            // ── Browser CDP commands from backend ──
+            if (msg.type === "browser:cdp") {
+                await handleBrowserCDP(msg);
+                return;
+            }
+
             mainWindow?.webContents.send("agent:message", msg);
 
             // Show notification on task completion
@@ -437,12 +657,18 @@ ipcMain.handle("browser:open", async (_event, url: string) => {
 
 ipcMain.handle("browser:close", async () => {
     if (browserView && mainWindow) {
+        if (browserDebuggerAttached) {
+            try { browserView.webContents.debugger.detach(); } catch (_) {}
+            browserDebuggerAttached = false;
+        }
         mainWindow.removeBrowserView(browserView);
         (browserView.webContents as any).destroy?.();
         browserView = null;
     }
     browserViewVisible = false;
+    browserControlledByAI = false;
     mainWindow?.webContents.send("browser:state", { visible: false });
+    mainWindow?.webContents.send("browser:ai_control", { active: false });
     return { success: true };
 });
 

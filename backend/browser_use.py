@@ -1,4 +1,4 @@
-# Browser Use — CDP浏览器控制插件（对齐Codex browser/chrome插件）
+# Browser Use — CDP浏览器控制（优先桌面BrowserView，回退Chrome CDP）
 from __future__ import annotations
 import subprocess, json, base64, asyncio, time, os
 from dataclasses import dataclass, field
@@ -18,16 +18,46 @@ class BrowserPage:
     target_id: str = ""
 
 class BrowserUse:
-    """CDP 浏览器控制 — 通过 Chrome DevTools Protocol"""
+    """浏览器控制 — 优先使用桌面端 BrowserView，回退到 Chrome CDP"""
 
     def __init__(self, config: BrowserConfig | None = None):
         self.config = config or BrowserConfig()
         self._browser = None
+        self._use_desktop: bool | None = None  # None = auto-detect
+
+    async def _get_desktop_relay(self):
+        """Get CDP relay if desktop is connected."""
+        try:
+            from backend.cdp_relay import cdp_relay
+            if cdp_relay.connected():
+                return cdp_relay
+        except ImportError:
+            pass
+        return None
+
+    async def _cdp_desktop(self, method: str, params: dict | None = None, timeout: float = 30) -> dict:
+        """Execute CDP via desktop BrowserView."""
+        relay = await self._get_desktop_relay()
+        if not relay:
+            return {"error": "Desktop not connected"}
+        return await relay.cdp(method, params, timeout)
 
     async def ensure_browser(self):
-        """启动带CDP的Chrome"""
+        """确保浏览器可用（桌面端优先）"""
+        relay = await self._get_desktop_relay()
+        if relay:
+            self._use_desktop = True
+            # Ensure BrowserView is open
+            r = await relay.cdp("Browser.open", {"url": "about:blank"})
+            if not r.get("error"):
+                self._use_desktop = True
+                return True
+            # Desktop BrowserView failed, fall back
+            self._use_desktop = False
+
+        # Fallback: launch Chrome with CDP
+        self._use_desktop = False
         port = self.config.remote_debugging_port
-        # 检查是否已运行
         try:
             import httpx
             async with httpx.AsyncClient() as c:
@@ -36,7 +66,6 @@ class BrowserUse:
                     return True
         except: pass
 
-        # 启动Chrome
         args = [
             self.config.chrome_path,
             f"--remote-debugging-port={port}",
@@ -55,69 +84,37 @@ class BrowserUse:
             return False
         return True
 
-    async def _cdp(self, target_id: str, method: str, params: dict = None, session_id: str = None):
-        """发送CDP命令"""
-        import httpx
-        ws_key = session_id or target_id
-        url = f"http://127.0.0.1:{self.config.remote_debugging_port}/json"
-        
-        # 获取WebSocket URL
-        async with httpx.AsyncClient() as c:
-            resp = await c.get(url, timeout=5)
-            pages = resp.json()
-        
-        ws_url = None
-        for p in pages:
-            if p.get("id") == target_id:
-                ws_url = p.get("webSocketDebuggerUrl")
-                break
-        if not ws_url and pages:
-            ws_url = pages[0].get("webSocketDebuggerUrl")
-
-        if not ws_url:
-            return {"error": "No target found"}
-
-        import websockets
-        msg = {"id": 1, "method": method}
-        if params: msg["params"] = params
-
-        try:
-            async with websockets.connect(ws_url, max_size=10*1024*1024) as ws:
-                await ws.send(json.dumps(msg))
-                result = await asyncio.wait_for(ws.recv(), timeout=15)
-                return json.loads(result)
-        except Exception as e:
-            return {"error": str(e)}
-
     async def navigate(self, url: str, target_id: str = ""):
         """导航到URL"""
-        if not target_id:
-            # 获取第一个页面
-            import httpx
-            async with httpx.AsyncClient() as c:
-                resp = await c.get(f"http://127.0.0.1:{self.config.remote_debugging_port}/json", timeout=5)
-                pages = resp.json()
-            for p in pages:
-                if p.get("type") == "page":
-                    target_id = p.get("id")
-                    break
-
-        await self._cdp(target_id, "Page.enable")
-        return await self._cdp(target_id, "Page.navigate", {"url": url})
-
-    async def screenshot(self, target_id: str = "") -> dict:
-        """截取页面截图"""
+        await self.ensure_browser()
+        if self._use_desktop:
+            return await self._cdp_desktop("Browser.navigate", {"url": url})
+        # Chrome CDP fallback
         import httpx
         async with httpx.AsyncClient() as c:
             resp = await c.get(f"http://127.0.0.1:{self.config.remote_debugging_port}/json", timeout=5)
             pages = resp.json()
-
         for p in pages:
             if p.get("type") == "page":
                 target_id = target_id or p.get("id")
                 break
+        return await self._cdp_chrome(target_id, "Page.navigate", {"url": url})
 
-        result = await self._cdp(target_id, "Page.captureScreenshot", {"format": "png"})
+    async def screenshot(self, target_id: str = "") -> dict:
+        """截取页面截图"""
+        await self.ensure_browser()
+        if self._use_desktop:
+            return await self._cdp_desktop("Browser.screenshot", {})
+        # Chrome CDP fallback
+        import httpx
+        async with httpx.AsyncClient() as c:
+            resp = await c.get(f"http://127.0.0.1:{self.config.remote_debugging_port}/json", timeout=5)
+            pages = resp.json()
+        for p in pages:
+            if p.get("type") == "page":
+                target_id = target_id or p.get("id")
+                break
+        result = await self._cdp_chrome(target_id, "Page.captureScreenshot", {"format": "png"})
         if "result" in result and "data" in result["result"]:
             return {
                 "data_url": f"data:image/png;base64,{result['result']['data']}",
@@ -127,6 +124,10 @@ class BrowserUse:
 
     async def click(self, selector: str, target_id: str = ""):
         """点击元素"""
+        await self.ensure_browser()
+        if self._use_desktop:
+            return await self._cdp_desktop("Runtime.evaluate_and_click", {"selector": selector})
+        # Chrome CDP fallback
         import httpx
         async with httpx.AsyncClient() as c:
             resp = await c.get(f"http://127.0.0.1:{self.config.remote_debugging_port}/json", timeout=5)
@@ -136,12 +137,6 @@ class BrowserUse:
                 target_id = target_id or p.get("id")
                 break
 
-        # 查找元素坐标
-        doc = await self._cdp(target_id, "DOM.getDocument", {"depth": -1})
-        if "result" not in doc:
-            return {"error": str(doc)}
-
-        # 用Runtime.evaluate获取元素位置
         script = f"""
         (() => {{
             const el = document.querySelector('{selector}');
@@ -150,13 +145,13 @@ class BrowserUse:
             return {{x: rect.left + rect.width/2, y: rect.top + rect.height/2, width: rect.width, height: rect.height, visible: true}};
         }})()
         """
-        result = await self._cdp(target_id, "Runtime.evaluate", {"expression": script, "returnByValue": True})
+        result = await self._cdp_chrome(target_id, "Runtime.evaluate", {"expression": script, "returnByValue": True})
         if "result" in result and result["result"].get("result", {}).get("value"):
             pos = result["result"]["result"]["value"]
-            await self._cdp(target_id, "Input.dispatchMouseEvent", {
+            await self._cdp_chrome(target_id, "Input.dispatchMouseEvent", {
                 "type": "mousePressed", "x": pos["x"], "y": pos["y"], "button": "left", "clickCount": 1
             })
-            await self._cdp(target_id, "Input.dispatchMouseEvent", {
+            await self._cdp_chrome(target_id, "Input.dispatchMouseEvent", {
                 "type": "mouseReleased", "x": pos["x"], "y": pos["y"], "button": "left", "clickCount": 1
             })
             return {"clicked": selector, "position": pos}
@@ -164,6 +159,10 @@ class BrowserUse:
 
     async def type_text(self, selector: str, text: str, target_id: str = ""):
         """在输入框中输入文本"""
+        await self.ensure_browser()
+        if self._use_desktop:
+            return await self._cdp_desktop("Input.type", {"selector": selector, "text": text})
+        # Chrome CDP fallback
         import httpx
         async with httpx.AsyncClient() as c:
             resp = await c.get(f"http://127.0.0.1:{self.config.remote_debugging_port}/json", timeout=5)
@@ -173,7 +172,6 @@ class BrowserUse:
                 target_id = target_id or p.get("id")
                 break
 
-        # Focus element
         script = f"""
         (() => {{
             const el = document.querySelector('{selector}');
@@ -181,20 +179,19 @@ class BrowserUse:
             return !!el;
         }})()
         """
-        await self._cdp(target_id, "Runtime.evaluate", {"expression": script, "returnByValue": True})
-
-        # Type text
+        await self._cdp_chrome(target_id, "Runtime.evaluate", {"expression": script, "returnByValue": True})
         for ch in text:
-            await self._cdp(target_id, "Input.dispatchKeyEvent", {
-                "type": "keyDown", "text": ch, "key": ch,
-            })
-            await self._cdp(target_id, "Input.dispatchKeyEvent", {
-                "type": "keyUp", "text": ch, "key": ch,
-            })
+            await self._cdp_chrome(target_id, "Input.dispatchKeyEvent", {"type": "keyDown", "text": ch, "key": ch})
+            await self._cdp_chrome(target_id, "Input.dispatchKeyEvent", {"type": "keyUp", "text": ch, "key": ch})
         return {"typed": text[:50]}
 
     async def get_html(self, target_id: str = "") -> str:
         """获取页面HTML"""
+        await self.ensure_browser()
+        if self._use_desktop:
+            r = await self._cdp_desktop("Runtime.getHTML", {})
+            return r.get("html", "")[:50000] if r else ""
+        # Chrome CDP fallback
         import httpx
         async with httpx.AsyncClient() as c:
             resp = await c.get(f"http://127.0.0.1:{self.config.remote_debugging_port}/json", timeout=5)
@@ -203,10 +200,8 @@ class BrowserUse:
             if p.get("type") == "page":
                 target_id = target_id or p.get("id")
                 break
-
-        result = await self._cdp(target_id, "Runtime.evaluate", {
-            "expression": "document.documentElement.outerHTML",
-            "returnByValue": True
+        result = await self._cdp_chrome(target_id, "Runtime.evaluate", {
+            "expression": "document.documentElement.outerHTML", "returnByValue": True
         })
         if "result" in result:
             return result["result"].get("result", {}).get("value", "")[:50000]
@@ -214,6 +209,10 @@ class BrowserUse:
 
     async def list_pages(self) -> list[BrowserPage]:
         """列出所有打开的页面"""
+        await self.ensure_browser()
+        if self._use_desktop:
+            r = await self._cdp_desktop("Browser.listPages", {})
+            return [BrowserPage(url=r.get("url",""), title="BrowserView")] if r else []
         import httpx
         try:
             async with httpx.AsyncClient() as c:
@@ -225,6 +224,32 @@ class BrowserUse:
             ]
         except:
             return []
+
+    async def _cdp_chrome(self, target_id: str, method: str, params: dict = None):
+        """Chrome CDP (fallback)"""
+        import httpx, websockets
+        url = f"http://127.0.0.1:{self.config.remote_debugging_port}/json"
+        async with httpx.AsyncClient() as c:
+            resp = await c.get(url, timeout=5)
+            pages = resp.json()
+        ws_url = None
+        for p in pages:
+            if p.get("id") == target_id:
+                ws_url = p.get("webSocketDebuggerUrl")
+                break
+        if not ws_url and pages:
+            ws_url = pages[0].get("webSocketDebuggerUrl")
+        if not ws_url:
+            return {"error": "No target found"}
+        msg = {"id": 1, "method": method}
+        if params: msg["params"] = params
+        try:
+            async with websockets.connect(ws_url, max_size=10*1024*1024) as ws:
+                await ws.send(json.dumps(msg))
+                result = await asyncio.wait_for(ws.recv(), timeout=15)
+                return json.loads(result)
+        except Exception as e:
+            return {"error": str(e)}
 
     async def close(self):
         if self._browser:

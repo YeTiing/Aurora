@@ -36,6 +36,7 @@ export function BrowserPanel() {
     const [currentUrl, setCurrentUrl] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [aiControlling, setAiControlling] = useState(false);
 
     const openBrowser = useCallback(async (targetUrl: string) => {
         setLoading(true);
@@ -87,6 +88,13 @@ export function BrowserPanel() {
                 if (data.url) setCurrentUrl(data.url);
             });
         }
+        // Listen for AI control events from Electron main
+        const handler = (e: any) => {
+            setAiControlling(e.detail?.active || false);
+            if (e.detail?.url) setCurrentUrl(e.detail.url);
+        };
+        window.addEventListener("aurora:aiBrowserControl", handler);
+        return () => window.removeEventListener("aurora:aiBrowserControl", handler);
     }, []);
 
     return (
@@ -128,6 +136,23 @@ export function BrowserPanel() {
                     Go
                 </button>
             </div>
+
+            {/* AI Control Banner */}
+            {aiControlling && (
+                <div style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "6px 12px",
+                    background: "linear-gradient(90deg, rgba(124,58,237,0.2), rgba(124,58,237,0.05))",
+                    borderBottom: "1px solid rgba(124,58,237,0.3)",
+                    fontSize: 11, color: "#a78bfa",
+                }}>
+                    <span style={{
+                        display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                        background: "#a78bfa", animation: "pulse 1.5s infinite",
+                    }} />
+                    🤖 AI is controlling this browser
+                </div>
+            )}
 
             {/* Bookmarks */}
             <div style={{

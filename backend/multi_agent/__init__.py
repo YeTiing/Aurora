@@ -44,6 +44,22 @@ class MultiAgentOrchestrator:
         self._executor_registry: dict[str, Callable[[AgentNode], Coroutine]] = {}
 
     async def spawn(self, parent_id: str | None, name: str, task: str, priority: int = 0, metadata: dict | None = None) -> AgentNode:
+        # Use swarm backend when available
+        try:
+            from backend.swarm import get_backend_registry, AgentContext as SwarmCtx, InProcessBackend
+            registry = get_backend_registry()
+            backend = registry.get_best()
+            agent_id = f"agent_{uuid.uuid4().hex[:8]}"
+            ctx = SwarmCtx(agent_id=agent_id, name=name, task=task, parent_id=parent_id or "", priority=priority, metadata=metadata or {})
+            # Store backend reference for later use
+            if not hasattr(self, "_swarm_backend"):
+                self._swarm_backend = backend
+        except ImportError:
+            pass
+
+        return await self._spawn_internal(parent_id, name, task, priority, metadata)
+
+    async def _spawn_internal(self, parent_id: str | None, name: str, task: str, priority: int = 0, metadata: dict | None = None) -> AgentNode:
         agent = AgentNode(id=f"agent_{uuid.uuid4().hex[:8]}", name=name, parent_id=parent_id, task=task, priority=priority, metadata=metadata or {})
         async with self._lock:
             self.agents[agent.id] = agent

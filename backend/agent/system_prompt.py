@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+
+from backend.agents_md import agents_loader
 # Aurora System Prompt Assembler — Codex RU/BU architecture (complete)
 """Based on reverse-engineered Codex system prompt templates.
 RU() = root assembler, BU() = block joiner

@@ -75,9 +75,32 @@ class AgentGraph:
         self.events = event_bus or sse_bus
 
         self.token_budget = token_budget or TokenBudget(24000)
+        # Worktree support
+        self._worktree_active = False
+        try:
+            from backend.worktree import worktree_manager
+            self._worktree = worktree_manager
+        except ImportError:
+            self._worktree = None
 
         # Start cron scheduler
         from backend.cron_scheduler import get_cron
+
+        # Quality gate check (non-blocking)
+        try:
+            from backend.quality_gate import QualityGate, QualityGateConfig
+            cfg = QualityGateConfig.from_args(quick=True)
+            gate = QualityGate(cfg)
+            # Fire-and-forget: gate.check_async()
+        except ImportError:
+            pass
+
+        # Start heartbeat
+        try:
+            from backend.heartbeat import heartbeat_manager
+            heartbeat_manager.configure(interval=300, enabled=True)
+        except ImportError:
+            pass
         self.cron = get_cron()
 
 

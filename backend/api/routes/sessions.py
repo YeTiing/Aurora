@@ -348,3 +348,24 @@ async def session_export_markdown(req: dict):
         return {"format": "json", "content": export_session_json(req.get("session", req))}
     return {"format": "markdown", "content": export_session(req.get("session", req), config)}
 
+
+
+@router.get("/search")
+async def search_sessions(q: str = "", limit: int = 20):
+    """Search across all sessions and their content."""
+    try:
+        from backend.session_search import session_search
+        results = session_search.search(q, limit=limit)
+        return {"query": q, "results": results, "count": len(results)}
+    except ImportError:
+        return {"error": "session_search not available"}
+
+@router.get("/recent")
+async def recent_sessions(limit: int = 10):
+    """Get recently active sessions."""
+    try:
+        from backend.session_search import session_search
+        results = session_search.recent(limit=limit)
+        return {"sessions": results}
+    except ImportError:
+        return {"error": "session_search not available"}

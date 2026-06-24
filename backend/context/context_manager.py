@@ -136,7 +136,12 @@ class ContextManager:
 
     def needs_compaction(self) -> bool:
         if self._compaction_mgr is None:
-            self._compaction_mgr = CompactionManager(self.token_counter)
+            # Try to use ContextCollapser from cc-haha integration
+            try:
+                from backend.context.collapse import context_collapser
+                self._compaction_mgr = context_collapser
+            except ImportError:
+                self._compaction_mgr = CompactionManager(self.token_counter)
         return self._compaction_mgr.should_compact(self.messages, self.max_tokens, self.compact_threshold)
 
     def compact(self, summary_llm=None) -> int:

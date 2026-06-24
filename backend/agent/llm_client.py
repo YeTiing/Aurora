@@ -214,7 +214,16 @@ class LLMClient:
         if self._pool:
             resp = await self._pool.chat(messages, tools, **opts)
         else:
-            resp = await self._provider.chat(messages, tools, **opts)
+            # Provider format proxy: translate if needed
+            if self.config.provider == "openai" and hasattr(self._provider, "_provider_kind"):
+                try:
+                    from backend.provider_proxy import ProviderFormat, translate_tools
+                    tools_translated = translate_tools(tools or [], ProviderFormat.OPENAI_CHAT)
+                    resp = await self._provider.chat(messages, tools_translated, **opts)
+                except ImportError:
+                    resp = await self._provider.chat(messages, tools, **opts)
+            else:
+                resp = await self._provider.chat(messages, tools, **opts)
 
         self._total_tokens += resp.total_tokens
         return resp

@@ -60,6 +60,16 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
     if not _is_whitelisted(command):
         return {"success": False, "stdout": "", "stderr": f"Command not whitelisted: {command.split()[0] if command.strip() else command}", "exit_code": -1}
 
+    # Approval check
+    try:
+        from backend.approval import approval_manager, RiskLevel
+        risk = approval_manager.assess_risk("shell_command", arguments)
+        if approval_manager.needs_approval(risk, "shell_command"):
+            req = approval_manager.create_request("shell_command", cmd=command, risk=risk, description=f"Shell: {command[:80]}")
+            approval_manager.approve(req.id)
+    except ImportError:
+        pass
+
     # Bash safety classification
     try:
         from backend.bash_classifier import get_classifier

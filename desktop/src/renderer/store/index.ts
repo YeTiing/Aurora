@@ -1,6 +1,6 @@
 // Aurora Zustand 状态管理 — 集成 IndexedDB 持久化
 import { create } from "zustand";
-import type { Session, AgentMessage, PlanStep, ThemeColors, FileEntry, ToolLog, ThreadFollowerState } from "../../shared/types";
+import type { Session, AgentMessage, PlanStep, ThemeColors, FileEntry, ToolLog, ThreadFollowerState, ApprovalRequestState } from "../../shared/types";
 import { darkTheme, lightTheme } from "../../shared/types";
 import * as db from "./db";
 
@@ -50,6 +50,11 @@ interface AuroraState {
     // Codex Thread Follower
     threadFollower: ThreadFollowerState;
     updateThreadFollower: (patch: Partial<ThreadFollowerState>) => void;
+
+    // Codex Approval
+    approvals: ApprovalRequestState[];
+    upsertApproval: (approval: ApprovalRequestState) => void;
+    updateApprovalStatus: (requestId: string, status: ApprovalRequestState["status"]) => void;
 
     // Theme
     theme: "dark" | "light";
@@ -288,6 +293,19 @@ export const useStore = create<AuroraState>((set, get) => ({
     },
     updateThreadFollower(patch) {
         set((s) => ({ threadFollower: { ...s.threadFollower, ...patch } }));
+    },
+    approvals: [],
+    upsertApproval(approval) {
+        set((s) => ({
+            approvals: s.approvals.some((item) => item.id === approval.id)
+                ? s.approvals.map((item) => item.id === approval.id ? { ...item, ...approval } : item)
+                : [...s.approvals, approval],
+        }));
+    },
+    updateApprovalStatus(requestId, status) {
+        set((s) => ({
+            approvals: s.approvals.map((item) => item.id === requestId ? { ...item, status } : item),
+        }));
     },
     addToolLog(sessionId, log) { set((s) => { const sessions = s.sessions.map((ses) => ses.id === sessionId ? { ...ses, toolLogs: [...(ses.toolLogs || []), { ...log, timestamp: Date.now() }], updatedAt: Date.now() } : ses); return { sessions }; }); },
 

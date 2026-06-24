@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("aurora", {
         ipcRenderer.invoke("agent:cancel", { sessionId }),
     threadControl: (data: any) =>
         ipcRenderer.invoke("agent:threadControl", data),
+    approvalDecision: (data: { requestId: string; action: "approve" | "deny"; sessionId?: string; threadId?: string }) =>
+        ipcRenderer.invoke("agent:approvalDecision", data),
 
     // Terminal
     terminal: {

@@ -236,6 +236,37 @@ async def desktop_websocket(ws: WebSocket):
                     }, ensure_ascii=False))
                 continue
 
+            # Approval decisions from desktop
+            if msg.get("type") == "approval_decision":
+                from backend.approval import approval_bridge
+                session_id = msg.get("sessionId") or "desktop"
+                thread_id = msg.get("threadId") or session_id
+                action = msg.get("action", "")
+                if action not in ("approve", "deny"):
+                    await ws.send_text(json.dumps({
+                        "type": "codex/event/error",
+                        "data": {"error": "Unsupported approval action"},
+                        "session_id": session_id,
+                        "thread_id": thread_id,
+                    }, ensure_ascii=False))
+                    continue
+                result = await approval_bridge.decide(msg.get("requestId", ""), action, session_id, thread_id)
+                if not result.get("ok"):
+                    await ws.send_text(json.dumps({
+                        "type": "codex/event/error",
+                        "data": {"error": "Approval request not found", "request_id": msg.get("requestId", "")},
+                        "session_id": session_id,
+                        "thread_id": thread_id,
+                    }, ensure_ascii=False))
+                    continue
+                await ws.send_text(json.dumps({
+                    "type": "approval_decision_result",
+                    "data": result,
+                    "session_id": session_id,
+                    "thread_id": thread_id,
+                }, ensure_ascii=False))
+                continue
+
             # Cancel message
             if msg.get("type") == "cancel":
                 session_id = msg.get("sessionId") or "desktop"

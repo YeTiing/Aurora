@@ -9,6 +9,7 @@ declare global {
             chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; model?: string; history?: {role:string;content:string}[] }) => Promise<any>;
             cancel: (sessionId: string) => Promise<any>;
             threadControl: (data: any) => Promise<any>;
+            approvalDecision: (data: { requestId: string; action: "approve" | "deny"; sessionId?: string; threadId?: string }) => Promise<any>;
             terminal: {
                 create: (sessionId: string, cwd: string) => Promise<boolean>;
                 write: (sessionId: string, data: string) => Promise<any>;
@@ -56,6 +57,8 @@ export function useAgent() {
     const addToolLog = useStore((s) => s.addToolLog);
     const updatePlan = useStore((s) => s.updatePlan);
     const updateThreadFollower = useStore((s) => s.updateThreadFollower);
+    const upsertApproval = useStore((s) => s.upsertApproval);
+    const updateApprovalStatus = useStore((s) => s.updateApprovalStatus);
     const setStreaming = useStore((s) => s.setStreaming);
     const setBackendConnected = useStore((s) => s.setBackendConnected);
     const streamingRef = useRef(false);
@@ -71,6 +74,37 @@ export function useAgent() {
             const data = raw.data || raw;
 
             switch (eventType) {
+                case "codex/event/exec_approval_request":
+                    if (!data.request_id && !data.id) break;
+                    upsertApproval({
+                        id: data.request_id || data.id,
+                        type: "command",
+                        risk: data.risk || "high",
+                        description: data.description || data.command || "Command approval requested",
+                        command: data.command,
+                        status: "pending",
+                    });
+                    break;
+
+                case "codex/event/apply_patch_approval_request":
+                    if (!data.request_id && !data.id) break;
+                    upsertApproval({
+                        id: data.request_id || data.id,
+                        type: "file",
+                        risk: data.risk || "medium",
+                        description: data.description || data.file_path || "File approval requested",
+                        filePath: data.file_path,
+                        status: "pending",
+                    });
+                    break;
+
+                case "codex/event/thread_follower_command_approval_decision":
+                case "codex/event/thread_follower_file_approval_decision":
+                    if (data.ok && data.request_id) {
+                        updateApprovalStatus(data.request_id, data.decision === "approve" ? "approved" : "denied");
+                    }
+                    break;
+
                 case "codex/event/thread_follower_start_turn":
                     updateThreadFollower({
                         activeThreadId: raw.thread_id || data.thread_id || null,
@@ -246,6 +280,20 @@ export function useAgent() {
     const setQueuedFollowups = useCallback((followups: string[]) =>
         controlThread("followups", { followups }), [controlThread]);
 
+    const decideApproval = useCallback(async (requestId: string, action: "approve" | "deny") => {
+        const state = useStore.getState();
+        const result = await window.aurora?.approvalDecision({
+            requestId,
+            action,
+            sessionId: state.activeSessionId || undefined,
+            threadId: state.threadFollower.activeThreadId || state.activeSessionId || undefined,
+        });
+        if (result?.sent) {
+            updateApprovalStatus(requestId, action === "approve" ? "approved" : "denied");
+        }
+        return result;
+    }, [updateApprovalStatus]);
+
     const cancelRequest = useCallback(async () => {
         seenMessages.current.clear();
         const sessionId = useStore.getState().activeSessionId;
@@ -255,7 +303,7 @@ export function useAgent() {
         }
     }, [setStreaming]);
 
-    return { sendMessage, cancelRequest, steerThread, compactThread, updateThreadSettings, setQueuedFollowups };
+    return { sendMessage, cancelRequest, steerThread, compactThread, updateThreadSettings, setQueuedFollowups, decideApproval };
 }
 
 export function useTerminal(sessionId: string, cwd: string) {

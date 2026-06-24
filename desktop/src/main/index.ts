@@ -591,6 +591,17 @@ ipcMain.handle("agent:threadControl", async (_event, data) => {
     return { sent: true };
 });
 
+ipcMain.handle("agent:approvalDecision", async (_event, data) => {
+    if (!data || !["approve", "deny"].includes(data.action)) {
+        return { sent: false, error: "Unsupported approval action" };
+    }
+    if (ws?.readyState !== WebSocket.OPEN) {
+        return { sent: false, error: "Backend disconnected" };
+    }
+    sendToBackend({ ...data, type: "approval_decision" });
+    return { sent: true };
+});
+
 ipcMain.handle("terminal:create", async (_event, { sessionId, cwd }) => {
     return createPty(sessionId, cwd);
 });

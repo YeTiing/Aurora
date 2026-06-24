@@ -142,6 +142,16 @@ export interface BackendMessage {
     response?: string;
 }
 
+export interface ApprovalRequestState {
+    id: string;
+    type: "command" | "file";
+    risk: "low" | "medium" | "high" | "critical";
+    description: string;
+    command?: string;
+    filePath?: string;
+    status: "pending" | "approved" | "denied";
+}
+
 export interface ThreadFollowerState {
     activeThreadId: string | null;
     status: "idle" | "running" | "interrupted" | "compacting" | "completed";

@@ -1,0 +1,23 @@
+{
+  "app.name": "أورورا",
+  "app.tagline": "محرك وكيل الذكاء الاصطناعي للبرمجة",
+  "nav.chat": "محادثة",
+  "nav.files": "ملفات",
+  "nav.settings": "إعدادات",
+  "nav.skills": "مهارات",
+  "nav.plugins": "ملحقات",
+  "common.save": "حفظ",
+  "common.cancel": "إلغاء",
+  "common.delete": "حذف",
+  "common.confirm": "تأكيد",
+  "common.loading": "جاري التحميل...",
+  "common.error": "خطأ",
+  "common.success": "نجاح",
+  "common.search": "بحث",
+  "common.no_results": "لا توجد نتائج",
+  "chat.send": "إرسال",
+  "chat.placeholder": "اكتب رسالة...",
+  "chat.thinking": "جاري التفكير...",
+  "chat.done": "تم",
+  "chat.error": "خطأ"
+}

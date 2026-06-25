@@ -89,16 +89,111 @@ async def list_processes():
     procs = process_manager.list_all()
     return {"processes":[{"id":p.id,"command":p.command,"status":p.status} for p in procs],"stats":process_manager.stats()}
 
+@router.get("/processes/{proc_id}")
+async def get_process(proc_id: str):
+    """Get a specific tracked process by ID."""
+    from backend.process_manager import process_manager
+    proc = process_manager.get(proc_id)
+    if not proc:
+        raise HTTPException(404, f"Process not found: {proc_id}")
+    return {
+        "id": proc.id,
+        "command": proc.command,
+        "os_pid": proc.os_pid,
+        "conversation_id": proc.conversation_id,
+        "turn_id": proc.turn_id,
+        "cwd": proc.cwd,
+        "status": proc.status,
+        "started_at_ms": proc.started_at_ms,
+        "finished_at_ms": proc.finished_at_ms,
+        "exit_code": proc.exit_code,
+    }
+
+
 @router.post("/processes/{proc_id}/kill")
 async def kill_process(proc_id: str):
     from backend.process_manager import process_manager
     return {"id":proc_id,"killed":process_manager.kill(proc_id)}
 
 # Storage
+@router.get("/storage")
+async def storage_overview():
+    """Return disk usage info for the .aurora directory."""
+    import shutil
+    aurora_dir = Path.home() / ".aurora"
+    total_size = 0
+    file_count = 0
+    if aurora_dir.exists():
+        for f in aurora_dir.rglob("*"):
+            if f.is_file():
+                try:
+                    total_size += f.stat().st_size
+                    file_count += 1
+                except OSError:
+                    pass
+    disk_usage = shutil.disk_usage(str(aurora_dir)) if aurora_dir.exists() else None
+    return {
+        "aurora_dir": str(aurora_dir),
+        "file_count": file_count,
+        "total_size_bytes": total_size,
+        "total_size_human": _fmt_bytes(total_size),
+        "disk_free_bytes": disk_usage.free if disk_usage else 0,
+        "disk_total_bytes": disk_usage.total if disk_usage else 0,
+    }
+
+
 @router.get("/storage/stats")
 async def storage_stats():
     from backend.sqlite_persistence import get_thread_goals_db, get_logs_db, get_memories_db
     return {"goals":get_thread_goals_db().stats(),"memories":len(get_memories_db().list_keys())}
+
+# ========== Log Archive Management ==========
+
+@router.get("/logs/stats")
+async def logs_stats():
+    """Get log statistics: total, by level, by module, date range."""
+    from backend.log_archive import LogArchiveManager
+    mgr = LogArchiveManager()
+    return mgr.get_log_stats()
+
+
+@router.post("/logs/archive")
+async def logs_archive(req: dict):
+    """Archive logs older than N days. Body: {"before_days": 30}"""
+    from backend.log_archive import LogArchiveManager
+    mgr = LogArchiveManager()
+    before_days = req.get("before_days", 30)
+    return mgr.archive_old_logs(before_days=int(before_days))
+
+
+@router.post("/logs/cleanup")
+async def logs_cleanup(req: dict):
+    """Delete logs older than N days. Body: {"before_days": 90}"""
+    from backend.log_archive import LogArchiveManager
+    mgr = LogArchiveManager()
+    before_days = req.get("before_days", 90)
+    return mgr.cleanup_old_logs(before_days=int(before_days))
+
+
+@router.get("/logs/archives")
+async def logs_archives():
+    """List archive files with size, date range, and log count."""
+    from backend.log_archive import LogArchiveManager
+    mgr = LogArchiveManager()
+    return {"archives": mgr.get_archive_list()}
+
+
+@router.post("/logs/restore/{name}")
+async def logs_restore(name: str):
+    """Restore logs from an archive file back to the database."""
+    from backend.log_archive import LogArchiveManager
+    mgr = LogArchiveManager()
+    try:
+        restored = mgr.restore_archive(name)
+        return {"restored": restored, "archive": name}
+    except FileNotFoundError:
+        raise HTTPException(404, f"Archive not found: {name}")
+
 
 @router.get("/storage/memories")
 async def list_memories(category: str|None=None):
@@ -477,3 +572,92 @@ async def log_restore(name: str):
     from backend.log_archive import log_archive
     count = log_archive.restore_archive(name)
     return {"restored": count}
+
+
+def _fmt_bytes(size_bytes: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+
+# ---- ELF Parser ----
+
+@router.post("/tools/elf/parse")
+async def elf_parse(req: dict):
+    """Parse an ELF binary file and return header/section/program info."""
+    path = req.get("path", "")
+    if not path:
+        raise HTTPException(400, "Missing 'path' in request body")
+    from backend.elf_parser import ELFParser
+    import os as _os
+    if not _os.path.isfile(path):
+        raise HTTPException(404, f"File not found: {path}")
+    try:
+        info = ELFParser.parse(path)
+        return {"success": True, "info": info.to_dict()}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+@router.post("/tools/elf/check")
+async def elf_check(req: dict):
+    """Check if a file is an ELF binary."""
+    path = req.get("path", "")
+    if not path:
+        raise HTTPException(400, "Missing 'path' in request body")
+    from backend.elf_parser import ELFParser
+    return {"path": path, "is_elf": ELFParser.is_elf(path)}
+
+# ---- Package Manager ----
+
+@router.get("/packages/detect")
+async def pkg_detect(project_dir: str = "."):
+    """Detect which package ecosystems are present in a project."""
+    from backend.package_manager import PackageManager
+    ecosystems = PackageManager.detect_ecosystem(project_dir)
+    return {"project_dir": project_dir, "ecosystems": [e.value for e in ecosystems]}
+
+@router.post("/packages/install")
+async def pkg_install(req: dict):
+    """Install dependencies for a project."""
+    from backend.package_manager import PackageManager, PackageEcosystem
+    project_dir = req.get("project_dir", ".")
+    ecosystem_str = req.get("ecosystem")
+    ecosystem = PackageEcosystem(ecosystem_str) if ecosystem_str else None
+    result = await PackageManager.install(project_dir, ecosystem)
+    return result.to_dict()
+
+@router.post("/packages/list")
+async def pkg_list(req: dict):
+    """List installed packages in a project."""
+    from backend.package_manager import PackageManager, PackageEcosystem
+    project_dir = req.get("project_dir", ".")
+    ecosystem_str = req.get("ecosystem")
+    ecosystem = PackageEcosystem(ecosystem_str) if ecosystem_str else None
+    result = await PackageManager.list_packages(project_dir, ecosystem)
+    return result.to_dict()
+
+@router.post("/packages/outdated")
+async def pkg_outdated(req: dict):
+    """Check for outdated packages."""
+    from backend.package_manager import PackageManager, PackageEcosystem
+    project_dir = req.get("project_dir", ".")
+    ecosystem_str = req.get("ecosystem")
+    ecosystem = PackageEcosystem(ecosystem_str) if ecosystem_str else None
+    result = await PackageManager.check_outdated(project_dir, ecosystem)
+    return result.to_dict()
+
+@router.post("/packages/add")
+async def pkg_add(req: dict):
+    """Add a package to a project."""
+    from backend.package_manager import PackageManager, PackageEcosystem
+    name = req.get("name", "")
+    if not name:
+        raise HTTPException(400, "Missing 'name' in request body")
+    project_dir = req.get("project_dir", ".")
+    ecosystem_str = req.get("ecosystem")
+    ecosystem = PackageEcosystem(ecosystem_str) if ecosystem_str else None
+    dev = req.get("dev", False)
+    result = await PackageManager.add_package(name, project_dir, ecosystem, dev)
+    return result.to_dict()

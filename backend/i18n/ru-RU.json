@@ -1,0 +1,23 @@
+{
+  "app.name": "Аврора",
+  "app.tagline": "AI-движок агента кодирования",
+  "nav.chat": "Чат",
+  "nav.files": "Файлы",
+  "nav.settings": "Настройки",
+  "nav.skills": "Навыки",
+  "nav.plugins": "Плагины",
+  "common.save": "Сохранить",
+  "common.cancel": "Отмена",
+  "common.delete": "Удалить",
+  "common.confirm": "Подтвердить",
+  "common.loading": "Загрузка...",
+  "common.error": "Ошибка",
+  "common.success": "Успех",
+  "common.search": "Поиск",
+  "common.no_results": "Нет результатов",
+  "chat.send": "Отправить",
+  "chat.placeholder": "Введите сообщение...",
+  "chat.thinking": "Думаю...",
+  "chat.done": "Готово",
+  "chat.error": "Ошибка"
+}

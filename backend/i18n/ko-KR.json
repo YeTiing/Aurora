@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "AI 코딩 에이전트 엔진",
+  "nav.chat": "채팅",
+  "nav.files": "파일",
+  "nav.settings": "설정",
+  "nav.skills": "스킬",
+  "nav.plugins": "플러그인",
+  "common.save": "저장",
+  "common.cancel": "취소",
+  "common.delete": "삭제",
+  "common.confirm": "확인",
+  "common.loading": "로딩 중...",
+  "common.error": "오류",
+  "common.success": "성공",
+  "common.search": "검색",
+  "common.no_results": "결과 없음",
+  "chat.send": "보내기",
+  "chat.placeholder": "메시지를 입력하세요...",
+  "chat.thinking": "생각 중...",
+  "chat.done": "완료",
+  "chat.error": "오류 발생"
+}

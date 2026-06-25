@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Motor de agente de IA para código",
+  "nav.chat": "Chat",
+  "nav.files": "Archivos",
+  "nav.settings": "Ajustes",
+  "nav.skills": "Habilidades",
+  "nav.plugins": "Plugins",
+  "common.save": "Guardar",
+  "common.cancel": "Cancelar",
+  "common.delete": "Eliminar",
+  "common.confirm": "Confirmar",
+  "common.loading": "Cargando...",
+  "common.error": "Error",
+  "common.success": "Éxito",
+  "common.search": "Buscar",
+  "common.no_results": "Sin resultados",
+  "chat.send": "Enviar",
+  "chat.placeholder": "Escribe un mensaje...",
+  "chat.thinking": "Pensando...",
+  "chat.done": "Hecho",
+  "chat.error": "Error"
+}

@@ -80,6 +80,8 @@ from backend.api.routes.tasks import router as tasks_router
 from backend.api.routes.connectors import router as connectors_router
 from backend.api.routes.integrations import router as integrations_router
 from backend.api.routes.remote import router as remote_router
+from backend.api.routes.chronicle import router as chronicle_router
+from backend.api.routes.i18n import router as i18n_router
 
 app.include_router(chat_router)
 app.include_router(files_router)

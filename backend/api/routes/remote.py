@@ -1,4 +1,4 @@
-"""Aurora API 鈥?remote control routes."""
+"""Aurora API — remote control routes."""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -30,6 +30,11 @@ class SSHRequest(BaseModel):
 class WSLRequest(BaseModel):
     distribution: str
     name: str = ""
+
+
+class ExecRequest(BaseModel):
+    command: str
+    timeout: float = 30.0
 
 
 # ---- Enrollment Endpoints ----
@@ -86,6 +91,24 @@ async def remove_ssh(host: str):
     return {"removed": host}
 
 
+@router.post("/ssh/{host}/connect")
+async def connect_ssh(host: str):
+    ok = await remote_control.connect_ssh(host)
+    return {"host": host, "connected": ok}
+
+
+@router.post("/ssh/{host}/disconnect")
+async def disconnect_ssh(host: str):
+    ok = await remote_control.disconnect_ssh(host)
+    return {"host": host, "disconnected": ok}
+
+
+@router.post("/ssh/{host}/exec")
+async def exec_ssh(host: str, req: ExecRequest):
+    result = await remote_control.run_ssh_command(host, req.command, req.timeout)
+    return {"host": host, "command": req.command, **result}
+
+
 # ---- WSL Endpoints ----
 
 @router.get("/wsl")
@@ -108,3 +131,17 @@ async def remove_wsl(name: str):
     if not ok:
         raise HTTPException(404, f"WSL connection not found: {name}")
     return {"removed": name}
+
+
+@router.post("/wsl/{name}/connect")
+async def connect_wsl(name: str):
+    ok = await remote_control.connect_wsl(name)
+    if not ok:
+        raise HTTPException(400, f"Failed to connect to WSL: {name}")
+    return {"distribution": name, "connected": True}
+
+
+@router.post("/wsl/{name}/exec")
+async def exec_wsl(name: str, req: ExecRequest):
+    result = await remote_control.run_wsl_command(name, req.command, req.timeout)
+    return {"distribution": name, "command": req.command, **result}

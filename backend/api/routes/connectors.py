@@ -1,6 +1,6 @@
 """Aurora API — Connector management routes."""
 from __future__ import annotations
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 
@@ -98,4 +98,63 @@ async def disconnect_connector(connector_id: str):
         "connector_id": connector_id,
         "connected": False,
         "status": "disconnected",
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /connectors/{connector_id}/test — test a connection
+# ---------------------------------------------------------------------------
+@router.post("/{connector_id}/test")
+async def test_connector(connector_id: str):
+    """Test a connection by calling the connector's test_connection method."""
+    registry = _get_registry()
+    connector = registry.get(connector_id)
+    if connector is None:
+        raise HTTPException(404, f"Connector '{connector_id}' not found")
+
+    if not connector.is_connected():
+        raise HTTPException(400, f"Connector '{connector_id}' is not connected")
+
+    result = await connector.test_connection()
+    return {
+        "connector_id": connector_id,
+        **result,
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /connectors/{connector_id}/data/{resource} — generic data proxy
+# ---------------------------------------------------------------------------
+@router.get("/{connector_id}/data/{resource:path}")
+async def get_connector_data(connector_id: str, resource: str, request: Request):
+    """Proxy a data request to a connector method.
+
+    The ``resource`` path segment maps to a method name on the connector.
+    Any query parameters are forwarded as keyword arguments to that method.
+    """
+    registry = _get_registry()
+    connector = registry.get(connector_id)
+    if connector is None:
+        raise HTTPException(404, f"Connector '{connector_id}' not found")
+
+    if not connector.is_connected():
+        raise HTTPException(400, f"Connector '{connector_id}' is not connected")
+
+    method_name = resource.replace("/", "_")
+    if not hasattr(connector, method_name):
+        raise HTTPException(404, f"Resource '{resource}' not available on connector '{connector_id}'")
+
+    method = getattr(connector, method_name)
+    kwargs = dict(request.query_params)
+    try:
+        result = await method(**kwargs)
+    except TypeError as e:
+        raise HTTPException(400, f"Invalid parameters for '{resource}': {e}")
+    except Exception as e:
+        raise HTTPException(502, f"Connector error: {e}")
+
+    return {
+        "connector_id": connector_id,
+        "resource": resource,
+        "data": result,
     }

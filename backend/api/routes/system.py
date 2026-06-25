@@ -335,3 +335,145 @@ async def send_notification(req: dict):
     )
     return {"sent": True, "notification": notif.to_dict()}
 
+
+
+# ========== Deep Link Router ==========
+
+class DeepLinkParseRequest(BaseModel):
+    url: str
+
+@router.post("/deep-link/parse")
+async def deep_link_parse(req: DeepLinkParseRequest):
+    """Parse an aurora:// URL into its components."""
+    from backend.deep_link import deep_link_router
+    result = deep_link_router.parse(req.url)
+    return {
+        "valid": deep_link_router.validate(req.url),
+        "scheme": result.scheme,
+        "host": result.host,
+        "path": result.path,
+        "params": result.params,
+    }
+
+@router.post("/deep-link/route")
+async def deep_link_route(req: DeepLinkParseRequest):
+    """Route an aurora:// URL to the appropriate action."""
+    from backend.deep_link import deep_link_router
+    if not deep_link_router.validate(req.url):
+        raise HTTPException(400, f"Invalid deep link: {req.url}")
+    action = deep_link_router.route(req.url)
+    return action.to_dict()
+
+
+# ========== i18n ==========
+
+@router.get("/i18n")
+async def i18n_list():
+    """List available locales."""
+    from backend.i18n import i18n
+    return {"locales": i18n.available_locales(), "default": "zh-CN"}
+
+@router.get("/i18n/{locale}")
+async def i18n_locale(locale: str):
+    """Get all translations for a locale."""
+    from backend.i18n import i18n
+    data = i18n.get_all(locale)
+    if not data:
+        raise HTTPException(404, f"Locale not found: {locale}")
+    return {"locale": locale, "keys": data}
+
+
+# ========== Chronicle ==========
+
+class ChronicleConfigRequest(BaseModel):
+    enabled: bool | None = None
+    fps: int | None = None
+    quality: int | None = None
+    output_dir: str | None = None
+
+@router.get("/chronicle/state")
+async def chronicle_state():
+    """Get current chronicle recording state."""
+    from backend.chronicle import chronicle
+    return chronicle.get_state()
+
+@router.post("/chronicle/start")
+async def chronicle_start():
+    """Start or resume screen recording (placeholder)."""
+    from backend.chronicle import chronicle
+    ok = chronicle.start()
+    if not ok:
+        raise HTTPException(400, "Cannot start: already running or disabled in config")
+    return chronicle.get_state()
+
+@router.post("/chronicle/stop")
+async def chronicle_stop():
+    """Stop screen recording."""
+    from backend.chronicle import chronicle
+    chronicle.stop()
+    return chronicle.get_state()
+
+@router.post("/chronicle/pause")
+async def chronicle_pause():
+    """Pause screen recording."""
+    from backend.chronicle import chronicle
+    ok = chronicle.pause()
+    if not ok:
+        raise HTTPException(400, "Cannot pause: not currently running")
+    return chronicle.get_state()
+
+@router.post("/chronicle/config")
+async def chronicle_config(req: ChronicleConfigRequest):
+    """Update chronicle configuration."""
+    from backend.chronicle import chronicle
+    updates = {}
+    if req.enabled is not None:
+        updates["enabled"] = req.enabled
+    if req.fps is not None:
+        updates["fps"] = req.fps
+    if req.quality is not None:
+        updates["quality"] = req.quality
+    if req.output_dir is not None:
+        updates["output_dir"] = req.output_dir
+    config = chronicle.set_config(updates)
+    return {"config": config}
+
+
+# ---- Log Archive ----
+
+@router.get("/logs/stats")
+async def log_stats():
+    """Get log database statistics."""
+    from backend.log_archive import log_archive
+    return log_archive.get_log_stats()
+
+@router.post("/logs/archive")
+async def log_archive_old(req: dict):
+    """Archive log entries older than before_days to compressed JSONL."""
+    from backend.log_archive import log_archive
+    before_days = req.get("before_days", 30)
+    result = log_archive.archive_old_logs(before_days)
+    if result is None:
+        return {"archived": 0, "message": "No logs to archive"}
+    return {"archived": result.entry_count, "archive": result.name, "size_bytes": result.size_bytes}
+
+@router.post("/logs/cleanup")
+async def log_cleanup(req: dict):
+    """Delete log entries older than before_days."""
+    from backend.log_archive import log_archive
+    before_days = req.get("before_days", 90)
+    deleted = log_archive.cleanup_old_logs(before_days)
+    return {"deleted": deleted}
+
+@router.get("/logs/archives")
+async def log_archives():
+    """List available log archives."""
+    from backend.log_archive import log_archive
+    return {"archives": log_archive.get_archive_list()}
+
+@router.post("/logs/restore/{name}")
+async def log_restore(name: str):
+    """Restore log entries from an archive."""
+    from backend.log_archive import log_archive
+    count = log_archive.restore_archive(name)
+    return {"restored": count}

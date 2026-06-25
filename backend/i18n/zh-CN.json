@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "你的 AI 代理，进化完成",
+  "nav.chat": "对话",
+  "nav.files": "文件",
+  "nav.settings": "设置",
+  "nav.skills": "技能",
+  "nav.plugins": "插件",
+  "common.save": "保存",
+  "common.cancel": "取消",
+  "common.delete": "删除",
+  "common.confirm": "确认",
+  "common.loading": "加载中...",
+  "common.error": "发生错误",
+  "common.success": "成功",
+  "common.search": "搜索",
+  "common.no_results": "无结果",
+  "chat.send": "发送",
+  "chat.placeholder": "输入消息...",
+  "chat.thinking": "思考中...",
+  "chat.done": "完成",
+  "chat.error": "消息发送失败"
+}

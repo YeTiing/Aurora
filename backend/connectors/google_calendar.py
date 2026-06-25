@@ -39,14 +39,66 @@ class GoogleCalendarConnector(ConnectorBase):
         )
 
     async def handle_callback(self, code: str, state: str = "") -> bool:
-        # TODO: exchange code for tokens
+        """Exchange OAuth code for Google access + refresh tokens."""
+        data = await self._token_exchange(code)
         self._connected = True
         return True
 
     async def disconnect(self) -> None:
-        self._connected = False
-        self._access_token = None
+        """Clear Calendar credentials."""
         self._refresh_token = None
+        await super().disconnect()
+
+    # ------------------------------------------------------------------
+    # Google Calendar API methods
+    # ------------------------------------------------------------------
+
+    async def list_events(
+        self,
+        calendar_id: str = "primary",
+        time_min: str | None = None,
+        time_max: str | None = None,
+        **kwargs,
+    ) -> dict:
+        """List events on the specified calendar."""
+        params = {}
+        if time_min:
+            params["timeMin"] = time_min
+        if time_max:
+            params["timeMax"] = time_max
+        params.update(kwargs)
+        return await self._api_get(f"/calendars/{calendar_id}/events", **params)
+
+    async def create_event(
+        self,
+        calendar_id: str,
+        summary: str,
+        start: dict,
+        end: dict,
+        **kwargs,
+    ) -> dict:
+        """Create an event on the specified calendar.
+
+        ``start`` and ``end`` are dicts with ``dateTime`` / ``date`` and ``timeZone`` keys.
+        """
+        body = {
+            "summary": summary,
+            "start": start,
+            "end": end,
+            **kwargs,
+        }
+        return await self._api_post(
+            f"/calendars/{calendar_id}/events",
+            json_data=body,
+        )
+
+    async def test_connection(self) -> dict:
+        """Test Calendar connection by listing a single event."""
+        try:
+            events = await self.list_events(maxResults=1)
+            return {"status": "connected", "event_count": len(events.get("items", []))}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
 
 get_registry().register(GoogleCalendarConnector())

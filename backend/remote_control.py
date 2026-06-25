@@ -1,4 +1,4 @@
-"""Aurora Remote Control 鈥?enrollment and connection management.
+"""Aurora Remote Control — enrollment and connection management.
 
 Provides RemoteControlManager for enrolling servers, managing SSH/WSL connections,
 and persisting state.
@@ -7,9 +7,13 @@ from __future__ import annotations
 
 import json
 import os
+import asyncio
+import logging
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parent / "data"
 REMOTE_STATE_FILE = DATA_DIR / "remote_state.json"
@@ -97,6 +101,8 @@ class RemoteControlManager:
     def __init__(self):
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         self._state = self._load_state()
+        self._ssh_sessions: dict[str, Any] = {}
+        self._wsl_processes: dict[str, asyncio.subprocess.Process] = {}
 
     def _load_state(self) -> dict:
         if REMOTE_STATE_FILE.exists():
@@ -209,6 +215,149 @@ class RemoteControlManager:
     def get_wsl_connection(self, name: str) -> WSLConnection | None:
         d = self._state["wsl"].get(name)
         return WSLConnection.from_dict(d) if d else None
+
+    # ---- SSH Real Connection Logic ----
+
+    async def connect_ssh(self, host: str) -> bool:
+        """Connect to an SSH host using asyncssh (preferred) or subprocess fallback."""
+        conn = self.get_ssh_connection(host)
+
+        try:
+            from asyncssh import connect as asyncssh_connect
+            username = conn.username if conn and conn.username else None
+            port = conn.port if conn else 22
+            session = await asyncssh_connect(
+                host, port=port, username=username,
+                known_hosts=None,
+            )
+            self._ssh_sessions[host] = session
+            if conn:
+                conn.status = "connected"
+                self._state["ssh"][host] = conn.to_dict()
+                self._save_state()
+            logger.info("SSH connected to %s via asyncssh", host)
+            return True
+        except ImportError:
+            logger.debug("asyncssh not available for %s, using subprocess fallback", host)
+        except Exception as e:
+            logger.warning("asyncssh connect to %s failed: %s, falling back", host, e)
+
+        # Subprocess fallback — connection tested per-command
+        if conn:
+            conn.status = "connected"
+            self._state["ssh"][host] = conn.to_dict()
+            self._save_state()
+        self._ssh_sessions[host] = "subprocess"
+        logger.info("SSH %s marked connected (subprocess fallback)", host)
+        return True
+
+    async def disconnect_ssh(self, host: str) -> bool:
+        """Disconnect from an SSH host."""
+        session = self._ssh_sessions.pop(host, None)
+        if session is not None:
+            try:
+                if hasattr(session, "close"):
+                    session.close()
+                    await session.wait_closed()
+            except Exception as e:
+                logger.warning("Error closing SSH session for %s: %s", host, e)
+
+        conn = self.get_ssh_connection(host)
+        if conn:
+            conn.status = "disconnected"
+            self._state["ssh"][host] = conn.to_dict()
+            self._save_state()
+        logger.info("SSH disconnected from %s", host)
+        return True
+
+    async def run_ssh_command(self, host: str, command: str, timeout: float = 30) -> dict:
+        """Run a command on a connected SSH host. Returns {stdout, stderr, exit_code}."""
+        session = self._ssh_sessions.get(host)
+
+        # asyncssh path
+        if session is not None and hasattr(session, "run"):
+            try:
+                result = await asyncio.wait_for(session.run(command), timeout=timeout)
+                return {
+                    "stdout": result.stdout or "",
+                    "stderr": result.stderr or "",
+                    "exit_code": result.exit_status or result.returncode or 0,
+                }
+            except asyncio.TimeoutError:
+                return {"stdout": "", "stderr": "Command timed out", "exit_code": -1}
+            except Exception as e:
+                return {"stdout": "", "stderr": str(e), "exit_code": -1}
+
+        # Subprocess fallback
+        conn = self.get_ssh_connection(host)
+        username = conn.username if conn else ""
+        ssh_host = f"{username}@{host}" if username else host
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "ssh", "-o", "StrictHostKeyChecking=no",
+                "-o", "ConnectTimeout=10",
+                ssh_host, command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            return {
+                "stdout": stdout.decode("utf-8", errors="replace") if stdout else "",
+                "stderr": stderr.decode("utf-8", errors="replace") if stderr else "",
+                "exit_code": proc.returncode or 0,
+            }
+        except asyncio.TimeoutError:
+            return {"stdout": "", "stderr": "Command timed out", "exit_code": -1}
+        except Exception as e:
+            return {"stdout": "", "stderr": str(e), "exit_code": -1}
+
+    # ---- WSL Real Connection Logic ----
+
+    async def connect_wsl(self, distribution: str) -> bool:
+        """Connect to a WSL distribution via wsl.exe subprocess probe."""
+        conn = self.get_wsl_connection(distribution)
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "wsl.exe", "-d", distribution, "echo", "Aurora WSL connected",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+            if proc.returncode != 0:
+                logger.error("WSL connect to %s failed: %s", distribution, stderr.decode())
+                return False
+
+            if conn:
+                conn.status = "connected"
+                self._state["wsl"][distribution] = conn.to_dict()
+                self._save_state()
+            self._wsl_processes[distribution] = proc
+            logger.info("WSL connected to %s", distribution)
+            return True
+        except Exception as e:
+            logger.error("WSL connect to %s failed: %s", distribution, e)
+            return False
+
+    async def run_wsl_command(self, distribution: str, command: str, timeout: float = 30) -> dict:
+        """Run a command inside a WSL distribution."""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "wsl.exe", "-d", distribution, "--", "bash", "-c", command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            return {
+                "stdout": stdout.decode("utf-8", errors="replace") if stdout else "",
+                "stderr": stderr.decode("utf-8", errors="replace") if stderr else "",
+                "exit_code": proc.returncode or 0,
+            }
+        except asyncio.TimeoutError:
+            return {"stdout": "", "stderr": "Command timed out", "exit_code": -1}
+        except Exception as e:
+            return {"stdout": "", "stderr": str(e), "exit_code": -1}
 
 
 # Singleton

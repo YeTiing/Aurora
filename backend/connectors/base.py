@@ -1,5 +1,7 @@
 """Aurora Connector System — base classes for external service integrations."""
 from __future__ import annotations
+import time
+import httpx
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import ClassVar
@@ -36,6 +38,7 @@ class ConnectorBase(ABC):
         self._connected = False
         self._access_token: str | None = None
         self._refresh_token: str | None = None
+        self._token_data: dict = {}
 
     @property
     def config(self) -> ConnectorConfig:
@@ -55,10 +58,108 @@ class ConnectorBase(ABC):
         """Return whether the connector currently holds valid credentials."""
         return self._connected and self._access_token is not None
 
-    @abstractmethod
     async def disconnect(self) -> None:
         """Revoke tokens and clear local state."""
-        ...
+        self._connected = False
+        self._access_token = None
+        self._refresh_token = None
+        self._token_data = {}
+
+    # ------------------------------------------------------------------
+    # OAuth / HTTP helpers
+    # ------------------------------------------------------------------
+
+    async def _token_exchange(self, code: str, extra_headers: dict | None = None) -> dict:
+        """Exchange an authorization code for tokens via OAuth2 token endpoint.
+
+        Posts form-encoded data to ``self._config.token_url`` and stores the
+        resulting ``access_token``, ``refresh_token`` and ``expires_at`` in
+        ``self._token_data``.
+        """
+        async with httpx.AsyncClient() as client:
+            headers = {"Accept": "application/json"}
+            if extra_headers:
+                headers.update(extra_headers)
+            resp = await client.post(
+                self._config.token_url,
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": self._config.redirect_uri,
+                    "client_id": self._config.client_id,
+                    "client_secret": self._config.client_secret,
+                },
+                headers=headers,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        self._access_token = data.get("access_token")
+        self._refresh_token = data.get("refresh_token")
+        if "expires_in" in data:
+            data["expires_at"] = time.time() + int(data["expires_in"])
+        self._token_data = data
+        return data
+
+    async def refresh_token(self) -> bool:
+        """Refresh the access token using the stored refresh token.  Returns True on success."""
+        if not self._refresh_token:
+            return False
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                self._config.token_url,
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": self._refresh_token,
+                    "client_id": self._config.client_id,
+                    "client_secret": self._config.client_secret,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        self._access_token = data.get("access_token")
+        self._refresh_token = data.get("refresh_token", self._refresh_token)
+        if "expires_in" in data:
+            data["expires_at"] = time.time() + int(data["expires_in"])
+        self._token_data.update(data)
+        return True
+
+    async def _api_get(self, path: str, headers: dict | None = None, **kwargs) -> dict:
+        """Authenticated GET request to the connector API.  Extra kwargs become query params."""
+        async with httpx.AsyncClient() as client:
+            req_headers = {"Authorization": f"Bearer {self._access_token}"}
+            if headers:
+                req_headers.update(headers)
+            resp = await client.get(
+                f"{self._config.api_base_url}{path}",
+                headers=req_headers,
+                params=kwargs,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def _api_post(self, path: str, json_data: dict | None = None, headers: dict | None = None, **kwargs) -> dict:
+        """Authenticated POST request to the connector API.  Extra kwargs become query params."""
+        async with httpx.AsyncClient() as client:
+            req_headers = {"Authorization": f"Bearer {self._access_token}"}
+            if headers:
+                req_headers.update(headers)
+            resp = await client.post(
+                f"{self._config.api_base_url}{path}",
+                headers=req_headers,
+                json=json_data,
+                params=kwargs,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def test_connection(self) -> dict:
+        """Lightweight connectivity check.  Override in subclasses for a real API call."""
+        return {
+            "status": "connected" if self.is_connected() else "disconnected",
+            "has_token": bool(self._access_token),
+        }
 
     def to_dict(self) -> dict:
         return {

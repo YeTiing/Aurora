@@ -22,7 +22,7 @@ async def re_handler(action: str = "", session_id: str = "", url: str = "", file
             eng = get_capture_engine()
             try:
                 flow = json.loads(code) if code else {}
-            except:
+            except Exception:
                 return ToolCallResult(success=False, output="", error="Invalid JSON in 'code'. Expect mitmproxy flow dict.")
             req = eng.capture_mitm_request(flow)
             return ToolCallResult(success=True, output=f"Captured: {req.method} {req.url[:120]}\nID: {req.id}\nStatus: {req.response_status}")

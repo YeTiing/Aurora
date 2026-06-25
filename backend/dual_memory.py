@@ -747,7 +747,7 @@ class FTSSessions:
         try:
             rows = self.c.execute("SELECT sid,summary,body,rank FROM fts WHERE fts MATCH ? ORDER BY rank LIMIT ?", (q, n)).fetchall()
             return [{"sid":r[0],"summary":r[1][:300],"body":(r[2] or r[1])[:500]} for r in rows]
-        except:
+        except Exception:
             rows = self.c.execute("SELECT sid,summary FROM meta WHERE summary LIKE ? ORDER BY ended DESC LIMIT ?", (f"%{q}%", n)).fetchall()
             return [{"sid":r[0],"summary":r[1][:300]} for r in rows]
 

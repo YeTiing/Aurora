@@ -266,7 +266,7 @@ async def memory_curator_full():
     # Use mock if no real LLM configured
     try:
         from backend.config import config
-    except:
+    except Exception:
         config = None
     result = await cl.curator.light()  # Fallback to lightweight
     return {"curation": result}

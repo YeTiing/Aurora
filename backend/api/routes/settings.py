@@ -344,7 +344,7 @@ async def delete_provider(name: str):
         return {"ok": False, "error": "No saved providers"}
     try:
         existing = json.loads(config_path.read_text(encoding="utf-8"))
-    except:
+    except Exception:
         return {"ok": False, "error": "Config read error"}
     
     providers = existing.get("providers", [])

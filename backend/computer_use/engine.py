@@ -393,7 +393,7 @@ class ComputerUseHelperTransport:
                 self._process.stdin.write(json.dumps({"id": -1, "method": "close", "params": {}}) + "\n")
                 self._process.stdin.flush()
                 self._process.wait(timeout=3)
-            except:
+            except Exception:
                 self._process.kill()
             self._process = None
 
@@ -419,7 +419,7 @@ class ComputerUseHelperTransport:
                             resolve({"__error__": error, "approvalRequest": msg.get("approvalRequest")})
                 except json.JSONDecodeError:
                     pass
-            except:
+            except Exception:
                 break
 
     def request(self, method: str, params: dict, meta: dict | None = None) -> dict:

@@ -199,7 +199,7 @@ class ComputerUse:
                 if fb.lower() in name_lower:
                     return name
             return name
-        except:
+        except Exception:
             return f"pid:{pid}"
 
     # ---- Accessibility tree (UIA) ----

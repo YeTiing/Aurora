@@ -57,9 +57,11 @@ class ThreadFollower:
         session_id: str,
         message: str,
         settings: ThreadSettings | None = None,
+        model: str = "",
+        effort: ReasoningEffort = "medium",
     ) -> dict:
         record = self._threads.get(thread_id)
-        thread_settings = settings or ThreadSettings()
+        thread_settings = settings or ThreadSettings(model=model, reasoning_effort=effort)
         if record is None:
             record = ThreadRecord(thread_id=thread_id, session_id=session_id, settings=thread_settings)
         record.status = "running"
@@ -150,6 +152,91 @@ class ThreadFollower:
 
     def get_thread(self, thread_id: str) -> ThreadRecord:
         return self._require_thread(thread_id)
+
+
+    async def load_complete_history(self, thread_id: str) -> dict:
+        """Load the complete message history for a thread."""
+        record = self._require_thread(thread_id)
+        await self._emit(
+            SSEEventType.THREAD_FOLLOWER_LOAD_COMPLETE_HISTORY,
+            record,
+            {"messages": record.messages, "summary": record.summary},
+        )
+        return {
+            "thread_id": thread_id,
+            "messages": record.messages,
+            "summary": record.summary,
+        }
+
+    async def edit_last_user_message(self, thread_id: str, new_message: str) -> dict:
+        """Edit the last user message in the thread."""
+        record = self._require_thread(thread_id)
+        for i in range(len(record.messages) - 1, -1, -1):
+            if record.messages[i].get("role") == "user":
+                record.messages[i]["content"] = new_message
+                break
+        self._threads = {**self._threads, thread_id: record}
+        await self._emit(
+            SSEEventType.THREAD_FOLLOWER_EDIT_LAST_USER_TURN,
+            record,
+            {"new_message": new_message, "edited": True},
+        )
+        return {"thread_id": thread_id, "edited": True, "new_message": new_message}
+
+    async def handle_command_approval(self, thread_id: str, decision: str) -> dict:
+        """Submit a command approval decision (approved/denied)."""
+        record = self._require_thread(thread_id)
+        await self._emit(
+            SSEEventType.THREAD_FOLLOWER_COMMAND_APPROVAL_DECISION,
+            record,
+            {"decision": decision, "thread_id": thread_id},
+        )
+        return {"thread_id": thread_id, "decision": decision}
+
+    async def handle_file_approval(self, thread_id: str, decision: str) -> dict:
+        """Submit a file operation approval decision (approved/denied)."""
+        record = self._require_thread(thread_id)
+        await self._emit(
+            SSEEventType.THREAD_FOLLOWER_FILE_APPROVAL_DECISION,
+            record,
+            {"decision": decision, "thread_id": thread_id},
+        )
+        return {"thread_id": thread_id, "decision": decision}
+
+    async def handle_permissions_escalation(self, thread_id: str, response: dict) -> dict:
+        """Submit a response to a permissions escalation request."""
+        record = self._require_thread(thread_id)
+        await self._emit(
+            SSEEventType.THREAD_FOLLOWER_PERMISSIONS_REQUEST_APPROVAL_RESPONSE,
+            record,
+            {"response": response, "thread_id": thread_id},
+        )
+        return {"thread_id": thread_id, "response": response}
+
+    async def submit_user_input(self, thread_id: str, input_data: str | dict) -> dict:
+        """Submit user input (form, text, or structured data) to the thread."""
+        record = self._require_thread(thread_id)
+        if isinstance(input_data, dict):
+            input_data = input_data
+        record.messages = [*record.messages, {"role": "user", "content": input_data}]
+        self._threads = {**self._threads, thread_id: record}
+        await self._emit(
+            SSEEventType.THREAD_FOLLOWER_SUBMIT_USER_INPUT,
+            record,
+            {"input_data": input_data, "thread_id": thread_id},
+        )
+        return {"thread_id": thread_id, "submitted": True, "input_data": input_data}
+
+    async def submit_mcp_elicitation(self, thread_id: str, response: str | dict) -> dict:
+        """Submit a response to an MCP server elicitation request."""
+        record = self._require_thread(thread_id)
+        await self._emit(
+            SSEEventType.THREAD_FOLLOWER_SUBMIT_MCP_SERVER_ELICITATION_RESPONSE,
+            record,
+            {"response": response, "thread_id": thread_id},
+        )
+        return {"thread_id": thread_id, "submitted": True, "response": response}
+
 
     def _require_thread(self, thread_id: str) -> ThreadRecord:
         record = self._threads.get(thread_id)

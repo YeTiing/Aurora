@@ -149,6 +149,65 @@ async def cron_stats():
     from backend.cron_scheduler import get_cron
     return get_cron().stats()
 
+
+# ─── Automations (enhanced cron) ───
+
+@router.get("/automations")
+async def list_automations():
+    """List all automations (cron tasks) with full details."""
+    from backend.cron_scheduler import get_cron
+    tasks = get_cron().list_tasks()
+    return {"count": len(tasks), "automations": tasks, "stats": get_cron().stats()}
+
+@router.post("/automations")
+async def create_automation(req: dict):
+    """Create an automation. Fields: name, schedule, prompt, rrule (optional), model (optional), reasoning_effort (optional)."""
+    from backend.cron_scheduler import get_cron
+    ok, msg = get_cron().add(
+        name=req.get("name", ""),
+        schedule_text=req.get("schedule", ""),
+        prompt=req.get("prompt", ""),
+        rrule=req.get("rrule"),
+        model=req.get("model", ""),
+        reasoning_effort=req.get("reasoning_effort", ""),
+    )
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"success": True, "message": msg}
+
+@router.get("/automations/runs")
+async def list_automation_runs(automation_id: str = "", limit: int = 50):
+    """List automation runs, optionally filtered by automation_id."""
+    from backend.sqlite_persistence import get_automation_runs_db
+    db = get_automation_runs_db()
+    if automation_id:
+        runs = db.list_by_automation(automation_id, limit)
+    else:
+        runs = db.list_recent(limit)
+    return {"count": len(runs), "runs": runs, "stats": db.stats()}
+
+# ─── Inbox ───
+
+@router.get("/inbox")
+async def list_inbox(unread_only: bool = False, limit: int = 100):
+    """List inbox items."""
+    from backend.sqlite_persistence import get_inbox_items_db
+    db = get_inbox_items_db()
+    if unread_only:
+        items = db.list_unread(limit)
+    else:
+        items = db.list_all(limit)
+    return {"count": len(items), "items": items, "unread_count": db.unread_count()}
+
+@router.post("/inbox/{item_id}/read")
+async def mark_inbox_read(item_id: str):
+    """Mark an inbox item as read."""
+    from backend.sqlite_persistence import get_inbox_items_db
+    db = get_inbox_items_db()
+    db.mark_read(item_id)
+    return {"id": item_id, "read": True}
+
+
 # === Observability Stats ===
 @router.get("/observability/stats")
 async def observability_stats():

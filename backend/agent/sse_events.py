@@ -138,7 +138,7 @@ class SSEEventBus:
                 for cb in self._subscribers[sid]:
                     try:
                         await cb(event)
-                    except:
+                    except Exception:
                         pass
 
     def get_history(self, session_id: str = "", limit: int = 50) -> list[dict]:

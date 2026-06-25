@@ -244,7 +244,7 @@ class PluginManager:
                 else:
                     r = h(*args, **kwargs)
                 results.append(r)
-            except:
+            except Exception:
                 pass
         return results
 

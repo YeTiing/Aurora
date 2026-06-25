@@ -14,6 +14,7 @@ Routes are organized into modules under api/routes/:
   detective - /detective
   tasks     - /tasks, /cron
   intgr     - /magic-docs, /im, /search, /worktree, /context/collapse
+  remote    - /remote
 """
 from __future__ import annotations
 import time
@@ -76,7 +77,9 @@ from backend.api.routes.auth import router as auth_router
 from backend.api.routes.re import router as re_router
 from backend.api.routes.detective import router as detective_router
 from backend.api.routes.tasks import router as tasks_router
+from backend.api.routes.connectors import router as connectors_router
 from backend.api.routes.integrations import router as integrations_router
+from backend.api.routes.remote import router as remote_router
 
 app.include_router(chat_router)
 app.include_router(files_router)
@@ -89,4 +92,6 @@ app.include_router(auth_router)
 app.include_router(re_router)
 app.include_router(detective_router)
 app.include_router(tasks_router)
+app.include_router(connectors_router)
 app.include_router(integrations_router)
+app.include_router(remote_router, prefix="/remote")

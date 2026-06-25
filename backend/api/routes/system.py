@@ -302,3 +302,36 @@ async def models_discover(req: dict):
         })
     return {"provider": provider, "count": len(result), "models": result}
 
+
+
+# ─── Notifications ───
+
+@router.get("/notifications")
+async def list_notifications(limit: int = 50):
+    """List recent notifications."""
+    from backend.notifications import get_notification_manager
+    nm = get_notification_manager()
+    return {"count": nm.count(), "notifications": nm.list_recent(limit)}
+
+@router.post("/notifications/dismiss/{notification_id}")
+async def dismiss_notification(notification_id: str):
+    """Dismiss a notification by ID."""
+    from backend.notifications import get_notification_manager
+    nm = get_notification_manager()
+    ok = nm.dismiss(notification_id)
+    if not ok:
+        raise HTTPException(404, f"Notification not found: {notification_id}")
+    return {"id": notification_id, "dismissed": True}
+
+@router.post("/notifications/send")
+async def send_notification(req: dict):
+    """Send a test notification: {title, body, urgency}."""
+    from backend.notifications import get_notification_manager
+    nm = get_notification_manager()
+    notif = nm.send(
+        title=req.get("title", "Aurora"),
+        body=req.get("body", ""),
+        urgency=req.get("urgency", "normal"),
+    )
+    return {"sent": True, "notification": notif.to_dict()}
+

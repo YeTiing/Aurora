@@ -497,11 +497,167 @@ def get_dynamic_tools_db(base_dir: str | None = None) -> ThreadDynamicToolsDB:
     if _dynamic_tools_db is None: _dynamic_tools_db = ThreadDynamicToolsDB(base_dir)
     return _dynamic_tools_db
 
+
+
+# ──────────────────────────────────────────── Automation Runs DB
+class AutomationRunsDB:
+    def __init__(self, base_dir: str | Path = None):
+        base = Path(base_dir) if base_dir else Path.home() / ".aurora" / "sqlite"
+        self.db = SQLiteDB(base / "automation.sqlite")
+        self._init()
+
+    def _init(self):
+        self.db.execute("""
+            CREATE TABLE IF NOT EXISTS automation_runs (
+                id TEXT PRIMARY KEY,
+                automation_id TEXT NOT NULL,
+                thread_id TEXT DEFAULT '',
+                status TEXT DEFAULT 'pending',
+                thread_title TEXT DEFAULT '',
+                source_cwd TEXT DEFAULT '',
+                created_at REAL,
+                updated_at REAL,
+                archived_user_message TEXT DEFAULT '',
+                archived_assistant_message TEXT DEFAULT '',
+                archived_reason TEXT DEFAULT ''
+            )
+        """)
+        self.db.execute("CREATE INDEX IF NOT EXISTS idx_aruns_automation ON automation_runs(automation_id)")
+        self.db.execute("CREATE INDEX IF NOT EXISTS idx_aruns_status ON automation_runs(status)")
+        self.db.commit()
+
+    def create(self, automation_id: str, **kwargs) -> dict:
+        rid = kwargs.pop("id", uuid.uuid4().hex[:16])
+        now = time.time()
+        fields = ["id", "automation_id", "created_at", "updated_at"]
+        values = [rid, automation_id, now, now]
+        for k, v in kwargs.items():
+            if k in ["thread_id", "status", "thread_title", "source_cwd",
+                      "archived_user_message", "archived_assistant_message", "archived_reason"]:
+                fields.append(k)
+                values.append(str(v) if v is not None else "")
+        placeholders = ", ".join("?" * len(fields))
+        self.db.execute(
+            f"INSERT INTO automation_runs ({', '.join(fields)}) VALUES ({placeholders})",
+            tuple(values)
+        )
+        self.db.commit()
+        return self.get(rid)
+
+    def get(self, run_id: str) -> dict | None:
+        row = self.db.execute("SELECT * FROM automation_runs WHERE id = ?", (run_id,)).fetchone()
+        return dict(row) if row else None
+
+    def update(self, run_id: str, **kwargs):
+        if not kwargs:
+            return
+        kwargs["updated_at"] = time.time()
+        sets = ", ".join(f"{k} = ?" for k in kwargs)
+        self.db.execute(
+            f"UPDATE automation_runs SET {sets} WHERE id = ?",
+            tuple(kwargs.values()) + (run_id,)
+        )
+        self.db.commit()
+
+    def list_by_automation(self, automation_id: str, limit: int = 50) -> list[dict]:
+        rows = self.db.execute(
+            "SELECT * FROM automation_runs WHERE automation_id = ? ORDER BY created_at DESC LIMIT ?",
+            (automation_id, limit)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def list_recent(self, limit: int = 50) -> list[dict]:
+        rows = self.db.execute(
+            "SELECT * FROM automation_runs ORDER BY created_at DESC LIMIT ?",
+            (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def delete(self, run_id: str):
+        self.db.execute("DELETE FROM automation_runs WHERE id = ?", (run_id,))
+        self.db.commit()
+
+    def stats(self) -> dict:
+        total = self.db.execute("SELECT COUNT(*) as c FROM automation_runs").fetchone()
+        by_status = self.db.execute(
+            "SELECT status, COUNT(*) as c FROM automation_runs GROUP BY status"
+        ).fetchall()
+        return {
+            "total": total["c"] if total else 0,
+            "by_status": {r["status"]: r["c"] for r in by_status},
+        }
+
+
+# ──────────────────────────────────────────── Inbox Items DB
+class InboxItemsDB:
+    def __init__(self, base_dir: str | Path = None):
+        base = Path(base_dir) if base_dir else Path.home() / ".aurora" / "sqlite"
+        self.db = SQLiteDB(base / "inbox.sqlite")
+        self._init()
+
+    def _init(self):
+        self.db.execute("""
+            CREATE TABLE IF NOT EXISTS inbox_items (
+                id TEXT PRIMARY KEY,
+                title TEXT DEFAULT '',
+                description TEXT DEFAULT '',
+                thread_id TEXT DEFAULT '',
+                read_at REAL,
+                created_at REAL
+            )
+        """)
+        self.db.execute("CREATE INDEX IF NOT EXISTS idx_inbox_read ON inbox_items(read_at)")
+        self.db.commit()
+
+    def create(self, title: str = "", description: str = "", thread_id: str = "") -> dict:
+        iid = uuid.uuid4().hex[:16]
+        now = time.time()
+        self.db.execute(
+            "INSERT INTO inbox_items (id, title, description, thread_id, created_at) VALUES (?, ?, ?, ?, ?)",
+            (iid, title, description, thread_id, now)
+        )
+        self.db.commit()
+        return self.get(iid)
+
+    def get(self, item_id: str) -> dict | None:
+        row = self.db.execute("SELECT * FROM inbox_items WHERE id = ?", (item_id,)).fetchone()
+        return dict(row) if row else None
+
+    def mark_read(self, item_id: str):
+        self.db.execute("UPDATE inbox_items SET read_at = ? WHERE id = ?", (time.time(), item_id))
+        self.db.commit()
+
+    def list_unread(self, limit: int = 50) -> list[dict]:
+        rows = self.db.execute(
+            "SELECT * FROM inbox_items WHERE read_at IS NULL ORDER BY created_at DESC LIMIT ?",
+            (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def list_all(self, limit: int = 100) -> list[dict]:
+        rows = self.db.execute(
+            "SELECT * FROM inbox_items ORDER BY created_at DESC LIMIT ?",
+            (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def delete(self, item_id: str):
+        self.db.execute("DELETE FROM inbox_items WHERE id = ?", (item_id,))
+        self.db.commit()
+
+    def unread_count(self) -> int:
+        row = self.db.execute("SELECT COUNT(*) as c FROM inbox_items WHERE read_at IS NULL").fetchone()
+        return row["c"] if row else 0
+
+
+
 _agent_jobs_db = None
 _spawn_edges_db = None
 _logs_db = None
 _memories_db = None
 _state_db = None
+_automation_runs_db = None
+_inbox_items_db = None
 
 def get_threads_db(base_dir: str | None = None) -> ThreadsDB:
     global _threads_db
@@ -537,3 +693,13 @@ def get_state_db(base_dir: str | None = None) -> StateDB:
     global _state_db
     if _state_db is None: _state_db = StateDB(base_dir)
     return _state_db
+
+def get_automation_runs_db(base_dir: str | None = None) -> AutomationRunsDB:
+    global _automation_runs_db
+    if _automation_runs_db is None: _automation_runs_db = AutomationRunsDB(base_dir)
+    return _automation_runs_db
+
+def get_inbox_items_db(base_dir: str | None = None) -> InboxItemsDB:
+    global _inbox_items_db
+    if _inbox_items_db is None: _inbox_items_db = InboxItemsDB(base_dir)
+    return _inbox_items_db

@@ -88,7 +88,7 @@ Aurora/
 | **RAG 检索** | AST 分块 + BM25 关键词 + 向量语义 + 重排序 |
 | **多Agent并行** | 支持最多 4 个 Agent 并行编排 |
 | **Skill/Plugin** | 热加载 Skill 和 Plugin 扩展 |
-| **语义记忆** | ChromaDB 持久化，支持情景记忆 + 相似任务检索 |
+| **语义记忆** | SQLite 向量+关键词混合检索，支持情景记忆 + 相似任务检索 |
 | **模型发现** | 多 Provider 自动发现、基准测试、推荐 |
 | **Token 预算** | 会话级 Token 配额管理 |
 | **目标系统** | Goal 创建 + 预算追踪 + 状态管理 |
@@ -161,7 +161,7 @@ npm run build    # 构建 Electron 应用
 | 后端框架 | FastAPI + Uvicorn |
 | Agent 引擎 | LangGraph StateGraph |
 | LLM | OpenAI / DeepSeek / Claude (多Provider) |
-| 向量检索 | ChromaDB + sentence-transformers |
+| 向量检索 | SQLite FTS5 + NumPy cosine similarity |
 | 代码解析 | tree-sitter (Python / TypeScript) |
 | 桌面端 | Electron + React + Vite + Tailwind + Zustand |
 | 测试 | pytest (asyncio) |

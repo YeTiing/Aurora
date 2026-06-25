@@ -17,6 +17,7 @@ Routes are organized into modules under api/routes/:
   remote    - /remote
 """
 from __future__ import annotations
+import os
 import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +33,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=os.environ.get("AURORA_CORS_ORIGINS", "http://localhost:5173").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -40,11 +41,16 @@ app.add_middleware(
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    import traceback
+    import traceback, os
     traceback.print_exc()
+    # Never leak error details in production; only in dev
+    is_dev = os.environ.get("AURORA_ENV", "") == "dev"
     return JSONResponse(
         status_code=500,
-        content={"error": type(exc).__name__, "detail": str(exc)[:500]},
+        content={
+            "error": "Internal server error",
+            **({"detail": str(exc)[:200]} if is_dev else {}),
+        },
     )
 
 

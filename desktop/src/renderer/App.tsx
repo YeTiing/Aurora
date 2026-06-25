@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useStore } from "./store";
-import { useAgent } from "./hooks";
+import { useAgent, usePanels, useLayout } from "./hooks";
 import { ChatPanel } from "./components/chat/ChatPanel";
 import type { FileAttachment } from "./components/chat/ChatPanel";
 import { EditorPanel } from "./components/editor/EditorPanel";
@@ -29,9 +29,11 @@ import "./styles.css";
 
 
 export default function App() {
-    const colors = useStore((s) => s.themeColors);
-    const { sendMessage, cancelRequest } = useAgent();
-    const activeSessionId = useStore((s) => s.activeSessionId);
+      const panels = usePanels();
+  const layout = useLayout();
+  const colors = layout.colors;
+  const { rootStyle } = layout;
+      const activeSessionId = useStore((s) => s.activeSessionId);
     const sessions = useStore((s) => s.sessions);
     const loadSessions = useStore((s) => s.loadSessions);
     const showRightPanel = useStore((s) => s.showRightPanel);
@@ -42,82 +44,7 @@ export default function App() {
     const showMonitor = useStore((s) => s.showMonitor);
     const toggleMonitor = useStore((s) => s.toggleMonitor);
     const showSearch = useStore((s) => s.showSearch);
-  const [showMemory, setShowMemory] = useState(false);
-    const [showSkins, setShowSkins] = useState(false);
-    const [showRe, setShowRe] = useState(false);
-    const [showDetective, setShowDetective] = useState(false);
-    const [showAdmin, setShowAdmin] = useState(false);
-    const [showGoal, setShowGoal] = useState(false);
-    const [showBrowser, setShowBrowser] = useState(false);
-    const [showSocial, setShowSocial] = useState(false);
-        const [bgImage, setBgImage] = useState<string>('');
-    const [panelOpacityL, setPanelOpacityL] = useState<number>(0.6);
-    const [panelBgL, setPanelBgL] = useState<string>('');
-    const [panelOpacityC, setPanelOpacityC] = useState<number>(0.6);
-    const [panelBgC, setPanelBgC] = useState<string>('');
-    const [panelOpacityR, setPanelOpacityR] = useState<number>(0.6);
-    const [panelBgR, setPanelBgR] = useState<string>('');
-
-    useEffect(() => {
-        // Core initialization
-        const savedBg = localStorage.getItem('aurora_anime_bg'); 
-        if (savedBg) setBgImage(savedBg); 
-        
-        // Opacity
-        const oL = localStorage.getItem('aurora_opacity_L'); if (oL) document.documentElement.style.setProperty('--deleted-op-l', oL);
-        const oC = localStorage.getItem('aurora_opacity_C'); if (oC) document.documentElement.style.setProperty('--deleted-op-c', oC);
-        const oR = localStorage.getItem('aurora_opacity_R'); if (oR) document.documentElement.style.setProperty('--deleted-op-r', oR);
-        
-        // Position
-        const pL = localStorage.getItem('aurora_pos_L'); if (pL) document.documentElement.style.setProperty('--pos-l', pL);
-        const pC = localStorage.getItem('aurora_pos_C'); if (pC) document.documentElement.style.setProperty('--pos-c', pC);
-        const pR = localStorage.getItem('aurora_pos_R'); if (pR) document.documentElement.style.setProperty('--pos-r', pR);
-        const pMain = localStorage.getItem('aurora_pos_Main'); if (pMain) document.documentElement.style.setProperty('--pos-main', pMain);
-        
-        // Blur
-        const blL = localStorage.getItem('aurora_blur_L'); if (blL) document.documentElement.style.setProperty('--blur-l', blL + 'px');
-        const blC = localStorage.getItem('aurora_blur_C'); if (blC) document.documentElement.style.setProperty('--blur-c', blC + 'px');
-        const blR = localStorage.getItem('aurora_blur_R'); if (blR) document.documentElement.style.setProperty('--blur-r', blR + 'px');
-
-        // Safe DOM Background bindings & Intelligent Theme Fallback
-        try {
-            const parseUrl = (p: string) => p.startsWith('http') || p.startsWith('data:') ? `url('${p}')` : `url('file:///${p.split('\\').join('/').replace(/^file:\/\/\//, '')}')`;
-            const globalBg = localStorage.getItem('aurora_anime_bg');
-                        if (globalBg) {
-                document.documentElement.style.setProperty('--bg-main', parseUrl(globalBg));
-                document.documentElement.style.setProperty('--app-bg', 'transparent');
-            } else {
-                document.documentElement.style.setProperty('--bg-main', 'none');
-                document.documentElement.style.setProperty('--app-bg', 'var(--aurora-bg)'); // RESTORE THEME INTEGRATION
-            }
-            
-            const bindPanel = (k: string, id: string) => {
-                const v = localStorage.getItem(id);
-                if (v) document.documentElement.style.setProperty(`--bg-${k}`, parseUrl(v));
-                else document.documentElement.style.setProperty(`--bg-${k}`, 'none');
-                
-                if (v || globalBg) document.documentElement.style.setProperty(`--panel-bg-${k}`, 'transparent');
-                else document.documentElement.style.setProperty(`--panel-bg-${k}`, 'var(--aurora-surface)'); // RESTORE THEME INTEGRATION
-            };
-            bindPanel('l', 'aurora_bg_L');
-            bindPanel('c', 'aurora_bg_C');
-            bindPanel('r', 'aurora_bg_R');
-        } catch(e) {
-            console.error(e);
-        }
-    }, []);
-    const createSession = useStore((s) => s.createSession);
-    const setActiveSession = useStore((s) => s.setActiveSession);
-    const setTerminalOpen = useStore((s) => s.setTerminalOpen);
-    const openFiles = useStore((s) => s.openFiles);
-    const activeFile = useStore((s) => s.activeFile);
-    const setActiveFile = useStore((s) => s.setActiveFile);
-    const closeFile = useStore((s) => s.closeFile);
-
-    const [showCommandPalette, setShowCommandPalette] = useState(false);
-    // "chat" = show chat, filepath = show editor for that file
-    const [activeCenterTab, setActiveCenterTab] = useState<string>("chat");
-
+                          
     useInitializeTheme();
 
     useEffect(() => {
@@ -129,7 +56,7 @@ export default function App() {
     // When a file is opened externally (from file tree), switch to it
     useEffect(() => {
         if (activeFile) {
-            setActiveCenterTab(activeFile.replace(/\\/g, "/"));
+            panels.setActiveCenterTab(activeFile.replace(/\\/g, "/"));
         }
     }, [activeFile]);
 
@@ -137,7 +64,7 @@ export default function App() {
     useEffect(() => {
         const sm = getShortcutManager();
         sm.register("send", () => {});
-        sm.register("commandPalette", () => setShowCommandPalette((prev) => !prev));
+        sm.register("commandPalette", () => panels.commandPalette.toggle());
         sm.register("toggleSidebar", () => toggleRightPanel());
         sm.register("settings", () => toggleSettings());
         sm.register("newSession", () => createSession());
@@ -175,15 +102,15 @@ export default function App() {
     const handleCloseFileTab = (filePath: string, e: React.MouseEvent) => {
         e.stopPropagation();
         closeFile(filePath);
-        if (activeCenterTab === filePath.replace(/\\/g, "/")) {
+        if (panels.activeCenterTab === filePath.replace(/\\/g, "/")) {
             // Switch to chat or next file
             const remaining = openFiles.filter((f: string) => f !== filePath);
             if (remaining.length > 0) {
                 const nextFilePath = remaining[remaining.length - 1].replace(/\\/g, "/");
-                setActiveCenterTab(nextFilePath);
+                panels.setActiveCenterTab(nextFilePath);
                 setActiveFile(remaining[remaining.length - 1]);
             } else {
-                setActiveCenterTab("chat");
+                panels.setActiveCenterTab("chat");
                 setActiveFile(null);
             }
         }
@@ -192,25 +119,25 @@ export default function App() {
     return (
         <div className="aurora-app" style={{ backgroundColor: colors.bg, color: colors.text } as React.CSSProperties}>
             <Toolbar
-            onToggleMemory={() => setShowMemory(!showMemory)}
-            showMemory={showMemory}
-            onToggleAdmin={() => setShowAdmin(!showAdmin)}
-            showAdmin={showAdmin}
-            onToggleGoal={() => setShowGoal(!showGoal)}
-            showGoal={showGoal}
-            onToggleSkins={() => setShowSkins(!showSkins)}
-            showSkins={showSkins}
-            onToggleRe={() => setShowRe(!showRe)}
-            showRe={showRe}
-            onToggleDetective={() => setShowDetective(!showDetective)}
-            showDetective={showDetective}
+            onToggleMemory={() => panels.memory.toggle(!panels.memory.show)}
+            panels.memory.show={panels.memory.show}
+            onToggleAdmin={() => panels.admin.toggle(!panels.admin.show)}
+            panels.admin.show={panels.admin.show}
+            onToggleGoal={() => panels.goal.toggle(!panels.goal.show)}
+            panels.goal.show={panels.goal.show}
+            onToggleSkins={() => panels.skins.toggle(!panels.skins.show)}
+            panels.skins.show={panels.skins.show}
+            onToggleRe={() => panels.re.toggle(!panels.re.show)}
+            panels.re.show={panels.re.show}
+            onToggleDetective={() => panels.detective.toggle(!panels.detective.show)}
+            panels.detective.show={panels.detective.show}
             />
 
             <div style={{ display: "flex", gap: 6, padding: "2px 16px 8px" }}>
-              <button onClick={() => setShowBrowser(!showBrowser)}
+              <button onClick={() => panels.browser.toggle(!panels.browser.show)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border] transition-all"
                 title="Browser (Ctrl+Shift+B)">🌐 Browser</button>
-              <button onClick={() => setShowSocial(!showSocial)}
+              <button onClick={() => panels.social.toggle(!panels.social.show)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border] transition-all"
                 title="Social & Resources">🔗 Social</button>
             </div>
@@ -225,14 +152,14 @@ export default function App() {
                     {/* Tab bar */}
                     {openFiles.length > 0 && (
                         <div className="aurora-tabbar">
-                            <div className={`tab-item ${activeCenterTab === "chat" ? "active" : ""}`}
-                                onClick={() => { setActiveCenterTab("chat"); setActiveFile(null); }}>
+                            <div className={`tab-item ${panels.activeCenterTab === "chat" ? "active" : ""}`}
+                                onClick={() => { panels.setActiveCenterTab("chat"); setActiveFile(null); }}>
                                 💬 Chat
                             </div>
                             {openFiles.map((f: string) => {
                                 const fname = f.split(/[/\\]/).pop() || f;
                                 const normalized = f.replace(/\\/g, "/");
-                                const isActive = activeCenterTab === normalized;
+                                const isActive = panels.activeCenterTab === normalized;
                                 const ext = fname.split(".").pop()?.toLowerCase() || "";
                                 const tabDotColors: Record<string, string> = {
                                     py: "#3572A5", ts: "#3178C6", tsx: "#3178C6", js: "#F7DF1E",
@@ -242,7 +169,7 @@ export default function App() {
                                 const dotColor = tabDotColors[ext] || colors.textSecondary;
                                 return (
                                     <div key={f} className={`tab-item ${isActive ? "active" : ""}`}
-                                        onClick={() => { setActiveCenterTab(normalized); setActiveFile(f); }}>
+                                        onClick={() => { panels.setActiveCenterTab(normalized); setActiveFile(f); }}>
                                         <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: dotColor, flexShrink: 0 }} />
                                         {fname}
                                         <span className="tab-close" onClick={(e) => handleCloseFileTab(f, e)}>×</span>
@@ -253,7 +180,7 @@ export default function App() {
                     )}
 
                     {/* Content area */}
-                    {activeCenterTab === "chat" || openFiles.length === 0 ? (
+                    {panels.activeCenterTab === "chat" || openFiles.length === 0 ? (
                         <div className="aurora-chat-wrapper">
                             <ChatPanel onSend={handleSendMessage} onCancel={cancelRequest} />
                         </div>
@@ -289,26 +216,26 @@ export default function App() {
             {showMonitor && <MonitorPanel onClose={toggleMonitor} />}
             {showSettings && <SettingsPanel onClose={toggleSettings} />}
             {showSearch && <SearchPanel />}
-            {showMemory && <MemoryDashboard />}
-            {showDetective && <DetectivePanel onClose={() => setShowDetective(false)} />}
-            {showRe && <RePanel onClose={() => setShowRe(false)} />}
-            {showSkins && <SkinBrowser onClose={() => setShowSkins(false)} />}
-            {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
-            {showGoal && <GoalPanel onClose={() => setShowGoal(false)} />}
-            {showBrowser && (
+            {panels.memory.show && <MemoryDashboard />}
+            {panels.detective.show && <DetectivePanel onClose={() => panels.detective.toggle(false)} />}
+            {panels.re.show && <RePanel onClose={() => panels.re.toggle(false)} />}
+            {panels.skins.show && <SkinBrowser onClose={() => panels.skins.toggle(false)} />}
+            {panels.admin.show && <AdminPanel onClose={() => panels.admin.toggle(false)} />}
+            {panels.goal.show && <GoalPanel onClose={() => panels.goal.toggle(false)} />}
+            {panels.browser.show && (
               <div className="absolute top-12 right-12 z-50 w-[75vw] h-[85vh] bg-[--bg-panel] border border-[--border] rounded-xl shadow-2xl overflow-hidden">
                 <BrowserPanel />
-                <button onClick={() => setShowBrowser(false)}
+                <button onClick={() => panels.browser.toggle(false)}
                   className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center rounded-full bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border]"
                 >✕</button>
               </div>
             )}
-            {showSocial && (
+            {panels.social.show && (
               <div className="absolute top-12 right-12 z-50 w-[720px] h-[75vh] bg-[--bg-panel] border border-[--border] rounded-xl shadow-2xl overflow-hidden">
-                <SocialPanel onClose={() => setShowSocial(false)} />
+                <SocialPanel onClose={() => panels.social.toggle(false)} />
               </div>
             )}
-            {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
+            {panels.commandPalette.show && <CommandPalette onClose={() => panels.commandPalette.toggle(false)} />}
         </div>
     );
 }

@@ -1,7 +1,7 @@
 // Aurora hooks 鈥?Agent SSE闃熶紶 + 缁堢鎺у埗 (Codex SSE浜嬩欢瀵归綈)
 import { useEffect, useRef, useCallback } from "react";
 import { useStore } from "../store";
-import type { BackendMessage, SSEEvent } from "../../shared/types";
+import type { BackendMessage, SSEEvent, SharedObjectSnapshot } from "../../shared/types";
 
 declare global {
     interface Window {
@@ -10,6 +10,10 @@ declare global {
             cancel: (sessionId: string) => Promise<any>;
             threadControl: (data: any) => Promise<any>;
             approvalDecision: (data: { requestId: string; action: "approve" | "deny"; sessionId?: string; threadId?: string }) => Promise<any>;
+            sharedObjects: {
+                snapshot: () => Promise<{ objects?: SharedObjectSnapshot; error?: string }>;
+                set: (key: string, value: unknown, source?: string) => Promise<{ update?: { key: string; value: unknown }; error?: string }>;
+            };
             terminal: {
                 create: (sessionId: string, cwd: string) => Promise<boolean>;
                 write: (sessionId: string, data: string) => Promise<any>;
@@ -59,6 +63,8 @@ export function useAgent() {
     const updateThreadFollower = useStore((s) => s.updateThreadFollower);
     const upsertApproval = useStore((s) => s.upsertApproval);
     const updateApprovalStatus = useStore((s) => s.updateApprovalStatus);
+    const setSharedObjects = useStore((s) => s.setSharedObjects);
+    const setSharedObject = useStore((s) => s.setSharedObject);
     const setStreaming = useStore((s) => s.setStreaming);
     const setBackendConnected = useStore((s) => s.setBackendConnected);
     const streamingRef = useRef(false);
@@ -231,7 +237,14 @@ export function useAgent() {
 
         const unsub2 = window.aurora?.onBackendConnected(() => {
             setBackendConnected(true);
+            window.aurora?.sharedObjects.snapshot().then((result) => {
+                if (result?.objects) setSharedObjects(result.objects);
+            }).catch(() => {});
         });
+
+        window.aurora?.sharedObjects.snapshot().then((result) => {
+            if (result?.objects) setSharedObjects(result.objects);
+        }).catch(() => {});
 
         return () => {
             unsub?.();
@@ -280,6 +293,18 @@ export function useAgent() {
     const setQueuedFollowups = useCallback((followups: string[]) =>
         controlThread("followups", { followups }), [controlThread]);
 
+    const refreshSharedObjects = useCallback(async () => {
+        const result = await window.aurora?.sharedObjects.snapshot();
+        if (result?.objects) setSharedObjects(result.objects);
+        return result;
+    }, [setSharedObjects]);
+
+    const updateSharedObject = useCallback(async (key: string, value: unknown, source = "desktop") => {
+        const result = await window.aurora?.sharedObjects.set(key, value, source);
+        if (result?.update) setSharedObject(result.update.key, result.update.value);
+        return result;
+    }, [setSharedObject]);
+
     const decideApproval = useCallback(async (requestId: string, action: "approve" | "deny") => {
         const state = useStore.getState();
         const result = await window.aurora?.approvalDecision({
@@ -303,7 +328,7 @@ export function useAgent() {
         }
     }, [setStreaming]);
 
-    return { sendMessage, cancelRequest, steerThread, compactThread, updateThreadSettings, setQueuedFollowups, decideApproval };
+    return { sendMessage, cancelRequest, steerThread, compactThread, updateThreadSettings, setQueuedFollowups, decideApproval, refreshSharedObjects, updateSharedObject };
 }
 
 export function useTerminal(sessionId: string, cwd: string) {
@@ -335,3 +360,6 @@ export function useTheme() {
     const themeColors = useStore((s) => s.themeColors);
     return themeColors;
 }
+
+export { usePanels } from "./usePanels";
+export { useLayout } from "./useLayout";

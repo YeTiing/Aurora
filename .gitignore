@@ -46,3 +46,6 @@ desktop/npm_run_error.log
 
 # Aurora curator runtime state (changes on every run)
 .aurora/memories/curator.json
+
+# Config (may contain credentials)
+aurora.json

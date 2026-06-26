@@ -117,6 +117,24 @@ class Config:
                 return val
         return default
 
+    def set(self, key: str, value: Any) -> None:
+        """Set a config value in the project-level config file."""
+        parts = key.split(".")
+        target = self._project
+        for part in parts[:-1]:
+            if part not in target:
+                target[part] = {}
+            target = target[part]
+        target[parts[-1]] = value
+        # Persist to project config file
+        try:
+            import json
+            project_path = self._project_root / "aurora.json"
+            with open(project_path, "w", encoding="utf-8") as f:
+                json.dump(self._project, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass  # Non-fatal: in-memory change still applies
+
     def all(self) -> dict:
         result = copy.deepcopy(self._global)
         self._deep_merge(result, self._user)

@@ -61,7 +61,12 @@ def _init_plugins():
 
 
 @router.post("/config")
-async def update_config(req: ConfigUpdateRequest): _init(); return {"key":req.key,"current":_cfg.get(req.key)}
+async def update_config(req: ConfigUpdateRequest):
+    _init()
+    if req.value is not None:
+        _cfg.set(req.key, req.value)
+        return {"key": req.key, "value": req.value, "updated": True}
+    return {"key": req.key, "current": _cfg.get(req.key)}
 
 # Plugins
 @router.get("/plugins")

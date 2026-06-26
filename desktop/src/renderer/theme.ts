@@ -4,6 +4,7 @@ import { useStore } from "./store";
 
 export interface ThemeColors {
     bg: string;
+    fg: string;
     surface: string;
     border: string;
     text: string;
@@ -13,6 +14,7 @@ export interface ThemeColors {
     success: string;
     warning: string;
     code: string;
+    hover: string;
 }
 
 export interface Theme {
@@ -30,6 +32,8 @@ export const themes: Theme[] = [
         label: "Aurora Dark",
         colors: {
             bg: "#0d1117",
+            fg: "#e6edf3",
+            hover: "#2a2a2a",
             surface: "#161b22",
             border: "#30363d",
             text: "#e6edf3",
@@ -46,6 +50,8 @@ export const themes: Theme[] = [
         label: "Aurora Light",
         colors: {
             bg: "#ffffff",
+            fg: "#e6edf3",
+            hover: "#2a2a2a",
             surface: "#f6f8fa",
             border: "#d0d7de",
             text: "#1f2328",
@@ -62,6 +68,8 @@ export const themes: Theme[] = [
         label: "Monokai",
         colors: {
             bg: "#272822",
+            fg: "#e6edf3",
+            hover: "#2a2a2a",
             surface: "#3e3d32",
             border: "#49483e",
             text: "#f8f8f2",
@@ -78,6 +86,8 @@ export const themes: Theme[] = [
         label: "Solarized Dark",
         colors: {
             bg: "#002b36",
+            fg: "#e6edf3",
+            hover: "#2a2a2a",
             surface: "#073642",
             border: "#586e75",
             text: "#839496",
@@ -94,6 +104,8 @@ export const themes: Theme[] = [
         label: "GitHub Light",
         colors: {
             bg: "#ffffff",
+            fg: "#e6edf3",
+            hover: "#2a2a2a",
             surface: "#f6f8fa",
             border: "#d0d7de",
             text: "#24292f",

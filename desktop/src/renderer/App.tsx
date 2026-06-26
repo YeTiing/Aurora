@@ -44,6 +44,13 @@ export default function App() {
     const showMonitor = useStore((s) => s.showMonitor);
     const toggleMonitor = useStore((s) => s.toggleMonitor);
     const showSearch = useStore((s) => s.showSearch);
+    const activeFile = useStore((s) => s.activeFile);
+    const openFiles = useStore((s) => s.openFiles);
+    const closeFile = useStore((s) => s.closeFile);
+    const setActiveFile = useStore((s) => s.setActiveFile);
+    const createSession = useStore((s) => s.createSession);
+
+    const { sendMessage, cancelRequest } = useAgent();
                           
     useInitializeTheme();
 
@@ -56,7 +63,7 @@ export default function App() {
     // When a file is opened externally (from file tree), switch to it
     useEffect(() => {
         if (activeFile) {
-            panels.setActiveCenterTab(activeFile.replace(/\\/g, "/"));
+            panels.setActiveCenterTab((activeFile?.replace(/\\/g, "/") ?? "chat") as any);
         }
     }, [activeFile]);
 
@@ -107,7 +114,7 @@ export default function App() {
             const remaining = openFiles.filter((f: string) => f !== filePath);
             if (remaining.length > 0) {
                 const nextFilePath = remaining[remaining.length - 1].replace(/\\/g, "/");
-                panels.setActiveCenterTab(nextFilePath);
+                panels.setActiveCenterTab(nextFilePath as any);
                 setActiveFile(remaining[remaining.length - 1]);
             } else {
                 panels.setActiveCenterTab("chat");
@@ -119,25 +126,25 @@ export default function App() {
     return (
         <div className="aurora-app" style={{ backgroundColor: colors.bg, color: colors.text } as React.CSSProperties}>
             <Toolbar
-            onToggleMemory={() => panels.memory.toggle(!panels.memory.show)}
-            panels.memory.show={panels.memory.show}
-            onToggleAdmin={() => panels.admin.toggle(!panels.admin.show)}
-            panels.admin.show={panels.admin.show}
-            onToggleGoal={() => panels.goal.toggle(!panels.goal.show)}
-            panels.goal.show={panels.goal.show}
-            onToggleSkins={() => panels.skins.toggle(!panels.skins.show)}
-            panels.skins.show={panels.skins.show}
-            onToggleRe={() => panels.re.toggle(!panels.re.show)}
-            panels.re.show={panels.re.show}
-            onToggleDetective={() => panels.detective.toggle(!panels.detective.show)}
-            panels.detective.show={panels.detective.show}
+            onToggleMemory={() => panels.memory.toggle()}
+            showMemory={panels.memory.show}
+            onToggleAdmin={() => panels.admin.toggle()}
+            showAdmin={panels.admin.show}
+            onToggleGoal={() => panels.goal.toggle()}
+            showGoal={panels.goal.show}
+            onToggleSkins={() => panels.skins.toggle()}
+            showSkins={panels.skins.show}
+            onToggleRe={() => panels.re.toggle()}
+            showRe={panels.re.show}
+            onToggleDetective={() => panels.detective.toggle()}
+            showDetective={panels.detective.show}
             />
 
             <div style={{ display: "flex", gap: 6, padding: "2px 16px 8px" }}>
-              <button onClick={() => panels.browser.toggle(!panels.browser.show)}
+              <button onClick={() => panels.browser.toggle()}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border] transition-all"
                 title="Browser (Ctrl+Shift+B)">🌐 Browser</button>
-              <button onClick={() => panels.social.toggle(!panels.social.show)}
+              <button onClick={() => panels.social.toggle()}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border] transition-all"
                 title="Social & Resources">🔗 Social</button>
             </div>
@@ -217,25 +224,25 @@ export default function App() {
             {showSettings && <SettingsPanel onClose={toggleSettings} />}
             {showSearch && <SearchPanel />}
             {panels.memory.show && <MemoryDashboard />}
-            {panels.detective.show && <DetectivePanel onClose={() => panels.detective.toggle(false)} />}
-            {panels.re.show && <RePanel onClose={() => panels.re.toggle(false)} />}
-            {panels.skins.show && <SkinBrowser onClose={() => panels.skins.toggle(false)} />}
-            {panels.admin.show && <AdminPanel onClose={() => panels.admin.toggle(false)} />}
-            {panels.goal.show && <GoalPanel onClose={() => panels.goal.toggle(false)} />}
+            {panels.detective.show && <DetectivePanel onClose={() => panels.detective.toggle()} />}
+            {panels.re.show && <RePanel onClose={() => panels.re.toggle()} />}
+            {panels.skins.show && <SkinBrowser onClose={() => panels.skins.toggle()} />}
+            {panels.admin.show && <AdminPanel onClose={() => panels.admin.toggle()} />}
+            {panels.goal.show && <GoalPanel onClose={() => panels.goal.toggle()} />}
             {panels.browser.show && (
               <div className="absolute top-12 right-12 z-50 w-[75vw] h-[85vh] bg-[--bg-panel] border border-[--border] rounded-xl shadow-2xl overflow-hidden">
                 <BrowserPanel />
-                <button onClick={() => panels.browser.toggle(false)}
+                <button onClick={() => panels.browser.toggle()}
                   className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center rounded-full bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border]"
                 >✕</button>
               </div>
             )}
             {panels.social.show && (
               <div className="absolute top-12 right-12 z-50 w-[720px] h-[75vh] bg-[--bg-panel] border border-[--border] rounded-xl shadow-2xl overflow-hidden">
-                <SocialPanel onClose={() => panels.social.toggle(false)} />
+                <SocialPanel onClose={() => panels.social.toggle()} />
               </div>
             )}
-            {panels.commandPalette.show && <CommandPalette onClose={() => panels.commandPalette.toggle(false)} />}
+            {panels.commandPalette.show && <CommandPalette onClose={() => panels.commandPalette.toggle()} />}
         </div>
     );
 }

@@ -10,7 +10,7 @@ export function usePanels() {
   const [showBrowser, setShowBrowser] = useState(false);
   const [showSocial, setShowSocial] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [activeCenterTab, setActiveCenterTab] = useState<"chat" | "editor" | "plan" | "terminal" | "monitor">("chat");
+  const [activeCenterTab, setActiveCenterTab] = useState<string>("chat");
 
   const allPanels = {
     memory: { show: showMemory, toggle: useCallback(() => setShowMemory((v) => !v), []) },

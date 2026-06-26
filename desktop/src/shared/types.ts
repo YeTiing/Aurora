@@ -183,6 +183,7 @@ export interface FileEntry {
 
 export interface ThemeColors {
     bg: string;
+    fg: string;
     bgSecondary: string;
     surface: string;
     border: string;
@@ -193,10 +194,13 @@ export interface ThemeColors {
     error: string;
     success: string;
     warning: string;
+    code: string;
+    hover: string;
 }
 
 export const lightTheme: ThemeColors = {
     bg: "#ffffff",
+    fg: "#1f2328",
     bgSecondary: "#f6f8fa",
     surface: "#ffffff",
     border: "#d0d7de",
@@ -207,10 +211,13 @@ export const lightTheme: ThemeColors = {
     error: "#cf222e",
     success: "#1a7f37",
     warning: "#9a6700",
+    code: "#f6f8fa",
+    hover: "#eaeef2",
 };
 
 export const darkTheme: ThemeColors = {
     bg: "#0d1117",
+    fg: "#e6edf3",
     bgSecondary: "#161b22",
     surface: "#161b22",
     border: "#30363d",
@@ -221,4 +228,6 @@ export const darkTheme: ThemeColors = {
     error: "#f85149",
     success: "#3fb950",
     warning: "#d29922",
+    code: "#1c2333",
+    hover: "#21262d",
 };

@@ -192,7 +192,9 @@ class BackgroundMonitor:
     def _file_hash(path: str) -> str:
         try:
             stat = os.stat(path)
-            return hashlib.md5(f"{stat.st_mtime}:{stat.st_size}".encode()).hexdigest()
+            # Include mtime_ns for sub-second precision, fallback to mtime on older Python
+            mtime = getattr(stat, "st_mtime_ns", int(stat.st_mtime * 1e9))
+            return hashlib.md5(f"{mtime}:{stat.st_size}".encode()).hexdigest()
         except OSError:
             return ""
 

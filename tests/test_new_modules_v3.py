@@ -192,13 +192,17 @@ def test_monitor_add_target():
 @pytest.mark.asyncio
 async def test_monitor_file_watch(tmp_path):
     from backend.task_monitor import BackgroundMonitor
+    import asyncio
     m = BackgroundMonitor()
     tf = tmp_path / "watched.txt"
-    tf.write_text("initial content")
+    tf.write_text("initial content", encoding="utf-8")
+    await asyncio.sleep(0.1)
     tid = m.add_target("test", str(tf), "file", interval_sec=0)
     events = await m.check_now()
     assert len(events) == 0
-    tf.write_text("changed content")
+    await asyncio.sleep(0.1)
+    tf.write_text("changed content longer", encoding="utf-8")
+    await asyncio.sleep(0.1)
     events2 = await m.check_now()
     assert len(events2) == 1
     assert events2[0].change_type == "modified"

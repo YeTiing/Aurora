@@ -432,7 +432,9 @@ class MockLLMClient(LLMClient):
         return [[random.random() for _ in range(768)] for _ in texts]
 
     async def close(self):
-        pass
+        """Reset mock state and clear cached responses."""
+        self._total_requests = 0
+        self._mock_responses.clear() if hasattr(self, '_mock_responses') else None
 
 
 # ═══════════════════════════════════════════════════════════════

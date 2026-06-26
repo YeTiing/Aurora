@@ -22,6 +22,10 @@ from .skin_tool import SKIN_SPEC, skin_handler
 from .session_export_tool import SESSION_EXPORT_SPEC, session_export_handler
 from .re_tool import RE_SPEC, re_handler
 from .detective_tool import DETECTIVE_SPEC, detective_handler
+from .lsp_tool import LSP_TOOL_SPEC, lsp_handler
+from .verify_plan import VERIFY_TOOL_SPEC, verify_plan_handler
+from .tool_metrics import get_metrics
+
 
 def register_all_tools():
     tool_registry.register(SHELL_SPEC, shell_handler)
@@ -40,12 +44,15 @@ def register_all_tools():
     tool_registry.register(SEND_MESSAGE_SPEC, send_message_handler)
     tool_registry.register(COMPUTER_USE_SPEC, computer_use_handler)
     tool_registry.register(BROWSER_USE_SPEC, browser_use_handler)
-tool_registry.register(MEMORY_SPEC, memory_handler)
-tool_registry.register(CRON_SPEC, cron_handler)
-tool_registry.register(SKIN_SPEC, skin_handler)
-tool_registry.register(RE_SPEC, re_handler)
-tool_registry.register(DETECTIVE_SPEC, detective_handler)
-tool_registry.register(SESSION_EXPORT_SPEC, session_export_handler)
+    tool_registry.register(MEMORY_SPEC, memory_handler)
+    tool_registry.register(CRON_SPEC, cron_handler)
+    tool_registry.register(SKIN_SPEC, skin_handler)
+    tool_registry.register(RE_SPEC, re_handler)
+    tool_registry.register(DETECTIVE_SPEC, detective_handler)
+    tool_registry.register(SESSION_EXPORT_SPEC, session_export_handler)
+    tool_registry.register(LSP_TOOL_SPEC, lsp_handler)
+    tool_registry.register(VERIFY_TOOL_SPEC, verify_plan_handler)
+
 
 register_all_tools()
 
@@ -70,12 +77,13 @@ __all__ = [
     "get_pending_requests", "resolve_request",
     "MCPProxy", "MCPServerConfig", "MCPServerState", "mcp_proxy",
     "register_all_tools",
-        "MEMORY_SPEC", "memory_handler",
-        "CRON_SPEC", "cron_handler",
+    "MEMORY_SPEC", "memory_handler",
+    "CRON_SPEC", "cron_handler",
     "SKIN_SPEC", "skin_handler",
     "RE_SPEC", "re_handler",
     "DETECTIVE_SPEC", "detective_handler",
     "SESSION_EXPORT_SPEC", "session_export_handler",
+    "LSP_TOOL_SPEC", "lsp_handler",
+    "VERIFY_TOOL_SPEC", "verify_plan_handler",
+    "get_metrics",
 ]
-from .lsp_tool import LSP_TOOL_SPEC, lsp_handler
-from .verify_plan import VERIFY_TOOL_SPEC, verify_plan_handler

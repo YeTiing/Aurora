@@ -216,14 +216,16 @@ class ComputerUse:
                     fc = root.GetFocusedControl()
                     if fc:
                         focused = f"#{fc.ControlTypeName}: {fc.Name}"[:120]
-            except: pass
+            except Exception: pass
+
             try:
                 if hasattr(root, 'GetSelectedItems'):
                     si = root.GetSelectedItems()
                     if si:
                         selected = [f"{s.ControlTypeName}: {s.Name}" for s in si[:5]]
                         selected = "; ".join(selected)[:200]
-            except: pass
+            except Exception: pass
+
             return {
                 "tree": tree_text,
                 "focused_element": focused,
@@ -337,7 +339,8 @@ class ComputerUse:
             try:
                 user32.SetForegroundWindow(w.id)
                 time.sleep(0.3)
-            except: pass
+            except Exception: pass
+
         if include_screenshot:
             state.screenshots = [self.screenshot()]
         if include_text or True:

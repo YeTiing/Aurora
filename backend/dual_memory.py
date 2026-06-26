@@ -154,6 +154,17 @@ class MemoryStore:
             for i, e in enumerate(self.entries)
         ]
 
+    def stats(self) -> dict:
+        """Return statistics about this memory store."""
+        return {
+            "name": self.name,
+            "entries": len(self.entries),
+            "char_count": self.char_count,
+            "max_chars": self.max_chars,
+            "usage_pct": self.usage_pct,
+            "dirty": self._dirty,
+        }
+
     def to_system_prompt(self) -> str:
         """Format as system prompt injection block."""
         label = "MEMORY (your personal notes)" if "agent" in self.name.lower() else "USER PROFILE"

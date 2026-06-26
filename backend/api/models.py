@@ -26,6 +26,12 @@ class IndexRequest(BaseModel):
     path: str
 
 
+
+class SemanticIndexRequest(BaseModel):
+    text: str
+    metadata: dict = {}
+
+
 class RenderPromptRequest(BaseModel):
     name: str
     variables: dict = {}
@@ -54,3 +60,18 @@ class SettingsUpdate(BaseModel):
 
 class LLMTestRequest(BaseModel):
     message: str = "Hello, say connected in one short sentence."
+
+
+class MarketplaceInstallRequest(BaseModel):
+    repo_url: str
+
+
+class SentryConfig(BaseModel):
+    enabled: bool = False
+    dsn: str = ""
+
+
+class TaskSubmitRequest(BaseModel):
+    type: str
+    path: str = ""
+    workspace: str = "."

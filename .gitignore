@@ -49,3 +49,7 @@ desktop/npm_run_error.log
 
 # Config (may contain credentials)
 aurora.json
+
+.vite
+
+Dockerfile.sandbox

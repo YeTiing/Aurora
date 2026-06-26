@@ -100,6 +100,21 @@ class SessionSearch:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
 
+    def recent(self, limit: int = 10) -> list[dict]:
+        """Get recently indexed messages."""
+        import sqlite3
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT session_id, role, snippet, timestamp FROM messages ORDER BY timestamp DESC LIMIT ?",
+                    (limit,)
+                ).fetchall()
+            return [{"session_id": r["session_id"], "role": r["role"],
+                     "snippet": r["snippet"], "timestamp": r["timestamp"]} for r in rows]
+        except Exception:
+            return []
+
     def stats(self) -> dict:
         with sqlite3.connect(self.db_path) as conn:
             total = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]

@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 router = APIRouter()
 
-from backend.api.models import RenderPromptRequest, ConfigUpdateRequest, SettingsUpdate, LLMTestRequest
+from backend.api.models import SentryConfig, RenderPromptRequest, ConfigUpdateRequest, SettingsUpdate, LLMTestRequest
 
 from backend.config import config as _cfg_module
 from backend.api.routes.detective import ProviderProfile
@@ -59,8 +59,6 @@ def _init_plugins():
 
 
 
-
-@router.post("/sentry/configure")
 
 @router.post("/config")
 async def update_config(req: ConfigUpdateRequest): _init(); return {"key":req.key,"current":_cfg.get(req.key)}
@@ -191,6 +189,7 @@ async def browser_list_pages():
     pages = await browser_use.list_pages()
     return {"pages": [{"url": p.url, "title": p.title, "id": p.target_id} for p in pages]}
 
+@router.post("/sentry/configure")
 async def configure_sentry(req: SentryConfig):
     try:
         import sentry_sdk

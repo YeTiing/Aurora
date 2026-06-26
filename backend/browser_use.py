@@ -241,7 +241,32 @@ class BrowserUse:
             return []
 
     async def close(self):
-        pass
+        """Close browser — relay first, then kill self-launched Chrome."""
+        # 1. Close Electron BrowserView via relay
+        try:
+            from backend.browser_relay import browser_relay
+            if browser_relay.connected():
+                await browser_relay._send_command("close", {}, timeout=3)
+                browser_relay.clear_ws()
+        except Exception:
+            pass
+
+        # 2. Kill Chrome if we launched it (self-managed CDP)
+        if not self._use_desktop:
+            port = self._chrome_port
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=httpx.Timeout(3)) as c:
+                    pages = await c.get(f"http://127.0.0.1:{port}/json")
+                    for p in pages.json():
+                        wid = p.get("id", "")
+                        if wid:
+                            await c.get(f"http://127.0.0.1:{port}/json/close/{wid}")
+            except Exception:
+                pass
+
+        self._last_error = ""
+        self._use_desktop = False
 
 
 browser_use = BrowserUse()

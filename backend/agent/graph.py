@@ -783,7 +783,8 @@ class AgentGraph:
 
             try: await self._run_tool_select(state)
 
-            except: state.empty_turns += 1; state.total_turns += 1; continue
+            except Exception: state.empty_turns += 1; state.total_turns += 1; continue
+
 
 
             if state.tool_invocations:

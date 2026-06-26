@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld("aurora", {
         ipcRenderer.invoke("agent:threadControl", data),
     approvalDecision: (data: { requestId: string; action: "approve" | "deny"; sessionId?: string; threadId?: string }) =>
         ipcRenderer.invoke("agent:approvalDecision", data),
+    sharedObjects: {
+        snapshot: () => ipcRenderer.invoke("sharedObjects:snapshot"),
+        set: (key: string, value: unknown, source?: string) =>
+            ipcRenderer.invoke("sharedObjects:set", { key, value, source }),
+    },
 
     // Terminal
     terminal: {

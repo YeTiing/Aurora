@@ -1,30 +1,32 @@
 # -*- coding: utf-8 -*-
-"""LSP Tool — Agent-callable LSP queries (hover, definition, references, diagnostics).
+"""LSP Tool
 
-Port of cc-haha's src/tools/LSPTool.
+Port of cc-haha src/tools/LSPTool.
 Wraps backend.lsp manager into tool spec for agent to call directly.
 """
 
 from __future__ import annotations
 import asyncio, logging
 from typing import Any
+from backend.tools.base import ToolSpec
 
 logger = logging.getLogger("aurora.tools.lsp")
 
-LSP_TOOL_SPEC = {
-    "name": "lsp",
-    "description": "Query language server for type info, go-to-definition, references, or diagnostics. Use after writing code to check for errors, or to understand unfamiliar code.",
-    "parameters": {
+LSP_TOOL_SPEC = ToolSpec(
+    name="lsp",
+    description="Query language server for type info, go-to-definition, references, or diagnostics.",
+    parameters={
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["hover", "definition", "references", "diagnostics"], "description": "What to query: hover (type info), definition (where defined), references (where used), diagnostics (errors/warnings)"},
+            "action": {"type": "string", "enum": ["hover", "definition", "references", "diagnostics"]},
             "filepath": {"type": "string", "description": "Absolute or workspace-relative file path"},
-            "line": {"type": "integer", "description": "1-based line number (for hover/definition/references)"},
-            "character": {"type": "integer", "description": "1-based character column (for hover/definition/references)"},
+            "line": {"type": "integer", "description": "1-based line number"},
+            "character": {"type": "integer", "description": "1-based character column"},
         },
         "required": ["action", "filepath"],
     },
-}
+    category="code",
+)
 
 
 async def lsp_handler(arguments: dict, workspace: str = ".") -> dict:
@@ -37,7 +39,6 @@ async def lsp_handler(arguments: dict, workspace: str = ".") -> dict:
     if not filepath:
         return {"success": False, "error": "filepath is required"}
 
-    # Resolve relative paths
     import os as _os
     if not _os.path.isabs(filepath):
         filepath = _os.path.join(workspace, filepath)
@@ -56,9 +57,8 @@ async def lsp_handler(arguments: dict, workspace: str = ".") -> dict:
             except Exception:
                 pass
             hint = f" (available: {available})" if available else " (no LSP servers found on PATH)"
-            return {"success": False, "error": f"LSP not initialized{hint}. Install a language server: pip install pyright; npm i -g typescript-language-server"}
+            return {"success": False, "error": f"LSP not initialized{hint}."}
 
-        # Notify file open if not already
         if not mgr.is_file_open(filepath):
             try:
                 content = open(filepath, encoding="utf-8", errors="replace").read()
@@ -73,21 +73,15 @@ async def lsp_handler(arguments: dict, workspace: str = ".") -> dict:
                 if isinstance(contents, dict):
                     text = contents.get("value", str(contents))
                 elif isinstance(contents, list):
-                    text = "\n".join(
+                    text = chr(10).join(
                         c.get("value", str(c)) if isinstance(c, dict) else str(c)
                         for c in contents
                     )
                 else:
                     text = str(contents)
-                return {
-                    "success": True,
-                    "action": "hover",
-                    "filepath": filepath,
-                    "line": line,
-                    "character": character,
-                    "result": text[:2000],
-                    "range": result.get("range"),
-                }
+                return {"success": True, "action": "hover", "filepath": filepath,
+                        "line": line, "character": character,
+                        "result": text[:2000], "range": result.get("range")}
             return {"success": True, "action": "hover", "result": None, "detail": "No hover info available"}
 
         elif action == "definition":
@@ -125,7 +119,6 @@ async def lsp_handler(arguments: dict, workspace: str = ".") -> dict:
             return {"success": True, "action": "references", "result": None, "detail": "No references found"}
 
         elif action == "diagnostics":
-            # Get diagnostics from pull model or pending registry
             diags = await mgr.get_diagnostics(filepath)
             if not diags:
                 registry = get_registry()
@@ -136,22 +129,17 @@ async def lsp_handler(arguments: dict, workspace: str = ".") -> dict:
             warnings = [d for d in diags if d.get("severity") in ("Warning", 2, "warning")]
             infos = [d for d in diags if d.get("severity") in ("Info", 3, "info", "Hint", 4, "hint")]
 
-            lines = []
+            summary_lines = []
             for d in errors[:8]:
-                lines.append(f"ERROR L{d.get('line',0)+1}: {d.get('message','')}")
+                summary_lines.append(f"ERROR L{d.get("line",0)+1}: {d.get("message","")}")
             for d in warnings[:5]:
-                lines.append(f"WARN L{d.get('line',0)+1}: {d.get('message','')}")
+                summary_lines.append(f"WARN L{d.get("line",0)+1}: {d.get("message","")}")
 
-            return {
-                "success": True,
-                "action": "diagnostics",
-                "filepath": filepath,
-                "error_count": len(errors),
-                "warning_count": len(warnings),
-                "info_count": len(infos),
-                "summary": "\n".join(lines) if lines else "No diagnostics",
-                "all": diags[:30],
-            }
+            return {"success": True, "action": "diagnostics", "filepath": filepath,
+                    "error_count": len(errors), "warning_count": len(warnings),
+                    "info_count": len(infos),
+                    "summary": chr(10).join(summary_lines) if summary_lines else "No diagnostics",
+                    "all": diags[:30]}
 
     except ImportError:
         return {"success": False, "error": "LSP module not available"}

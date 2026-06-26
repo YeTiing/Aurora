@@ -111,7 +111,8 @@ class Reranker:
             try:
                 from sentence_transformers import CrossEncoder
                 self._model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-            except: self._model = False
+            except Exception: self._model = False
+
 
     def rerank(self, query: str, chunks: list[CodeChunk], top_k=5) -> list[CodeChunk]:
         if len(chunks) <= top_k: return chunks
@@ -170,7 +171,8 @@ class RAGEngine:
                 qvec = asyncio.run(llm_client.embeddings([query]))
                 if qvec and qvec[0]:
                     vec_results = self.vector_store.search(qvec[0], 20)
-            except: pass
+            except Exception: pass
+
 
         # BM25
         bm25_results = self.bm25.search(query, 20)

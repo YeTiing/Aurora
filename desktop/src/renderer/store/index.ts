@@ -1,6 +1,6 @@
 // Aurora Zustand 状态管理 — 集成 IndexedDB 持久化
 import { create } from "zustand";
-import type { Session, AgentMessage, PlanStep, ThemeColors, FileEntry, ToolLog, ThreadFollowerState, ApprovalRequestState } from "../../shared/types";
+import type { Session, AgentMessage, PlanStep, ThemeColors, FileEntry, ToolLog, ThreadFollowerState, ApprovalRequestState, SharedObjectSnapshot } from "../../shared/types";
 import { darkTheme, lightTheme } from "../../shared/types";
 import * as db from "./db";
 
@@ -55,6 +55,11 @@ interface AuroraState {
     approvals: ApprovalRequestState[];
     upsertApproval: (approval: ApprovalRequestState) => void;
     updateApprovalStatus: (requestId: string, status: ApprovalRequestState["status"]) => void;
+
+    // Codex Shared Objects
+    sharedObjects: SharedObjectSnapshot;
+    setSharedObjects: (snapshot: SharedObjectSnapshot) => void;
+    setSharedObject: (key: string, value: unknown) => void;
 
     // Theme
     theme: "dark" | "light";
@@ -306,6 +311,13 @@ export const useStore = create<AuroraState>((set, get) => ({
         set((s) => ({
             approvals: s.approvals.map((item) => item.id === requestId ? { ...item, status } : item),
         }));
+    },
+    sharedObjects: {},
+    setSharedObjects(snapshot) {
+        set({ sharedObjects: { ...snapshot } });
+    },
+    setSharedObject(key, value) {
+        set((s) => ({ sharedObjects: { ...s.sharedObjects, [key]: value } }));
     },
     addToolLog(sessionId, log) { set((s) => { const sessions = s.sessions.map((ses) => ses.id === sessionId ? { ...ses, toolLogs: [...(ses.toolLogs || []), { ...log, timestamp: Date.now() }], updatedAt: Date.now() } : ses); return { sessions }; }); },
 

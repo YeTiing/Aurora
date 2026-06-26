@@ -1,4 +1,4 @@
-# Python 代码审查
+---
 name: python-reviewer
 description: Python 代码审查，检查 PEP 8 规范、类型安全、常见错误
 triggers:

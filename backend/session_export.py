@@ -283,6 +283,102 @@ def export_sessions_batch(session_ids: list[str], fmt: str = "markdown") -> byte
     return buf.getvalue()
 
 
+def build_session_from_rollout(filepath: str) -> dict:
+    """Read a rollout JSONL file and reconstruct session data for export."""
+    import json as _json
+
+    session_data = {
+        "title": "Untitled Session",
+        "workspace": ".",
+        "createdAt": time.time(),
+        "updatedAt": time.time(),
+        "messages": [],
+        "plan": [],
+        "toolLogs": [],
+    }
+
+    try:
+        with open(filepath, "r", encoding="utf-8") as fh:
+            events = []
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    events.append(_json.loads(line))
+                except _json.JSONDecodeError:
+                    continue
+    except (FileNotFoundError, OSError):
+        return session_data
+
+    seen_tool_ids = set()
+
+    for ev in events:
+        etype = ev.get("type", "")
+        pl = ev.get("payload", {})
+        ts = ev.get("ts", time.time())
+
+        if etype == "session_meta":
+            session_data["title"] = pl.get("title", pl.get("id", "Untitled Session"))
+            session_data["workspace"] = pl.get("cwd", ".")
+            session_data["createdAt"] = ts
+            session_data["updatedAt"] = ts
+
+        elif etype == "response_item":
+            item_type = pl.get("type", "")
+            if item_type == "message":
+                session_data["messages"].append({
+                    "id": pl.get("id", ""),
+                    "role": pl.get("role", "assistant"),
+                    "content": pl.get("content", pl.get("text", "")),
+                    "timestamp": ts,
+                })
+                session_data["updatedAt"] = ts
+            elif item_type == "function_call":
+                tool_id = pl.get("call_id", pl.get("id", ""))
+                session_data["toolLogs"].append({
+                    "tool": pl.get("name", "unknown"),
+                    "toolCallId": tool_id,
+                    "success": not (pl.get("output", "") or "").startswith("Error:"),
+                    "output": pl.get("output", pl.get("result", "")),
+                    "input": pl.get("arguments", pl.get("input", "")),
+                })
+                session_data["updatedAt"] = ts
+                seen_tool_ids.add(tool_id)
+            elif item_type == "tool_result":
+                tc_id = pl.get("tool_call_id", pl.get("call_id", ""))
+                session_data["messages"].append({
+                    "id": tc_id,
+                    "role": "tool",
+                    "content": pl.get("output", pl.get("content", "")),
+                    "timestamp": ts,
+                })
+
+        elif etype == "turn_context":
+            session_data["messages"].append({
+                "id": pl.get("id", ""),
+                "role": "user",
+                "content": pl.get("user_message", pl.get("query", pl.get("message", ""))),
+                "timestamp": ts,
+            })
+            session_data["updatedAt"] = ts
+
+        elif etype == "plan":
+            session_data["plan"] = pl.get("steps", pl.get("plan", []))
+            session_data["updatedAt"] = ts
+
+        elif etype == "event_msg" and pl.get("type") == "token_count":
+            info = pl.get("info", {})
+            usage = info.get("total_token_usage", {})
+            session_data["tokenUsage"] = {
+                "input": usage.get("input_tokens", 0),
+                "output": usage.get("output_tokens", 0),
+                "total": usage.get("total_tokens", 0),
+            }
+
+    return session_data
+
+
 def _find_tool_log(tool_logs: list[dict], msg: dict) -> dict | None:
     for tl in tool_logs:
         if tl.get("toolCallId") == msg.get("id"):

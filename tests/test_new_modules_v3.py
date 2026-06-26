@@ -7,8 +7,8 @@ sys.path.insert(0, r"D:\codex_Projects\Aurora")
 
 def test_lsp_tool_spec():
     from backend.tools.lsp_tool import LSP_TOOL_SPEC
-    assert LSP_TOOL_SPEC["name"] == "lsp"
-    assert "action" in str(LSP_TOOL_SPEC["parameters"])
+    assert LSP_TOOL_SPEC.name == "lsp"
+    assert "action" in str(LSP_TOOL_SPEC.parameters)
 
 @pytest.mark.asyncio
 async def test_lsp_handler_no_file():
@@ -27,7 +27,7 @@ async def test_lsp_handler_file_not_found():
 
 def test_verifier_spec():
     from backend.tools.verify_plan import VERIFY_TOOL_SPEC
-    assert VERIFY_TOOL_SPEC["name"] == "verify_plan"
+    assert VERIFY_TOOL_SPEC.name == "verify_plan"
 
 def test_verifier_file_check(tmp_path):
     from backend.tools.verify_plan import PlanVerifier

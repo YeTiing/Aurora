@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 router = APIRouter()
 
-from backend.api.models import IndexRequest
+from backend.api.models import IndexRequest, SemanticIndexRequest
 
 from backend.config import config as _cfg_module
 from backend.agent.llm_client import LLMClient, LLMConfig

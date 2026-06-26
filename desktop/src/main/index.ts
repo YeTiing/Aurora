@@ -602,6 +602,31 @@ ipcMain.handle("agent:approvalDecision", async (_event, data) => {
     return { sent: true };
 });
 
+ipcMain.handle("sharedObjects:snapshot", async () => {
+    try {
+        const response = await fetch("http://127.0.0.1:9876/shared-objects");
+        if (!response.ok) return { error: `HTTP ${response.status}` };
+        return await response.json();
+    } catch (e: any) {
+        return { error: e.message || String(e) };
+    }
+});
+
+ipcMain.handle("sharedObjects:set", async (_event, data) => {
+    if (!data?.key) return { error: "key is required" };
+    try {
+        const response = await fetch(`http://127.0.0.1:9876/shared-objects/${encodeURIComponent(data.key)}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ value: data.value, source: data.source || "desktop" }),
+        });
+        if (!response.ok) return { error: `HTTP ${response.status}` };
+        return await response.json();
+    } catch (e: any) {
+        return { error: e.message || String(e) };
+    }
+});
+
 ipcMain.handle("terminal:create", async (_event, { sessionId, cwd }) => {
     return createPty(sessionId, cwd);
 });

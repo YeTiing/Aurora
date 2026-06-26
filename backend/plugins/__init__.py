@@ -64,7 +64,7 @@ class PluginManifest:
             license=data.get("license", ""),
             keywords=data.get("keywords", []),
             skills=data.get("skills", "./skills/"),
-            interface=PluginInterface(**{k: interface_data.get(k, v.default if isinstance(v, field(default=...)) else v)
+            interface=PluginInterface(**{k: interface_data.get(k, v.default if isinstance(v, dc_field()) else v)
                                          for k, v in PluginInterface.__dataclass_fields__.items()}),
             permissions=data.get("permissions", []),
             dependencies=data.get("dependencies", []),
@@ -141,12 +141,17 @@ class PluginManager:
                         if "interface" in data:
                             manifest = PluginManifest.from_codex_plugin(data)
                         else:
-                            manifest = PluginManifest(**{k: data.get(k, v.default if isinstance(v, field(default=...)) else (data.get(k) or v.default))
-                                                         for k, v in PluginManifest.__dataclass_fields__.items()
-                                                         if k != "author" and k != "interface"})
-                        self.plugins[manifest.name] = PluginInstance(manifest=manifest, path=item, version=manifest.version)
+                            # Build kwargs from data, using defaults for missing fields
+                            kwargs = {}
+                            for k, v in PluginManifest.__dataclass_fields__.items():
+                                if k in ("author", "interface"):
+                                    continue
+                                if k in data:
+                                    kwargs[k] = data[k]
+                            manifest = PluginManifest(**kwargs)
+                            self.plugins[manifest.name] = PluginInstance(manifest=manifest, path=item, version=manifest.version)
                     except Exception as e:
-                        pass
+                        import logging; logging.getLogger("aurora.plugins").debug(f"Plugin discovery error in {item}: {e}")
 
     def load_marketplaces(self):
         for d in self.plugin_dirs:

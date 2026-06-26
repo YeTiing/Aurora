@@ -2,6 +2,7 @@
 from __future__ import annotations
 import asyncio, json, time, uuid, os
 from pathlib import Path
+from backend.api.models import TaskSubmitRequest
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Any, Optional

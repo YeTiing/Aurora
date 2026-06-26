@@ -1,0 +1,10 @@
+{
+  "state": "disabled",
+  "config": {
+    "enabled": false,
+    "fps": 5,
+    "quality": 80,
+    "output_dir": "D:\\codex_Projects\\Aurora\\backend\\data\\captures"
+  },
+  "total_runtime": 0.0043392181396484375
+}

@@ -152,6 +152,16 @@ export interface ApprovalRequestState {
     status: "pending" | "approved" | "denied";
 }
 
+export type SharedObjectSnapshot = Record<string, unknown>;
+
+export interface SharedObjectUpdate {
+    key: string;
+    value: unknown;
+    source: string;
+    version: number;
+    timestamp: number;
+}
+
 export interface ThreadFollowerState {
     activeThreadId: string | null;
     status: "idle" | "running" | "interrupted" | "compacting" | "completed";

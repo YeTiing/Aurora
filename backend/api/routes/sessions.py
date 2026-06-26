@@ -349,16 +349,99 @@ async def session_export_markdown(req: dict):
     return {"format": "markdown", "content": export_session(req.get("session", req), config)}
 
 
+@router.get("/sessions/{session_id}/export")
+async def session_export_by_id(session_id: str, fmt: str = "markdown"):
+    """Export a single session by ID. Format: markdown, json, or html."""
+    from backend.session_export import (
+        export_session, export_session_json, export_session_html,
+        build_session_from_rollout, ExportConfig,
+    )
+    from backend.session_rollout import RolloutReader
+    from fastapi.responses import Response, HTMLResponse
 
-@router.get("/search")
-async def search_sessions(q: str = "", limit: int = 20):
-    """Search across all sessions and their content."""
-    try:
-        from backend.session_search import session_search
-        results = session_search.search(q, limit=limit)
-        return {"query": q, "results": results, "count": len(results)}
-    except ImportError:
-        return {"error": "session_search not available"}
+    sessions = RolloutReader.list_sessions()
+    filepath = None
+    for s in sessions:
+        if s.get("session_id") == session_id:
+            filepath = s.get("file", "")
+            break
+
+    if not filepath:
+        raise HTTPException(404, f"Session not found: {session_id}")
+
+    session_data = build_session_from_rollout(filepath)
+    config = ExportConfig()
+
+    if fmt == "json":
+        return {"format": "json", "content": export_session_json(session_data)}
+    elif fmt == "html":
+        html = export_session_html(session_data, config)
+        return HTMLResponse(content=html, status_code=200)
+    else:
+        return {"format": "markdown", "content": export_session(session_data, config)}
+
+
+@router.post("/sessions/export/batch")
+async def session_export_batch(req: dict):
+    """Export multiple sessions as a zip archive.
+    Body: {"session_ids": [...], "format": "markdown|json|html"}"""
+    from backend.session_export import (
+        export_sessions_batch, build_session_from_rollout,
+    )
+    from backend.session_rollout import RolloutReader
+    from fastapi.responses import Response
+    import zipfile, io
+
+    session_ids = req.get("session_ids", [])
+    fmt = req.get("format", "markdown")
+
+    if not session_ids:
+        raise HTTPException(400, "session_ids is required")
+
+    if fmt not in ("markdown", "json", "html"):
+        raise HTTPException(400, "format must be markdown, json, or html")
+
+    # Override export_sessions_batch to use rollout files directly
+    ext = {"markdown": ".md", "json": ".json", "html": ".html"}[fmt]
+    exporters = {
+        "markdown": export_session,
+        "json": export_session_json,
+        "html": export_session_html,
+    }
+    exporter = exporters[fmt]
+    config = ExportConfig() if fmt != "json" else None
+
+    all_sessions = RolloutReader.list_sessions()
+    session_map = {}
+    for s in all_sessions:
+        sid = s.get("session_id", "")
+        if sid:
+            session_map[sid] = s.get("file", "")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for sid in session_ids:
+            fp = session_map.get(sid)
+            if not fp:
+                continue
+            session_data = build_session_from_rollout(fp)
+            title = session_data.get("title", sid)
+            safe_name = "".join(c for c in title if c.isalnum() or c in " _-.").strip()[:60] or sid[:8]
+            filename = f"{safe_name}{ext}"
+            if fmt == "json":
+                content_str = exporter(session_data)
+            else:
+                content_str = exporter(session_data, config)
+            zf.writestr(filename, content_str.encode("utf-8"))
+
+    buf.seek(0)
+    zip_bytes = buf.getvalue()
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=sessions_export.zip"},
+    )
+
 
 @router.get("/recent")
 async def recent_sessions(limit: int = 10):

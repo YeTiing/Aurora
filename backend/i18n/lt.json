@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Jūsų AI Agentas, Išsivystęs",
+  "nav.chat": "Pokalbiai",
+  "nav.files": "Failai",
+  "nav.settings": "Nustatymai",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Išsaugoti",
+  "common.cancel": "Atšaukti",
+  "common.delete": "Ištrinti",
+  "common.confirm": "Patvirtinti",
+  "common.loading": "Įkeliama...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Ieškoti",
+  "common.no_results": "No results found",
+  "chat.send": "Siųsti",
+  "chat.placeholder": "Rašykite žinutę...",
+  "chat.thinking": "Galvoja...",
+  "chat.done": "Atlikta",
+  "chat.error": "Message failed"
+}

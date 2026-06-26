@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Jūsu AI Aģents, Attīstījies",
+  "nav.chat": "Tērzēšana",
+  "nav.files": "Faili",
+  "nav.settings": "Iestatījumi",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Saglabāt",
+  "common.cancel": "Atcelt",
+  "common.delete": "Dzēst",
+  "common.confirm": "Apstiprināt",
+  "common.loading": "Ielādē...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Meklēt",
+  "common.no_results": "No results found",
+  "chat.send": "Sūtīt",
+  "chat.placeholder": "Rakstiet ziņu...",
+  "chat.thinking": "Domā...",
+  "chat.done": "Gatavs",
+  "chat.error": "Message failed"
+}

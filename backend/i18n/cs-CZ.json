@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Váš AI Agent, Vyvinutý",
+  "nav.chat": "Chat",
+  "nav.files": "Soubory",
+  "nav.settings": "Nastavení",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Uložit",
+  "common.cancel": "Zrušit",
+  "common.delete": "Smazat",
+  "common.confirm": "Potvrdit",
+  "common.loading": "Načítání...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Hledat",
+  "common.no_results": "No results found",
+  "chat.send": "Odeslat",
+  "chat.placeholder": "Napište zprávu...",
+  "chat.thinking": "Přemýšlím...",
+  "chat.done": "Hotovo",
+  "chat.error": "Message failed"
+}

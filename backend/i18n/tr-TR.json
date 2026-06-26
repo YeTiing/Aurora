@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Yapay Zeka Ajanınız, Gelişti",
+  "nav.chat": "Sohbet",
+  "nav.files": "Dosyalar",
+  "nav.settings": "Ayarlar",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Kaydet",
+  "common.cancel": "İptal",
+  "common.delete": "Sil",
+  "common.confirm": "Onayla",
+  "common.loading": "Yükleniyor...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Ara",
+  "common.no_results": "No results found",
+  "chat.send": "Gönder",
+  "chat.placeholder": "Bir mesaj yazın...",
+  "chat.thinking": "Düşünüyor...",
+  "chat.done": "Tamam",
+  "chat.error": "Message failed"
+}

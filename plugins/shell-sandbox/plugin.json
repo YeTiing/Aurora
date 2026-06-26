@@ -1,0 +1,23 @@
+{
+  "name": "shell-sandbox",
+  "version": "1.0.0",
+  "description": "Safe shell command execution with sandbox isolation, whitelist filtering, and resource limits",
+  "author": {
+    "name": "Aurora",
+    "email": "aurora@local"
+  },
+  "entry": "main.py",
+  "type": "tool",
+  "dependencies": [],
+  "category": "development",
+  "tags": [
+    "shell",
+    "sandbox",
+    "security"
+  ],
+  "marketplace": {
+    "featured": true,
+    "icon": "terminal",
+    "order": 100
+  }
+}

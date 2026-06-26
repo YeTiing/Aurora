@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "你的 AI 代理，進化了",
+  "nav.chat": "對話",
+  "nav.files": "檔案",
+  "nav.settings": "設定",
+  "nav.skills": "技能",
+  "nav.plugins": "插件",
+  "common.save": "儲存",
+  "common.cancel": "取消",
+  "common.delete": "刪除",
+  "common.confirm": "確認",
+  "common.loading": "載入中...",
+  "common.error": "發生錯誤",
+  "common.success": "成功",
+  "common.search": "搜尋",
+  "common.no_results": "沒有結果",
+  "chat.send": "發送",
+  "chat.placeholder": "輸入訊息...",
+  "chat.thinking": "思考中...",
+  "chat.done": "完成",
+  "chat.error": "Message failed"
+}

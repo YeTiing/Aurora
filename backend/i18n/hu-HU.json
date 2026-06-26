@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Az Ön AI Ügynöke, Továbbfejlesztve",
+  "nav.chat": "Csevegés",
+  "nav.files": "Fájlok",
+  "nav.settings": "Beállítások",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Mentés",
+  "common.cancel": "Mégse",
+  "common.delete": "Törlés",
+  "common.confirm": "Megerősítés",
+  "common.loading": "Betöltés...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Keresés",
+  "common.no_results": "No results found",
+  "chat.send": "Küldés",
+  "chat.placeholder": "Írj egy üzenetet...",
+  "chat.thinking": "Gondolkodás...",
+  "chat.done": "Kész",
+  "chat.error": "Message failed"
+}

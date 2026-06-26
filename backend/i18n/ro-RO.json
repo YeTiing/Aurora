@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Agentul tău AI, Evoluat",
+  "nav.chat": "Chat",
+  "nav.files": "Fișiere",
+  "nav.settings": "Setări",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Salvează",
+  "common.cancel": "Anulează",
+  "common.delete": "Șterge",
+  "common.confirm": "Confirmă",
+  "common.loading": "Se încarcă...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Caută",
+  "common.no_results": "No results found",
+  "chat.send": "Trimite",
+  "chat.placeholder": "Scrie un mesaj...",
+  "chat.thinking": "Se gândește...",
+  "chat.done": "Terminat",
+  "chat.error": "Message failed"
+}

@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "আপনার AI এজেন্ট, বিবর্তিত",
+  "nav.chat": "চ্যাট",
+  "nav.files": "ফাইল",
+  "nav.settings": "সেটিংস",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "সংরক্ষণ",
+  "common.cancel": "বাতিল",
+  "common.delete": "মুছুন",
+  "common.confirm": "নিশ্চিত",
+  "common.loading": "লোড হচ্ছে...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "অনুসন্ধান",
+  "common.no_results": "No results found",
+  "chat.send": "পাঠান",
+  "chat.placeholder": "বার্তা লিখুন...",
+  "chat.thinking": "চিন্তা করছে...",
+  "chat.done": "সম্পন্ন",
+  "chat.error": "Message failed"
+}

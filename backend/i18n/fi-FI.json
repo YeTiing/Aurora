@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Tekoälyagenttisi, Kehittynyt",
+  "nav.chat": "Keskustelu",
+  "nav.files": "Tiedostot",
+  "nav.settings": "Asetukset",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Tallenna",
+  "common.cancel": "Peruuta",
+  "common.delete": "Poista",
+  "common.confirm": "Vahvista",
+  "common.loading": "Ladataan...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Hae",
+  "common.no_results": "No results found",
+  "chat.send": "Lähetä",
+  "chat.placeholder": "Kirjoita viesti...",
+  "chat.thinking": "Ajattelee...",
+  "chat.done": "Valmis",
+  "chat.error": "Message failed"
+}

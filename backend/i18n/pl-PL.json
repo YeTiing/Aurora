@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Twój Agent AI, Ewoluował",
+  "nav.chat": "Czat",
+  "nav.files": "Pliki",
+  "nav.settings": "Ustawienia",
+  "nav.skills": "Umiejętności",
+  "nav.plugins": "Wtyczki",
+  "common.save": "Zapisz",
+  "common.cancel": "Anuluj",
+  "common.delete": "Usuń",
+  "common.confirm": "Potwierdź",
+  "common.loading": "Ładowanie...",
+  "common.error": "Wystąpił błąd",
+  "common.success": "Sukces",
+  "common.search": "Szukaj",
+  "common.no_results": "No results found",
+  "chat.send": "Wyślij",
+  "chat.placeholder": "Wpisz wiadomość...",
+  "chat.thinking": "Myślenie...",
+  "chat.done": "Gotowe",
+  "chat.error": "Message failed"
+}

@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Din AI-agent, Utvecklad",
+  "nav.chat": "Chatt",
+  "nav.files": "Filer",
+  "nav.settings": "Inställningar",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Spara",
+  "common.cancel": "Avbryt",
+  "common.delete": "Radera",
+  "common.confirm": "Bekräfta",
+  "common.loading": "Laddar...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Sök",
+  "common.no_results": "No results found",
+  "chat.send": "Skicka",
+  "chat.placeholder": "Skriv ett meddelande...",
+  "chat.thinking": "Tänker...",
+  "chat.done": "Klart",
+  "chat.error": "Message failed"
+}

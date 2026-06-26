@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Ejen AI Anda, Berevolusi",
+  "nav.chat": "Sembang",
+  "nav.files": "Fail",
+  "nav.settings": "Tetapan",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Simpan",
+  "common.cancel": "Batal",
+  "common.delete": "Padam",
+  "common.confirm": "Sahkan",
+  "common.loading": "Memuat...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Cari",
+  "common.no_results": "No results found",
+  "chat.send": "Hantar",
+  "chat.placeholder": "Taip mesej...",
+  "chat.thinking": "Berfikir...",
+  "chat.done": "Selesai",
+  "chat.error": "Message failed"
+}

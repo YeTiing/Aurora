@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Vaš AI Agent, Razvijen",
+  "nav.chat": "Razgovor",
+  "nav.files": "Datoteke",
+  "nav.settings": "Postavke",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Spremi",
+  "common.cancel": "Odustani",
+  "common.delete": "Izbriši",
+  "common.confirm": "Potvrdi",
+  "common.loading": "Učitavanje...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Traži",
+  "common.no_results": "No results found",
+  "chat.send": "Pošalji",
+  "chat.placeholder": "Upišite poruku...",
+  "chat.thinking": "Razmišljam...",
+  "chat.done": "Gotovo",
+  "chat.error": "Message failed"
+}

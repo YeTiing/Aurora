@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Jouw AI Agent, Geëvolueerd",
+  "nav.chat": "Chat",
+  "nav.files": "Bestanden",
+  "nav.settings": "Instellingen",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Opslaan",
+  "common.cancel": "Annuleren",
+  "common.delete": "Verwijderen",
+  "common.confirm": "Bevestigen",
+  "common.loading": "Laden...",
+  "common.error": "Er is een fout opgetreden",
+  "common.success": "Succes",
+  "common.search": "Zoeken",
+  "common.no_results": "No results found",
+  "chat.send": "Versturen",
+  "chat.placeholder": "Typ een bericht...",
+  "chat.thinking": "Denken...",
+  "chat.done": "Klaar",
+  "chat.error": "Message failed"
+}

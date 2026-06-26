@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Trợ lý AI của Bạn, Đã Tiến Hóa",
+  "nav.chat": "Trò chuyện",
+  "nav.files": "Tệp",
+  "nav.settings": "Cài đặt",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Lưu",
+  "common.cancel": "Hủy",
+  "common.delete": "Xóa",
+  "common.confirm": "Xác nhận",
+  "common.loading": "Đang tải...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Tìm kiếm",
+  "common.no_results": "No results found",
+  "chat.send": "Gửi",
+  "chat.placeholder": "Nhập tin nhắn...",
+  "chat.thinking": "Đang suy nghĩ...",
+  "chat.done": "Xong",
+  "chat.error": "Message failed"
+}

@@ -583,3 +583,66 @@ async def stop_hotreload():
         return {"status": "stopped"}
     except ImportError:
         return {"error": "hotreload not available"}
+
+# ── Claude Import ──
+
+from backend.claude_import import get_claude_importer
+
+@router.get("/claude-import/sources")
+async def claude_sources():
+    """Discover available Claude import sources."""
+    importer = get_claude_importer()
+    return {"sources": importer.find_claude_sources()}
+
+@router.post("/claude-import/transcripts")
+async def claude_import_transcripts():
+    """Import Claude Code transcripts."""
+    importer = get_claude_importer()
+    result = importer.import_transcripts()
+    return {
+        "sessions_imported": result.sessions_imported,
+        "errors": result.errors,
+        "skipped": result.skipped,
+    }
+
+@router.post("/claude-import/projects")
+async def claude_import_projects():
+    """Import Claude Cowork projects."""
+    importer = get_claude_importer()
+    result = importer.import_projects()
+    return {
+        "agents_md_imported": result.agents_md_imported,
+        "configs_imported": result.configs_imported,
+        "errors": result.errors,
+    }
+
+@router.post("/claude-import/all")
+async def claude_import_all():
+    """Run all Claude imports."""
+    importer = get_claude_importer()
+    results = importer.import_all()
+    total = sum(r.total for r in results)
+    return {
+        "total_imported": total,
+        "details": [
+            {
+                "source": r.source,
+                "imported": r.total,
+                "errors": r.errors,
+            }
+            for r in results
+        ],
+    }
+
+@router.get("/claude-import/sessions")
+async def claude_sessions():
+    """List imported Claude sessions."""
+    importer = get_claude_importer()
+    return {"sessions": importer.get_imported_sessions()}
+
+@router.get("/claude-import/projects")
+async def claude_projects():
+    """List imported Claude projects."""
+    importer = get_claude_importer()
+    return {"projects": importer.get_imported_projects()}
+

@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "AI Agent ของคุณ พัฒนาแล้ว",
+  "nav.chat": "แชท",
+  "nav.files": "ไฟล์",
+  "nav.settings": "ตั้งค่า",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "บันทึก",
+  "common.cancel": "ยกเลิก",
+  "common.delete": "ลบ",
+  "common.confirm": "ยืนยัน",
+  "common.loading": "กำลังโหลด...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "ค้นหา",
+  "common.no_results": "No results found",
+  "chat.send": "ส่ง",
+  "chat.placeholder": "พิมพ์ข้อความ...",
+  "chat.thinking": "กำลังคิด...",
+  "chat.done": "เสร็จ",
+  "chat.error": "Message failed"
+}

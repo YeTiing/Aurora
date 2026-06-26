@@ -1,0 +1,23 @@
+{
+  "name": "git-worktree",
+  "version": "1.0.0",
+  "description": "Git worktree management for isolated branch workflows",
+  "author": {
+    "name": "Aurora",
+    "email": "aurora@local"
+  },
+  "entry": "main.py",
+  "type": "tool",
+  "dependencies": [],
+  "category": "development",
+  "tags": [
+    "git",
+    "worktree",
+    "branching"
+  ],
+  "marketplace": {
+    "featured": false,
+    "icon": "git-branch",
+    "order": 200
+  }
+}

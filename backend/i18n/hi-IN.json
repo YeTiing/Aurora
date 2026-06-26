@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "आपका AI एजेंट, विकसित",
+  "nav.chat": "चैट",
+  "nav.files": "फ़ाइलें",
+  "nav.settings": "सेटिंग्स",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "सहेजें",
+  "common.cancel": "रद्द करें",
+  "common.delete": "हटाएं",
+  "common.confirm": "पुष्टि करें",
+  "common.loading": "लोड हो रहा है...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "खोजें",
+  "common.no_results": "No results found",
+  "chat.send": "भेजें",
+  "chat.placeholder": "संदेश लिखें...",
+  "chat.thinking": "सोच रहा है...",
+  "chat.done": "पूर्ण",
+  "chat.error": "Message failed"
+}

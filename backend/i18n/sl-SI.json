@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Vaš AI Agent, Razvit",
+  "nav.chat": "Klepet",
+  "nav.files": "Datoteke",
+  "nav.settings": "Nastavitve",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Shrani",
+  "common.cancel": "Prekliči",
+  "common.delete": "Izbriši",
+  "common.confirm": "Potrdi",
+  "common.loading": "Nalaganje...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Išči",
+  "common.no_results": "No results found",
+  "chat.send": "Pošlji",
+  "chat.placeholder": "Vnesite sporočilo...",
+  "chat.thinking": "Razmišljam...",
+  "chat.done": "Končano",
+  "chat.error": "Message failed"
+}

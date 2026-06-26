@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Agen AI Anda, Berevolusi",
+  "nav.chat": "Obrolan",
+  "nav.files": "Berkas",
+  "nav.settings": "Pengaturan",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Simpan",
+  "common.cancel": "Batal",
+  "common.delete": "Hapus",
+  "common.confirm": "Konfirmasi",
+  "common.loading": "Memuat...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Cari",
+  "common.no_results": "No results found",
+  "chat.send": "Kirim",
+  "chat.placeholder": "Ketik pesan...",
+  "chat.thinking": "Berpikir...",
+  "chat.done": "Selesai",
+  "chat.error": "Message failed"
+}

@@ -1,0 +1,24 @@
+{
+  "name": "code-reviewer",
+  "version": "1.0.0",
+  "description": "Automated code review with common issue detection, style checking, and security scanning",
+  "author": {
+    "name": "Aurora",
+    "email": "aurora@local"
+  },
+  "entry": "main.py",
+  "type": "tool",
+  "dependencies": [],
+  "category": "quality",
+  "tags": [
+    "review",
+    "quality",
+    "lint",
+    "security"
+  ],
+  "marketplace": {
+    "featured": true,
+    "icon": "check-circle",
+    "order": 50
+  }
+}

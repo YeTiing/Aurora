@@ -1,0 +1,23 @@
+{
+  "app.name": "Aurora",
+  "app.tagline": "Ваш AI Агент, Еволюціонував",
+  "nav.chat": "Чат",
+  "nav.files": "Файли",
+  "nav.settings": "Налаштування",
+  "nav.skills": "Skills",
+  "nav.plugins": "Plugins",
+  "common.save": "Зберегти",
+  "common.cancel": "Скасувати",
+  "common.delete": "Видалити",
+  "common.confirm": "Підтвердити",
+  "common.loading": "Завантаження...",
+  "common.error": "An error occurred",
+  "common.success": "Success",
+  "common.search": "Пошук",
+  "common.no_results": "No results found",
+  "chat.send": "Надіслати",
+  "chat.placeholder": "Введіть повідомлення...",
+  "chat.thinking": "Думаю...",
+  "chat.done": "Готово",
+  "chat.error": "Message failed"
+}

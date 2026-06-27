@@ -59,7 +59,8 @@ class TokenStore:
                     import subprocess
                     subprocess.run(["icacls", str(self._key_path), "/inheritance:r", "/grant:r", f"{os.environ.get('USERNAME','')}:(R)"], capture_output=True)
             except Exception:
-                pass
+                import logging
+                logging.getLogger("aurora").debug("fernet key load failed", exc_info=True)
         return Fernet(key)
 
     def save(self, data: dict) -> None:
@@ -121,7 +122,8 @@ class AuthManager:
                     provider=s.get("provider", ""),
                 )
         except Exception:
-            pass
+            import logging
+            logging.getLogger("aurora").debug("auth persist failed", exc_info=True)
 
     def _save_state(self) -> None:
         try:
@@ -134,7 +136,8 @@ class AuthManager:
             }
             self._store.save(tokens)
         except Exception:
-            pass
+            import logging
+            logging.getLogger("aurora").debug("auth persist failed", exc_info=True)
 
     def register_api_key(self, name: str, key: str) -> None:
         self._api_keys[name] = key

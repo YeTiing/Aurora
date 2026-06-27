@@ -28,7 +28,8 @@ ALLOWED_DOMAINS = [
     r"^.*\.pypi\.org$", r"^.*\.python\.org$", r"^.*\.pythonhosted\.org$",
     r"^.*\.crates\.io$", r"^.*\.docs\.rs$",
     r"^.*\.stackoverflow\.com$", r"^.*\.stackexchange\.com$",
-    r"^docs\..*", r"^api\..*",
+    r"^docs\.github\.com$", r"^docs\.gitlab\.com$", r"^docs\.python\.org$",
+    r"^api\.github\.com$", r"^api\.gitlab\.com$",
     r"^localhost$", r"^127\.0\.0\.1$", r"^0\.0\.0\.0$",
 ]
 

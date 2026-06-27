@@ -744,7 +744,7 @@ class FTSSessions:
     @property
     def c(self):
         if self._c is None:
-            self._c = sqlite3.connect(str(self.db))
+            self._c = sqlite3.connect(str(self.db), check_same_thread=False)
             self._c.execute("PRAGMA journal_mode=WAL")
             self._c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(sid,summary,body,created_at,tokenize='porter unicode61')")
             self._c.execute("CREATE TABLE IF NOT EXISTS meta(sid TEXT PRIMARY KEY,summary TEXT,turns INT,created REAL,ended REAL)")

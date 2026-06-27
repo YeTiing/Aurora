@@ -329,9 +329,12 @@ async def upload_file(file: UploadFile = File(...), workspace: str = Form(".")):
     """Upload a file to the workspace uploads directory."""
     if not file.filename:
         raise HTTPException(400, "No file provided")
+    safe_name = Path(file.filename).name  # prevent path traversal
+    if not safe_name or safe_name != file.filename.replace("\\", "/").split("/")[-1]:
+        raise HTTPException(400, "Invalid filename")
     ws_dir = Path(workspace) / "uploads"
     ws_dir.mkdir(parents=True, exist_ok=True)
-    file_path = ws_dir / file.filename
+    file_path = ws_dir / safe_name
     content = await file.read()
     file_path.write_bytes(content)
     mime_type, _ = mimetypes.guess_type(file.filename)

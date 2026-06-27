@@ -198,8 +198,6 @@ class RESessionManager:
             try: s.conn.close()
             except Exception: logger.debug('re session load failed', exc_info=True)
             s._conn = None
-        import time
-        time.sleep(0.1)
         db_path = DB_DIR / f"{sid}.db"
         wal = DB_DIR / f"{sid}.db-wal"
         shm = DB_DIR / f"{sid}.db-shm"

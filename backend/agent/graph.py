@@ -624,6 +624,8 @@ class AgentGraph:
             return
 
 
+        session_id = state.session_id
+
         while not state.done:
 
             if session_id in self._cancelled_sessions:
@@ -835,6 +837,8 @@ class AgentGraph:
         state.done = False; state.empty_turns = 0
 
 
+        session_id = state.session_id
+
         while not state.done:
 
             if session_id in self._cancelled_sessions:
@@ -863,7 +867,7 @@ class AgentGraph:
 
             try: await self._run_tool_select(state)
 
-            except Exception as e: print(f"[Aurora] Tool select failed in resume: {e}", flush=True); import traceback as _tb; _tb.print_exc(); state.empty_turns += 1; state.total_turns += 1; continue
+            except Exception as e: logger.error(f"Tool select failed in resume: {e}", exc_info=True); state.empty_turns += 1; state.total_turns += 1; continue
 
 
 
@@ -872,9 +876,7 @@ class AgentGraph:
                 try: await self._run_executor(state)
 
                 except Exception as executor_error:
-                    import traceback as _tb
-                    print(f"[Aurora] Executor crashed in resume: {executor_error}", flush=True)
-                    _tb.print_exc()
+                    logger.error(f"Executor crashed in resume: {executor_error}", exc_info=True)
                     state.empty_turns += 1
 
 

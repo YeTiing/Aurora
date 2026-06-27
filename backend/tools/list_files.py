@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os, pathlib
 from typing import Any
-from .base import ToolSpec, ToolCallResult, safe_resolve_path
+from .base import ToolSpec, ToolCallResult, safe_resolve_path, truncate_output
 
 LIST_FILES_SPEC = ToolSpec(
     name="list_files",

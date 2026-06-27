@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Any
 from backend.computer_use.engine import computer_use, WindowState
-from .base import ToolSpec, ToolCallResult
+from .base import ToolSpec, ToolCallResult, truncate_output
 
 COMPUTER_USE_SPEC = ToolSpec(
     name="computer_use",

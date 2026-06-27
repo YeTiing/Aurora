@@ -3,7 +3,7 @@ from __future__ import annotations
 import json, re, aiohttp, asyncio, time
 from typing import Any
 from urllib.parse import quote_plus
-from .base import ToolSpec, ToolCallResult
+from .base import ToolSpec, ToolCallResult, truncate_output
 
 WEB_SEARCH_SPEC = ToolSpec(
     name="web_search",

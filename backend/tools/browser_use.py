@@ -1,6 +1,6 @@
 # browser_use 工具 — 注册为Agent工具
 from __future__ import annotations
-from .base import ToolSpec, ToolCallResult
+from .base import ToolSpec, ToolCallResult, truncate_output
 
 BROWSER_USE_SPEC = ToolSpec(
     name="browser_use",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json, asyncio, subprocess, tempfile, os, sys, time, textwrap
 from pathlib import Path
 from typing import Any
-from .base import ToolSpec, ToolCallResult, sanitize_command
+from .base import ToolSpec, ToolCallResult, sanitize_command, truncate_output
 
 sys.stdout.reconfigure(encoding='utf-8')
 CODE_EXEC_SPEC = ToolSpec(

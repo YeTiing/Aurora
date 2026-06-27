@@ -7,6 +7,7 @@ from typing import Any
 from .base import ToolSpec, ToolCallResult
 import logging
 logger = logging.getLogger("aurora")
+logger = logging.getLogger("aurora")
 
 @dataclass
 class MCPServerConfig:
@@ -177,7 +178,7 @@ class MCPProxy:
             notif = json.dumps({"jsonrpc": "2.0", "method": method, "params": params})
             state.process.stdin.write((notif + "\n").encode())
         except Exception:
-            pass
+            logger.debug("mcp proxy send failed", exc_info=True)
 
     async def _reader_loop(self, state: MCPServerState):
         try:
@@ -195,11 +196,11 @@ class MCPProxy:
                         else:
                             future.set_result(data.get("result", {}))
                 except json.JSONDecodeError:
-                    pass
+                    logger.debug("mcp invalid JSON in reader", exc_info=True)
         except asyncio.CancelledError:
             pass
         except Exception:
-            pass
+            logger.debug("mcp proxy send failed", exc_info=True)
         finally:
             state.connected = False
 

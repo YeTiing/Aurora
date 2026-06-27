@@ -447,8 +447,8 @@ async def session_export_batch(req: dict):
 async def recent_sessions(limit: int = 10):
     """Get recently active sessions."""
     try:
-        from backend.session_search import session_search
-        results = session_search.recent(limit=limit)
+        from backend.session_search import get_session_search
+        results = get_session_search().recent(limit=limit)
         return {"sessions": results}
     except ImportError:
         return {"error": "session_search not available"}

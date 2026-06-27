@@ -16,7 +16,7 @@ from .rag import ASTChunker, BM25Index, VectorStore, Reranker, RAGEngine, rag_en
 from .multi_agent import MultiAgentOrchestrator, AgentNode, AgentStatus, orchestrator
 from .magic_docs import MagicDocsManager, magic_docs_manager
 from .im_adapter import AdapterBridge, adapter_bridge
-from .session_search import SessionSearch, session_search
+from .session_search import SessionSearch, get_session_search
 from .worktree import WorktreeManager, worktree_manager
 from .context.collapse import ContextCollapser, context_collapser
 from .skills import SkillManager, Skill, SkillResource, skill_manager

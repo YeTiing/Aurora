@@ -99,13 +99,13 @@ async def search_sessions(q: str = "", session_id: str = "", limit: int = 10):
 
 @router.get("/search/stats")
 async def search_stats():
-    from backend.session_search import session_search
-    return session_search.stats()
+    from backend.session_search import get_session_search
+    return get_session_search().stats()
 
 @router.post("/search/index")
 async def index_message(req: dict):
-    from backend.session_search import session_search
-    session_search.index_message(
+    from backend.session_search import get_session_search
+    get_session_search().index_message(
         session_id=req["session_id"],
         message_id=req.get("message_id", ""),
         role=req.get("role", "user"),

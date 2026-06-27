@@ -124,4 +124,10 @@ class SessionSearch:
             return {"total_messages": total, "indexed_sessions": sessions}
 
 
-session_search = SessionSearch()
+session_search = None
+
+def get_session_search() -> SessionSearch:
+    global session_search
+    if session_search is None:
+        session_search = SessionSearch()
+    return session_search

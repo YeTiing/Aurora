@@ -2,7 +2,7 @@
 from __future__ import annotations
 import asyncio, subprocess
 from pathlib import Path
-from .base import ToolSpec
+from .base import ToolSpec, truncate_output
 
 GIT_OPS_SPEC = ToolSpec(
     name="git_ops",

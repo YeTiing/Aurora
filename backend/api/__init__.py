@@ -69,6 +69,19 @@ async def add_timing(request: Request, call_next):
     response.headers["X-Process-Time"] = f"{(time.time() - start) * 1000:.0f}ms"
     return response
 
+# Public paths that don't require authentication
+_AUTH_FREE_PREFIXES = ("/health", "/docs", "/redoc", "/openapi.json", "/auth", "/i18n")
+
+@app.middleware("http")
+async def enforce_auth(request: Request, call_next):
+    if any(request.url.path.startswith(p) for p in _AUTH_FREE_PREFIXES):
+        return await call_next(request)
+    from backend.auth import auth_manager
+    state = auth_manager.get_active_auth()
+    if not state["authenticated"]:
+        return JSONResponse(status_code=401, content={"error": "Authentication required", "detail": "Use /auth/login or set AURORA_LLM_API_KEY"})
+    return await call_next(request)
+
 
 # ---- Register route modules ----
 

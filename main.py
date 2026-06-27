@@ -26,7 +26,7 @@ if __name__ == "__main__":
             cl.curator.light()
             cl.agent_memory.save()
             cl.user_profile.save()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  Curator: startup maintenance skipped ({e})", flush=True)
 
     uvicorn.run(app, host=host, port=port, log_level="info")

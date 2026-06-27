@@ -85,8 +85,9 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
         cls = classifier.classify_pipeline(command)
         if cls.risk.value in ("blocked", "critical"):
             return {"success": False, "stdout": "", "stderr": f"Command blocked: {cls.reason} (risk: {cls.risk.value})", "exit_code": -1}
-    except ImportError:
-        pass
+    except ImportError as e:
+        import logging
+        logging.getLogger("aurora").warning(f"Bash classifier unavailable: {e}. Falling back to whitelist only.")
 
     try:
         sanitize_command(command)

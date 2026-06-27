@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio, time, traceback
+import asyncio, logging, time, traceback
 
 from typing import Any, Literal, Callable
 
@@ -802,7 +802,7 @@ class AgentGraph:
 
             try: await self._run_tool_select(state)
 
-            except Exception: state.empty_turns += 1; state.total_turns += 1; continue
+            except Exception as e: print(f"[Aurora] Tool select failed in resume: {e}", flush=True); import traceback as _tb; _tb.print_exc(); state.empty_turns += 1; state.total_turns += 1; continue
 
 
 
@@ -810,7 +810,11 @@ class AgentGraph:
 
                 try: await self._run_executor(state)
 
-                except: pass
+                except Exception as executor_error:
+                    import traceback as _tb
+                    print(f"[Aurora] Executor crashed in resume: {executor_error}", flush=True)
+                    _tb.print_exc()
+                    state.empty_turns += 1
 
 
             await self._run_observer(state)

@@ -248,7 +248,8 @@ class ComputerUse:
                             vp = child.GetValuePattern()
                             if vp and vp.Value:
                                 val = str(vp.Value)[:50]
-                    except: pass
+                    except OSError:
+                        pass  # COM interop transient failure, skip value
                     r = child.BoundingRectangle
                     e = {
                         "index": len(elems),
@@ -260,8 +261,10 @@ class ComputerUse:
                     }
                     elems.append(e)
                     self._walk_tree(child, elems, maxd, d + 1)
-                except: pass
-        except: pass
+                except (OSError, AttributeError):
+                    pass  # UI element invalidated during enumeration
+        except (OSError, AttributeError):
+            pass  # parent window vanished
 
     def _format_tree(self, elems):
         icons = {

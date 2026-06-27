@@ -11,6 +11,7 @@ Persistent, agent-managed memory with:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -618,6 +619,7 @@ class Curator:
     def __init__(self, agent: MemoryStore, user: MemoryStore, skills: SkillManager):
         self.agent = agent; self.user = user; self.skills = skills
         self.cfg = CuratorCfg.load()
+        self._lock = asyncio.Lock()
 
     def should(self) -> bool:
         if self.cfg.paused: return False
@@ -628,14 +630,15 @@ class Curator:
         self._done(r); return r
 
     async def full(self, llm) -> dict:
-        r = {"agent": self._dedup(self.agent), "user": self._dedup(self.user)}
-        try:
-            r["memory"] = await self._llm_mem(llm)
-            r["skills"] = await self._llm_skills(llm)
-        except Exception as e:
-            r["error"] = str(e)
-        r["staled"] = self._stale()
-        self._done(r); return r
+        async with self._lock:
+            r = {"agent": self._dedup(self.agent), "user": self._dedup(self.user)}
+            try:
+                r["memory"] = await self._llm_mem(llm)
+                r["skills"] = await self._llm_skills(llm)
+            except Exception as e:
+                r["error"] = str(e)
+            r["staled"] = self._stale()
+            self._done(r); return r
 
     def _done(self, r):
         self.cfg.last_run_at = time.time(); self.cfg.run_count += 1

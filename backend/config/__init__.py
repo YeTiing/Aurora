@@ -189,7 +189,7 @@ class Config:
 
     @property
     def model_context_window(self) -> int:
-        return self.get("model_context_window", 128000)
+        return self.get("max_context_tokens", 128000)
 
     @property
     def sandbox_mode(self) -> str:

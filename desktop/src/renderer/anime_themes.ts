@@ -7,8 +7,8 @@ export const animeThemes: Theme[] = [
         label: "Neon Genesis",
         colors: {
             bg: "#090514",
-    fg: "#e6edf3",
-    hover: "#21262d",
+            fg: "#e6edf3",
+            hover: "#1a1030",
             surface: "#100924",
             border: "#3a0e66",
             text: "#f0e6ff",
@@ -25,8 +25,8 @@ export const animeThemes: Theme[] = [
         label: "Sakura Petals",
         colors: {
             bg: "#fff6fa",
-    fg: "#e6edf3",
-    hover: "#21262d",
+            fg: "#4a3541",
+            hover: "#f5e1e8",
             surface: "#ffedf4",
             border: "#ffc1d7",
             text: "#4a3541",
@@ -43,8 +43,8 @@ export const animeThemes: Theme[] = [
         label: "Cyber Maid",
         colors: {
             bg: "#0a0a0c",
-    fg: "#e6edf3",
-    hover: "#21262d",
+            fg: "#e6edf3",
+            hover: "#141a20",
             surface: "#131317",
             border: "#1f3a47",
             text: "#e4e5e7",

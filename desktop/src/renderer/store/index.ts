@@ -124,9 +124,15 @@ export const useStore = create<AuroraState>((set, get) => ({
             const theme = await db.loadSetting("theme");
             const savedProvider = await db.loadSetting("llmProvider");
             const savedModel = await db.loadSetting("llmModel");
+            const savedBaseUrl = await db.loadSetting("llmBaseUrl");
+            const savedMaxContext = await db.loadSetting("llmMaxContext");
+            const savedTemperature = await db.loadSetting("llmTemperature");
             const extraSettings: any = {};
             if (savedProvider) extraSettings.llmProvider = savedProvider;
             if (savedModel) extraSettings.llmModel = savedModel;
+            if (savedBaseUrl) extraSettings.llmBaseUrl = savedBaseUrl;
+            if (savedMaxContext) extraSettings.llmMaxContext = savedMaxContext;
+            if (savedTemperature) extraSettings.llmTemperature = savedTemperature;
             if (sessions.length > 0) {
                 set({
                     sessions,
@@ -268,9 +274,9 @@ export const useStore = create<AuroraState>((set, get) => ({
     setLLMProvider(v) { set({ llmProvider: v }); db.saveSetting("llmProvider", v).catch(() => {}); },
     setLLMModel(v) { set({ llmModel: v }); db.saveSetting("llmModel", v).catch(() => {}); },
     setLLMApiKey(v) { set({ llmApiKey: v }); },
-    setLLMBaseUrl(v) { set({ llmBaseUrl: v }); },
-    setLLMMaxContext(v) { set({ llmMaxContext: v }); },
-    setLLMTemperature(v) { set({ llmTemperature: v }); },
+    setLLMBaseUrl(v) { set({ llmBaseUrl: v }); db.saveSetting("llmBaseUrl", v).catch(() => {}); },
+    setLLMMaxContext(v) { set({ llmMaxContext: v }); db.saveSetting("llmMaxContext", v).catch(() => {}); },
+    setLLMTemperature(v) { set({ llmTemperature: v }); db.saveSetting("llmTemperature", v).catch(() => {}); },
     reloadLLMSettings: async () => {
         try {
             const r = await fetch("http://127.0.0.1:9876/settings");

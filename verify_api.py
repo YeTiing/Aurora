@@ -23,12 +23,18 @@ def check_routes():
         prefix = parts[1] if len(parts) > 1 else "/"
         groups.setdefault(prefix, []).append(route.path)
 
-    expected = {"agents","agents-md","approval","auth","browser","chat","checkpoint",
-                "config","context","cron","detective","files","goal","health",
-                "heartbeat","llm","marketplace","mcp","memory","models",
-                "observability","plugins","presets","processes","prompts",
-                "providers","rag","re","sentry","sessions","settings","skins",
-                "soul","storage","tasks","threads","tools","ws"}
+    expected = {"agents","agents-md","approval","auth","automations","browser",
+                "chat","checkpoint","chronicle","claude-import","config",
+                "connectors","context","cron","deep-link","detective","dream",
+                "files","goal","health","heartbeat","hooks","i18n","im",
+                "inbox","llm","logs","lsp","magic-docs","marketplace","mcp",
+                "memory","metrics","models","monitor","notifications",
+                "observability","packages","plugins","presets","processes",
+                "prompts","providers","proxy","quality-gate","rag","re",
+                "recent","remote","search","security","sentry","sessions",
+                "settings","shared-objects","skins","soul","storage","swarm",
+                "tasks","threads","tools","transcripts","verify-plan",
+                "worktree","ws"}
     found = set(groups.keys()) - {"docs","openapi.json","redoc"}
     missing = expected - found
     extra = found - expected

@@ -386,6 +386,8 @@ class SessionRecall:
 
 import sqlite3, textwrap, re as _regex
 from datetime import datetime, timezone
+import logging
+logger = logging.getLogger("aurora")
 
 SKILL_DIR = Path(os.environ.get("AURORA_HOME", ".aurora")) / "skills"
 SKILL_ARCHIVE = SKILL_DIR / ".archive"
@@ -501,7 +503,7 @@ class SkillManager:
             if "<!-- skill-meta" in c:
                 s = c.index("<!-- skill-meta"); e = c.index("-->", s) + 3
                 return SkillMeta.from_header(c[s:e])
-        except: pass
+        except Exception: logger.debug('curator state load failed', exc_info=True)
         return None
 
     def _write(self, p: Path, c: str, m: SkillMeta):
@@ -539,7 +541,7 @@ class HonchoDialectic:
         self._path = MEMORY_DIR / "peer_card.json"
         if self._path.exists():
             try: self.peer = PeerCard(**json.loads(self._path.read_text("utf-8")))
-            except: pass
+            except Exception: logger.debug('curator maintenance step failed', exc_info=True)
 
     def record(self, user_msg: str, _resp: str):
         self._turns += 1
@@ -607,7 +609,7 @@ class CuratorCfg:
             try:
                 d = json.loads(p.read_text("utf-8"))
                 return cls(**{k:v for k,v in d.items() if k in cls.__dataclass_fields__})
-            except: pass
+            except Exception: logger.debug('curator agent_memory save failed', exc_info=True)
         return cls()
 
     def save(self):
@@ -688,7 +690,7 @@ class Curator:
                         self.agent.replace(merge[0], self.agent.entries[merge[0]].text+"; "+self.agent.entries[merge[1]].text, "curator")
                         self.agent.remove(merge[1])
                 return {"applied": True}
-        except: pass
+        except Exception: logger.debug('memory session close failed', exc_info=True)
         return {"result": "no changes"}
 
     async def _llm_skills(self, llm) -> dict:
@@ -704,7 +706,7 @@ class Curator:
                 plan = json.loads(m.group())
                 for name in plan.get("archive",[])[:5]: self.skills.archive(name)
                 return {"applied": True}
-        except: pass
+        except Exception: logger.debug('memory user_profile save failed', exc_info=True)
         return {"result": "no changes"}
 
 
@@ -755,7 +757,7 @@ class FTSSessions:
             self.c.execute("INSERT OR REPLACE INTO meta VALUES(?,?,?,?,?)", (sid, summary[:1000], turns, now, now))
             self.c.execute("INSERT INTO fts VALUES(?,?,?,?)", (sid, summary[:2000], (body or summary)[:5000], now))
             self.c.commit()
-        except: pass
+        except Exception: logger.debug('memory session recall failed', exc_info=True)
 
     def search(self, q: str, n: int = 5) -> list[dict]:
         try:
@@ -876,7 +878,7 @@ class ClosedLoopMemory:
                 resp = await llm.chat_simple(user_message=f"Summarize this session in 1-2 sentences (Chinese if appropriate): {body[:3000]}", max_tokens=200)
                 summary = (resp.content if hasattr(resp,"content") else str(resp))[:500]
                 self.honcho.set_summary(summary)
-            except: pass
+            except Exception: logger.debug('memory import failed', exc_info=True)
         if summary:
             self.fts5.add(sid, summary, body, turns)
             r["indexed"] = True

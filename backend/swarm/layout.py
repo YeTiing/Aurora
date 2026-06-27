@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 "Swarm layout manager — visual arrangement of agent terminals."
 from __future__ import annotations
 from dataclasses import dataclass

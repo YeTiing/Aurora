@@ -4,6 +4,8 @@ import re, subprocess, asyncio, fnmatch
 from pathlib import Path
 from typing import Any
 from .base import ToolSpec, safe_resolve_path, truncate_output
+import logging
+logger = logging.getLogger("aurora")
 
 CODE_SEARCH_SPEC = ToolSpec(
     name="code_search",
@@ -109,7 +111,7 @@ def _python_search(ws: Path, query: str, file_pattern: str, case_sensitive: bool
                         rel = file_path.relative_to(ws)
                         if str(rel).startswith(".") or any(p in str(rel) for p in ("node_modules", "__pycache__", ".git", "venv")):
                             continue
-                    except: pass
+                    except Exception: logger.debug('code_search file read failed', exc_info=True)
                     # Check by name match
                     pass
                 else:

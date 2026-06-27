@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Bash Safety Classifier — command pattern matching + auto risk grading.
 
 Port of cc-haha's src/tools/BashTool/bashPermissions.ts.

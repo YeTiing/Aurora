@@ -55,7 +55,7 @@ export function BrowserPanel() {
                 setCurrentUrl(targetUrl);
             }
         } catch (e: any) {
-            setError(e.message || "Failed to open browser");
+            setError(e.message || "打开浏览器失败");
         } finally {
             setLoading(false);
         }
@@ -110,19 +110,19 @@ export function BrowserPanel() {
                 alignItems: "center",
             }}>
                 <button onClick={closeBrowser}
-                    style={btnStyle} title="Close browser">✕</button>
+                    style={btnStyle} title="关闭浏览器">✕</button>
                 <button onClick={() => window.auroraAPI?.browser?.back()}
-                    style={btnStyle} title="Back">◀</button>
+                    style={btnStyle} title="后退">◀</button>
                 <button onClick={() => window.auroraAPI?.browser?.forward()}
-                    style={btnStyle} title="Forward">▶</button>
+                    style={btnStyle} title="前进">▶</button>
                 <button onClick={() => window.auroraAPI?.browser?.reload()}
-                    style={btnStyle} title="Reload">↻</button>
+                    style={btnStyle} title="刷新">↻</button>
                 <input
                     type="text"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Enter URL..."
+                    placeholder="输入网址..."
                     style={{
                         flex: 1, padding: "6px 10px", borderRadius: 6,
                         border: "1px solid var(--border, #252636)",
@@ -133,7 +133,7 @@ export function BrowserPanel() {
                 />
                 <button onClick={navigate}
                     style={{ ...btnStyle, background: "var(--accent, #7c3aed)", color: "#fff" }}>
-                    Go
+                    打开
                 </button>
             </div>
 
@@ -150,7 +150,7 @@ export function BrowserPanel() {
                         display: "inline-block", width: 8, height: 8, borderRadius: "50%",
                         background: "#a78bfa", animation: "pulse 1.5s infinite",
                     }} />
-                    🤖 AI is controlling this browser
+                    🤖 AI 正在控制浏览器
                 </div>
             )}
 
@@ -196,12 +196,12 @@ export function BrowserPanel() {
                     flexDirection: "column", gap: 12, padding: 20,
                 }}>
                     <div style={{ fontSize: 48 }}>🌐</div>
-                    <div>Embedded Browser</div>
+                    <div>内置浏览器</div>
                     <div style={{ fontSize: 11 }}>
-                        Enter a URL above or click a bookmark
+                        在上方输入网址，或点击一个常用入口
                     </div>
                     <div style={{ fontSize: 11, color: "var(--text-faint, #3b4261)", marginTop: 8 }}>
-                        Supports: Bilibili · Douyin · GitHub · Xiaohongshu · Google · StackOverflow · npm · PyPI
+                        支持：Bilibili · 抖音 · GitHub · 小红书 · Google · StackOverflow · npm · PyPI
                     </div>
                 </div>
             )}

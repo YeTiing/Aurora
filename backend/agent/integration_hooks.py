@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Agent Integration Hooks — wire LSP, AutoDream, Bash Classifier into agent pipeline.
 
 These hooks connect previously standalone modules into the actual agent lifecycle:

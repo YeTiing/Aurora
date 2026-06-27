@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Tests for 6 new modules: LSP tool, verify_plan, tool_metrics, transcript_index, hooks_system, task_monitor."""
 import sys, os, pytest, time, json, tempfile
 sys.path.insert(0, r"D:\codex_Projects\Aurora")

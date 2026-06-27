@@ -148,12 +148,13 @@ class ContextManager:
         """Sync compaction (for non-async contexts)"""
         if len(self.messages) < 6:
             return 0
+        old_count = len(self.messages)
         cm = CompactionManager(self.token_counter)
         if summary_llm:
             cm.set_llm(summary_llm)
         new_msgs = cm.compact(self.messages, keep_recent=4)
-        removed = len(self.messages) - len(new_msgs) + 1
         self.messages = new_msgs
+        removed = old_count - len(new_msgs)
         self.compaction_version += 1
         return removed
 

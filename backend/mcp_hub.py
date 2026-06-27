@@ -177,7 +177,7 @@ class MCPHub:
     async def _request(self, state: MCPServerState, method: str, params: dict, timeout: float = 60) -> dict | None:
         req_id = self._next_id(state)
         request = json.dumps({"jsonrpc": "2.0", "id": req_id, "method": method, "params": params})
-        future: asyncio.Future = asyncio.get_event_loop().create_future()
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
         state.pending[req_id] = future
         try:
             state.process.stdin.write((request + "\n").encode())

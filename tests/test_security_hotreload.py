@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Tests for security_scanner + plugin_hotreload."""
 import sys, os, pytest, tempfile, asyncio
 sys.path.insert(0, r"D:\codex_Projects\Aurora")

@@ -88,8 +88,8 @@ async def chat(req: ChatRequest):
 {rag_ctx}\
 User: {req.message}" if (skills_ctx or rag_ctx) else req.message
     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
-    from backend.api.routes.files import _sessions_meta
-    _sessions_meta[sid] = {"session_id": sid, "workspace": req.workspace, "last_seen": time.time()}
+    from backend.session_registry import track
+    track(sid, req.workspace)
     state = await _graph.run(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history)
     return AgentResponse(session_id=sid, response=state.final_response, plan=[p.to_dict() for p in state.plan], diffs=state.diffs)
 
@@ -108,8 +108,8 @@ async def chat_stream(req: ChatRequest):
 {rag_ctx}\
 User: {req.message}" if (skills_ctx or rag_ctx) else req.message
     history2 = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
-    from backend.api.routes.files import _sessions_meta
-    _sessions_meta[sid] = {"session_id": sid, "workspace": req.workspace, "last_seen": time.time()}
+    from backend.session_registry import track
+    track(sid, req.workspace)
     async def gen():
         async for chunk in _graph.run_with_stream(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history2):
             yield f"data: {json.dumps(chunk, ensure_ascii=False)}\
@@ -369,7 +369,10 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
     except WebSocketDisconnect: pass
     finally:
         sse_bus.unsubscribe(session_id, forward_event)
-        if session_id in _ws_connections: _ws_connections[session_id].remove(ws)
+        if session_id in _ws_connections:
+            _ws_connections[session_id].remove(ws)
+            if not _ws_connections[session_id]:
+                del _ws_connections[session_id]
 
 def _resolve_workspace_path(path: str, workspace: str = ".") -> Path:
     _init_cfg()

@@ -78,7 +78,7 @@ class AdapterBridge:
                                   args: dict, preview: str = "") -> str:
         """Request user permission for a tool call via IM.
         Returns: 'allow', 'deny', or 'timeout'."""
-        future: asyncio.Future = asyncio.get_event_loop().create_future()
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
         req_id = uuid.uuid4().hex[:8]
         self._pending[req_id] = future
 

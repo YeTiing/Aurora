@@ -1,5 +1,7 @@
 """Aurora API - sessions routes"""
 from __future__ import annotations
+import logging
+logger = logging.getLogger("aurora")
 import asyncio, json, time, uuid, os
 from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, UploadFile, File, Form
@@ -66,7 +68,6 @@ class TaskSubmitRequest(BaseModel):
     path: str = ""
     message: str = "Hello, say connected in one short sentence."
 
-@router.get("/sessions")
 class GoalCreateRequest(BaseModel):
     objective: str
     token_budget: int | None = None
@@ -74,12 +75,9 @@ class GoalCreateRequest(BaseModel):
 class GoalUpdateRequest(BaseModel):
     status: str  # "complete" or "blocked"
 
-@router.post("/goal")
 class SemanticIndexRequest(BaseModel):
     text: str
     metadata: dict | None = None
-
-@router.get("/re/sessions")
 
 @router.get("/agents/stats")
 async def agent_stats():
@@ -126,6 +124,7 @@ async def list_checkpoints():
     return {"history": history, "count": len(history), "undo_count": undo_count, "redo_count": redo_count}
 
 # ── Task Queue ──
+@router.get("/sessions")
 async def list_sessions():
     from backend.session_rollout import RolloutReader
     sessions = RolloutReader.list_sessions()
@@ -156,6 +155,7 @@ async def get_session_stats(session_id: str):
 
 # ══ Goal System ══
 
+@router.post("/goal")
 async def create_goal(req: GoalCreateRequest):
     from backend.goal import goal_manager
     goal = goal_manager.create_goal(req.objective, req.token_budget)
@@ -258,7 +258,7 @@ async def re_request_detail(session_id: str, req_id: str):
     import json
     for key in ["request_headers", "response_headers"]:
         try: detail[key] = json.loads(detail[key]) if isinstance(detail[key], str) else detail[key]
-        except: pass
+        except Exception: logger.debug('session stats failed', exc_info=True)
     return detail
 
 @router.get("/re/sessions/{session_id}/requests/{req_id}/curl")

@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+import logging
+logger = logging.getLogger("aurora")
 
 DB_DIR = Path("re_data/sessions")
 DB_DIR.mkdir(parents=True, exist_ok=True)
@@ -194,7 +196,7 @@ class RESessionManager:
         s = self._sessions.pop(sid, None)
         if s:
             try: s.conn.close()
-            except: pass
+            except Exception: logger.debug('re session load failed', exc_info=True)
             s._conn = None
         import time
         time.sleep(0.1)

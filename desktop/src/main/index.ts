@@ -421,12 +421,6 @@ function connectBackend() {
                 return;
             }
 
-            // ── Browser CDP commands from backend ──
-            if (msg.type === "browser_cmd") {
-                await handleBrowserCommand(msg);
-                return;
-            }
-
             mainWindow?.webContents.send("agent:message", msg);
 
             // Show notification on task completion
@@ -665,6 +659,9 @@ ipcMain.handle("dialog:openFile", async () => {
 
 ipcMain.handle("file:read", async (_event, filePath: string) => {
     try {
+        if (!path.isAbsolute(filePath)) {
+            return { error: "Only absolute paths are allowed for file read" };
+        }
         return fs.readFileSync(filePath, "utf-8");
     } catch (e: any) {
         return { error: e.message };
@@ -673,6 +670,10 @@ ipcMain.handle("file:read", async (_event, filePath: string) => {
 
 ipcMain.handle("file:write", async (_event, { filePath, content }: { filePath: string; content: string }) => {
     try {
+        // Require absolute path; reject relative paths
+        if (!path.isAbsolute(filePath)) {
+            return { error: "Only absolute paths are allowed for file write" };
+        }
         fs.writeFileSync(filePath, content, "utf-8");
         return { success: true };
     } catch (e: any) {

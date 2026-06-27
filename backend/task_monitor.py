@@ -8,6 +8,7 @@ Supports: file watcher, git diff poller, PR status poller.
 
 from __future__ import annotations
 import asyncio, logging, os, time, hashlib
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -44,6 +45,7 @@ class BackgroundMonitor:
     def __init__(self):
         self._targets: dict[str, WatchTarget] = {}
         self._events: list[ChangeEvent] = []
+        self._events_lock = threading.Lock()
         self._running = False
         self._task: asyncio.Task | None = None
         self._notify_callback: Callable | None = None
@@ -73,9 +75,10 @@ class BackgroundMonitor:
 
     def get_events(self, since: float = 0) -> list[ChangeEvent]:
         """Get change events since timestamp."""
-        if since <= 0:
-            return list(self._events[-50:])
-        return [e for e in self._events if e.timestamp > since]
+        with self._events_lock:
+            if since <= 0:
+                return list(self._events[-50:])
+            return [e for e in self._events if e.timestamp > since]
 
     def get_targets(self) -> list[dict]:
         """List all watch targets."""
@@ -138,9 +141,10 @@ class BackgroundMonitor:
                             target_id=tid, target_name=target.name,
                             change_type=change_type, detail=f"hash: {prev[:8]} -> {new_hash[:8]}",
                         )
-                        self._events.append(event)
-                        if len(self._events) > 200:
-                            self._events = self._events[-200:]
+                        with self._events_lock:
+                            self._events.append(event)
+                            if len(self._events) > 200:
+                                self._events = self._events[-200:]
 
                         logger.info(f"Monitor: {target.name} changed ({change_type})")
 

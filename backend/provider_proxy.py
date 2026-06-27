@@ -466,7 +466,7 @@ def _truncate_for_cache(messages: list[dict], max_count: int) -> list[dict]:
     if len(messages) <= max_count:
         return messages
     # Keep first and last
-    return [messages[0], {"role": "...", "content": f"{len(messages) - 2} messages omitted"}, messages[-1]]
+    return [messages[0], {"role": "system", "content": f"[{len(messages) - 2} messages omitted]"}, messages[-1]]
 
 
 def _anth_chunk_to_openai(chunk: dict, model: str) -> dict | None:

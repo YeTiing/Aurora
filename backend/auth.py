@@ -239,8 +239,7 @@ class AuthManager:
             self._save_state()
             return self._state
         finally:
-            if http_client and isinstance(http_client, getattr(__import__("httpx"), "AsyncClient", type(None))):
-                pass
+            pass
 
     async def refresh_token_if_needed(self, http_client=None) -> AuthState:
         if self._state.method != "oauth":
@@ -276,8 +275,7 @@ class AuthManager:
             self._save_state()
             return self._state
         finally:
-            if http_client and isinstance(http_client, getattr(__import__("httpx"), "AsyncClient", type(None))):
-                pass
+            pass
 
     def get_active_auth(self) -> dict:
         masked = ""

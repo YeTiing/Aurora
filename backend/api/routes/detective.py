@@ -1,5 +1,7 @@
 """Aurora API - detective routes"""
 from __future__ import annotations
+import logging
+logger = logging.getLogger("aurora")
 import asyncio, json, time, uuid, os
 from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, UploadFile, File, Form
@@ -80,7 +82,7 @@ async def detective_blame(file: str, lines: str = ""):
     line_nums = None
     if lines:
         try: line_nums = [int(x) for x in lines.split(",") if x.strip().isdigit()]
-        except: pass
+        except Exception: logger.debug('detective provider profile failed', exc_info=True)
     report = await d.analyze_file(file, line_nums)
     return {
         "file": file,

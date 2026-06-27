@@ -116,7 +116,7 @@ async def code_exec_handler(arguments: dict, workspace: str = ".") -> ToolCallRe
 
 async def _execute_code(language: str, code: str, timeout: int) -> str:
     """实际执行代码"""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     if language == "python":
         return await asyncio.wait_for(

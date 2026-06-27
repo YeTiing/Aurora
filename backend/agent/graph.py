@@ -25,6 +25,8 @@ from .sse_events import sse_bus, SSEEventBus
 from backend.goal import goal_manager
 
 from backend.context.token_tracker import TokenBudget
+import logging
+logger = logging.getLogger("aurora")
 
 
 class AgentGraph:
@@ -76,6 +78,9 @@ class AgentGraph:
         self._monitor = None
         self._monitor_started = False
         self._pending_tasks: list = []
+        self._pending_tasks_refs: list = []  # keep refs to fire-and-forget tasks
+        self._cancelled_sessions: set[str] = set()
+        self._last_tracked_tokens = 0
         self._hook_registry = None
         self._transcript_index = None
         self._worktree = None
@@ -166,7 +171,7 @@ class AgentGraph:
         # Start deferred background tasks
         for task_fn in self._pending_tasks:
             try:
-                asyncio.create_task(task_fn())
+                t = asyncio.create_task(task_fn()); self._pending_tasks_refs.append(t)
             except Exception:
                 pass
         self._pending_tasks.clear()
@@ -190,7 +195,6 @@ class AgentGraph:
         # force-inject browser_use instruction to bypass model refusal training
         import re
         # URL Auto-detection: force browser_use for browser requests
-        import re
         _url_lower = user_input.lower()
         _has_url = False
         _extracted_url = ""
@@ -267,7 +271,7 @@ class AgentGraph:
                         if p.exists():
                             soul_text = p.read_text(encoding="utf-8").strip()
                             break
-                except: pass
+                except Exception: logger.debug('sync_agent failed', exc_info=True)
                 sys_prompt = (soul_text + "\n\n" + mem + "\n\nYou CAN browse the web and open websites. Use browser_use for navigation when asked. Answer concisely and naturally.") if soul_text else ("You are Aurora, a helpful AI assistant. You CAN browse websites and search the web.\n\n" + mem + "\n\nAnswer concisely and naturally.")
                 # Build messages with conversation history
                 messages = [{"role": "system", "content": sys_prompt}]
@@ -351,6 +355,11 @@ class AgentGraph:
 
         while not state.done:
 
+            if session_id in self._cancelled_sessions:
+                self._cancelled_sessions.discard(session_id)
+                state.add_message(Message.system("Session cancelled by user."))
+                break
+
             if state.total_turns >= self.max_turns:
 
                 state.add_message(Message.system(f"Reached max turns ({self.max_turns}). Stopping."))
@@ -369,7 +378,13 @@ class AgentGraph:
 
                 break
 
-            budget_result = self.token_budget.consume(0)
+            # Track actual token usage delta from LLM
+            llm_tokens = getattr(self.llm, '_total_tokens', 0)
+            delta = llm_tokens - self._last_tracked_tokens
+            if delta > 0:
+                self.token_budget.consume(delta)
+                self._last_tracked_tokens = llm_tokens
+            budget_result = {"exhausted": self.token_budget.usage_ratio() >= 1.0}
 
             if budget_result["exhausted"]:
 
@@ -496,7 +511,7 @@ class AgentGraph:
         # Start deferred background tasks
         for task_fn in self._pending_tasks:
             try:
-                asyncio.create_task(task_fn())
+                t = asyncio.create_task(task_fn()); self._pending_tasks_refs.append(t)
             except Exception:
                 pass
         self._pending_tasks.clear()
@@ -525,19 +540,39 @@ class AgentGraph:
         # URL Auto-detection: if user input looks like a browser request,  
         # force-inject browser_use instruction to bypass model refusal training
         import re
-        url_pattern = re.compile(r"(https?://[^\s]+|www\.[^\s]+\.[a-z]{2,}|打开\s*\S*\.(com|cn|net|org|io)|访问\s*\S*\.(com|cn|net|org|io)|浏览\s*\S*\.(com|cn|net|org|io))")
-        url_match = url_pattern.search(user_input)
-        if url_match and "browser_use" not in user_input.lower():
-            extracted = url_match.group(0)
-            url = extracted.strip()
-            # Strip Chinese prefixes
-            for prefix in ["打开", "访问", "浏览"]:
-                if url.startswith(prefix):
-                    url = url[len(prefix):].strip()
-            if not url.startswith("http"):
-                if not url.startswith("www.") and "." not in url:
-                    url = url + ".com"  # bare name like "4399" -> "4399.com"
-                url = "https://" + url
+        # URL Auto-detection: force browser_use for browser requests
+        _url_lower = user_input.lower()
+        _has_url = False
+        _extracted_url = ""
+        _m = re.search(r"https?://\S+", user_input)
+        if _m:
+            _has_url = True
+            _extracted_url = _m.group(0)
+        if not _has_url:
+            _m = re.search(r"www\.[a-zA-Z0-9-]+\.[a-z]{2,}", user_input)
+            if _m:
+                _has_url = True
+                _extracted_url = "https://" + _m.group(0)
+        if not _has_url:
+            _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|cn|net|org|io|dev|app)", user_input)
+            if _m:
+                _has_url = True
+                _extracted_url = "https://" + _m.group(0)
+        if not _has_url:
+            for _kw in ["打开", "访问", "浏览", "去", "上"]:
+                if _kw in _url_lower:
+                    _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]{1,20}", user_input)
+                    if _m:
+                        _has_url = True
+                        _extracted_url = "https://" + _m.group(0) + ".com"
+                        break
+
+        if _has_url:
+            state.add_message(Message.system(
+                f"Browser request detected: {_extracted_url}. "
+                "Use browser_use tool with method='navigate' to open this URL. "
+                "Do not tell the user to open it themselves."
+            ))
 
         # Check cron for due tasks and inject
         cron_fires = self.cron.pop_fires()
@@ -587,6 +622,11 @@ class AgentGraph:
 
         while not state.done:
 
+            if session_id in self._cancelled_sessions:
+                self._cancelled_sessions.discard(session_id)
+                state.add_message(Message.system("Session cancelled by user."))
+                break
+
             if state.total_turns >= self.max_turns: break
 
             if state.empty_turns >= self.max_empty_turns: break
@@ -597,7 +637,13 @@ class AgentGraph:
 
                 break
 
-            budget_result = self.token_budget.consume(0)
+            # Track actual token usage delta from LLM
+            llm_tokens = getattr(self.llm, '_total_tokens', 0)
+            delta = llm_tokens - self._last_tracked_tokens
+            if delta > 0:
+                self.token_budget.consume(delta)
+                self._last_tracked_tokens = llm_tokens
+            budget_result = {"exhausted": self.token_budget.usage_ratio() >= 1.0}
 
             if budget_result["exhausted"]:
 
@@ -787,13 +833,24 @@ class AgentGraph:
 
         while not state.done:
 
+            if session_id in self._cancelled_sessions:
+                self._cancelled_sessions.discard(session_id)
+                state.add_message(Message.system("Session cancelled by user."))
+                break
+
             if state.total_turns >= self.max_turns: break
 
             if state.empty_turns >= self.max_empty_turns: break
 
             if goal_manager.is_budget_exhausted(): break
 
-            budget_result = self.token_budget.consume(0)
+            # Track actual token usage delta from LLM
+            llm_tokens = getattr(self.llm, '_total_tokens', 0)
+            delta = llm_tokens - self._last_tracked_tokens
+            if delta > 0:
+                self.token_budget.consume(delta)
+                self._last_tracked_tokens = llm_tokens
+            budget_result = {"exhausted": self.token_budget.usage_ratio() >= 1.0}
 
             if budget_result["exhausted"]: break
 
@@ -836,6 +893,7 @@ class AgentGraph:
 
     async def cancel(self, session_id: str):
 
+        self._cancelled_sessions.add(session_id)
         self.checkpoints.clear_session(session_id)
 
 

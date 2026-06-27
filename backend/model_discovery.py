@@ -1,4 +1,4 @@
-﻿# Model Discovery -- multi-provider model enumeration, benchmarking, recommendation
+# Model Discovery -- multi-provider model enumeration, benchmarking, recommendation
 from __future__ import annotations
 import httpx, asyncio, time, json
 from dataclasses import dataclass, field

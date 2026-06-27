@@ -44,8 +44,8 @@ class NotionConnector(ConnectorBase):
         """Exchange OAuth code for a Notion access token."""
         # Notion OAuth returns access_token directly (no refresh token).
         data = await self._token_exchange(code)
-        self._connected = True
-        return True
+        self._connected = bool(data and self._access_token)
+        return self._connected
 
     async def disconnect(self) -> None:
         """Clear Notion credentials."""

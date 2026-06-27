@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 "Backend registry — detect and select best available backend."
 from __future__ import annotations
 import logging

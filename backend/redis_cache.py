@@ -2,6 +2,8 @@
 from __future__ import annotations
 import json, time, asyncio
 from typing import Any
+import logging
+logger = logging.getLogger("aurora")
 
 class RedisClient:
     """Redis 客户端封装 — 带内存降级"""
@@ -46,7 +48,7 @@ class RedisClient:
                 else:
                     await self._redis.set(key, s)
                 return
-            except Exception: pass
+            except Exception: logger.debug('redis ping failed', exc_info=True)
         expiry = time.time() + ttl if ttl else None
         self._fallback[key] = (value, expiry)
 
@@ -54,14 +56,14 @@ class RedisClient:
         await self._ensure()
         if self._redis:
             try: await self._redis.delete(key); return
-            except: pass
+            except Exception: logger.debug('redis get failed', exc_info=True)
         self._fallback.pop(key, None)
 
     async def exists(self, key: str) -> bool:
         await self._ensure()
         if self._redis:
             try: return bool(await self._redis.exists(key))
-            except: pass
+            except Exception: logger.debug('redis set failed', exc_info=True)
         entry = self._fallback.get(key)
         if entry:
             _, expiry = entry
@@ -76,7 +78,7 @@ class RedisClient:
                 val = await self._redis.incr(key)
                 await self._redis.expire(key, ttl)
                 return val
-            except: pass
+            except Exception: logger.debug('redis delete failed', exc_info=True)
         val, _ = self._fallback.get(key, (0, None))
         val = val + 1
         self._fallback[key] = (val, time.time() + ttl)
@@ -137,10 +139,10 @@ class EventBus:
         await redis_client._ensure()
         if redis_client._redis:
             try: await redis_client._redis.publish(self.channel, event)
-            except: pass
+            except Exception: logger.debug('redis cache_url failed', exc_info=True)
         for h in self._local_handlers:
             try: h(event_type, data)
-            except: pass
+            except Exception: logger.debug('redis get_cached_url failed', exc_info=True)
 
     def subscribe(self, handler):
         self._local_handlers.append(handler)

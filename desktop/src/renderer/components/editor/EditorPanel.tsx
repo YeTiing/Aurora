@@ -65,7 +65,7 @@ export function EditorPanel() {
         editorRef.current = editor;
         editor.addAction({
             id: "save-file",
-            label: "Save File",
+            label: "保存文件",
             keybindings: [2048 | 49], // Ctrl+S
             run: handleSave,
         });
@@ -126,7 +126,7 @@ export function EditorPanel() {
                                 cursor: "pointer", fontSize: 11, backgroundColor: 'transparent',
                                 color: showDiff ? colors.accent : colors.textSecondary,
                             }}>
-                                {showDiff ? "Hide Diff" : "Show Diff"}
+                                {showDiff ? "隐藏差异" : "查看差异"}
                             </button>
                             <button onClick={handleSave} style={{
                                 padding: "2px 10px", borderRadius: 4, border: "none",
@@ -192,7 +192,7 @@ export function EditorPanel() {
                         color: colors.textSecondary, fontSize: editorFontSize, flexDirection: "column", gap: 8
                     }}>
                         <span style={{ fontSize: 48, opacity: 0.3 }}>✦</span>
-                        <span>Open a file or start a chat to begin</span>
+                        <span>打开文件，或从对话开始</span>
                         <span style={{ fontSize: 11, opacity: 0.5 }}>{t("openSaveHint")}</span>
                     </div>
                 )}

@@ -1,4 +1,4 @@
-﻿"""Aurora — AI 编程 Agent 引擎 v0.2.0 — Codex 架构启发"""
+"""Aurora — AI 编程 Agent 引擎 v0.2.0 — Codex 架构启发"""
 
 from .config import Config, init_config, config
 from .agent import (

@@ -44,8 +44,8 @@ class ThreadManager:
                                 model=t.model, reasoning_effort=t.reasoning_effort,
                                 thread_source=t.thread_source, status=t.status,
                                 updated_at=t.updated_at, metadata=json.dumps(t.metadata, default=str))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"SQLite sync error in create: {e}", exc_info=True)
 
     def create(self, title: str = "", workspace: str = "", model: str = "",
                reasoning_effort: str = "medium", thread_source: str = "user",
@@ -62,8 +62,8 @@ class ThreadManager:
                                 agent_nickname=t.agent_nickname, agent_role=t.agent_role,
                                 model=t.model, reasoning_effort=t.reasoning_effort,
                                 thread_source=t.thread_source, status=t.status)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"SQLite sync error in create: {e}", exc_info=True)
         return t
 
     def fork(self, thread_id: str, title: str = "") -> ThreadInfo | None:
@@ -83,8 +83,8 @@ class ThreadManager:
                                 agent_nickname=t.agent_nickname, agent_role=t.agent_role,
                                 model=t.model, reasoning_effort=t.reasoning_effort,
                                 thread_source=t.thread_source)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"SQLite sync error in fork: {e}", exc_info=True)
         return t
 
     def list_threads(self, status: str = "", limit: int = 50) -> list[ThreadInfo]:
@@ -106,8 +106,8 @@ class ThreadManager:
                     self._threads[ti.id] = ti
                     result.append(ti)
                 return result
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"SQLite sync error in list: {e}", exc_info=True)
         threads = list(self._threads.values())
         if status:
             threads = [t for t in threads if t.status == status]
@@ -134,8 +134,8 @@ class ThreadManager:
                     )
                     self._threads[t.id] = t
                     return t
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"SQLite read error: {e}", exc_info=True)
         return None
 
     def set_pinned(self, thread_id: str, pinned: bool = True) -> bool:

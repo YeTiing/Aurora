@@ -232,7 +232,8 @@ class CronScheduler:
 
     def save(self):
         CRON_DIR.mkdir(parents=True, exist_ok=True)
-        data = {"tasks": [t.to_dict() for t in self.tasks.values()]}
+        with self._lock:
+            data = {"tasks": [t.to_dict() for t in self.tasks.values()]}
         CRON_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def add(self, name: str, schedule_text: str, prompt: str,

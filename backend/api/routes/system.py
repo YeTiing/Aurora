@@ -461,44 +461,8 @@ async def deep_link_route(req: DeepLinkParseRequest):
 
 
 
-# ---- Log Archive ----
+# ---- Log Archive routes defined above ----
 
-@router.get("/logs/stats")
-async def log_stats():
-    """Get log database statistics."""
-    from backend.log_archive import log_archive
-    return log_archive.get_log_stats()
-
-@router.post("/logs/archive")
-async def log_archive_old(req: dict):
-    """Archive log entries older than before_days to compressed JSONL."""
-    from backend.log_archive import log_archive
-    before_days = req.get("before_days", 30)
-    result = log_archive.archive_old_logs(before_days)
-    if result is None:
-        return {"archived": 0, "message": "No logs to archive"}
-    return {"archived": result.entry_count, "archive": result.name, "size_bytes": result.size_bytes}
-
-@router.post("/logs/cleanup")
-async def log_cleanup(req: dict):
-    """Delete log entries older than before_days."""
-    from backend.log_archive import log_archive
-    before_days = req.get("before_days", 90)
-    deleted = log_archive.cleanup_old_logs(before_days)
-    return {"deleted": deleted}
-
-@router.get("/logs/archives")
-async def log_archives():
-    """List available log archives."""
-    from backend.log_archive import log_archive
-    return {"archives": log_archive.get_archive_list()}
-
-@router.post("/logs/restore/{name}")
-async def log_restore(name: str):
-    """Restore log entries from an archive."""
-    from backend.log_archive import log_archive
-    count = log_archive.restore_archive(name)
-    return {"restored": count}
 
 
 def _fmt_bytes(size_bytes: int) -> str:

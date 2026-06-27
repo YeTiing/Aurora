@@ -6,6 +6,8 @@ from ctypes import wintypes
 from dataclasses import dataclass, field
 from pathlib import Path
 import mss, pyautogui, uiautomation as uia
+import logging
+logger = logging.getLogger("aurora")
 
 pyautogui.FAILSAFE = False
 user32 = ctypes.windll.user32
@@ -216,7 +218,7 @@ class ComputerUse:
                     fc = root.GetFocusedControl()
                     if fc:
                         focused = f"#{fc.ControlTypeName}: {fc.Name}"[:120]
-            except Exception: pass
+            except Exception: logger.debug('computer_use screenshot failed', exc_info=True)
 
             try:
                 if hasattr(root, 'GetSelectedItems'):
@@ -224,7 +226,7 @@ class ComputerUse:
                     if si:
                         selected = [f"{s.ControlTypeName}: {s.Name}" for s in si[:5]]
                         selected = "; ".join(selected)[:200]
-            except Exception: pass
+            except Exception: logger.debug('computer_use window list failed', exc_info=True)
 
             return {
                 "tree": tree_text,
@@ -342,7 +344,7 @@ class ComputerUse:
             try:
                 user32.SetForegroundWindow(w.id)
                 time.sleep(0.3)
-            except Exception: pass
+            except Exception: logger.debug('computer_use action failed', exc_info=True)
 
         if include_screenshot:
             state.screenshots = [self.screenshot()]
@@ -462,7 +464,7 @@ class ComputerUseHelperTransport:
 
     async def request_async(self, method: str, params: dict, meta: dict | None = None) -> dict:
         """Async version of request"""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, lambda: self.request(method, params, meta))
 
 

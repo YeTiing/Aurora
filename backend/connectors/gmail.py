@@ -43,8 +43,8 @@ class GmailConnector(ConnectorBase):
     async def handle_callback(self, code: str, state: str = "") -> bool:
         """Exchange OAuth code for Google access + refresh tokens."""
         data = await self._token_exchange(code)
-        self._connected = True
-        return True
+        self._connected = bool(data and self._access_token)
+        return self._connected
 
     async def disconnect(self) -> None:
         """Clear Gmail credentials.  Optionally revoke the Google token."""

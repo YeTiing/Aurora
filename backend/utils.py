@@ -56,7 +56,7 @@ def safe_json_loads(text: str) -> Any:
         match = re.search(r'\{[\s\S]*\}|\[[\s\S]*\]', text)
         if match:
             try: return json.loads(match.group())
-            except: pass
+            except Exception: logger.debug('utils fnmatch failed', exc_info=True)
         return None
 
 def safe_json_dumps(obj: Any) -> str:

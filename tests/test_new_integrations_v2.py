@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Tests for newly integrated modules: LSP, AutoDream, QualityGate, ProviderProxy, Swarm, CU Gates."""
 import sys, os, pytest, json, time, asyncio
 

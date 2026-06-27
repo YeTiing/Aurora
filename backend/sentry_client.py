@@ -1,6 +1,8 @@
 # Sentry integration for Aurora
 from __future__ import annotations
 import os, sys, traceback
+import logging
+logger = logging.getLogger("aurora")
 
 _sentry_initialized = False
 
@@ -31,7 +33,7 @@ def capture_exception(exc: Exception, context: dict = None):
     try:
         import sentry_sdk
         sentry_sdk.capture_exception(exc, extras=context or {})
-    except: pass
+    except Exception: logger.debug('sentry capture_exception failed', exc_info=True)
 
 def capture_message(msg: str, level: str = "info"):
     if not _sentry_initialized:
@@ -39,4 +41,4 @@ def capture_message(msg: str, level: str = "info"):
     try:
         import sentry_sdk
         sentry_sdk.capture_message(msg, level=level)
-    except: pass
+    except Exception: logger.debug('sentry capture_message failed', exc_info=True)

@@ -447,7 +447,6 @@ def cmd_desktop(args):
         subprocess.Popen(
             ["npx", "electron", "."],
             cwd=str(desktop_dir),
-            shell=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )

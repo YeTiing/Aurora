@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 "Permission sync between leader and swarm agents."
 from __future__ import annotations
 import asyncio, logging

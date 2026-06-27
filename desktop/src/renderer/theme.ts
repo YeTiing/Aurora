@@ -135,6 +135,37 @@ export function applyTheme(theme: Theme): void {
     localStorage.setItem(THEME_STORAGE_KEY, theme.name);
 }
 
+function toCssImage(value: string | null): string {
+    const raw = (value || "").trim();
+    if (!raw) return "none";
+    if (raw.startsWith("url(")) return raw;
+    if (/^(https?:|data:|blob:|file:)/i.test(raw)) return `url("${raw.replace(/"/g, "\\\"")}")`;
+    const normalized = raw.replace(/\\/g, "/");
+    const fileUrl = /^[a-zA-Z]:\//.test(normalized) ? `file:///${normalized}` : normalized;
+    return `url("${fileUrl.replace(/"/g, "\\\"")}")`;
+}
+
+export function applySkinBackgrounds(): void {
+    const root = document.documentElement;
+    root.style.setProperty("--bg-main", toCssImage(localStorage.getItem("aurora_anime_bg")));
+    root.style.setProperty("--bg-l", toCssImage(localStorage.getItem("aurora_bg_L")));
+    root.style.setProperty("--bg-c", toCssImage(localStorage.getItem("aurora_bg_C")));
+    root.style.setProperty("--bg-r", toCssImage(localStorage.getItem("aurora_bg_R")));
+    root.style.setProperty("--pos-main", localStorage.getItem("aurora_pos_Main") || "center");
+    root.style.setProperty("--pos-l", localStorage.getItem("aurora_pos_L") || "center");
+    root.style.setProperty("--pos-c", localStorage.getItem("aurora_pos_C") || "center");
+    root.style.setProperty("--pos-r", localStorage.getItem("aurora_pos_R") || "center");
+    root.style.setProperty("--opacity-l", localStorage.getItem("aurora_opacity_L") || "0.6");
+    root.style.setProperty("--opacity-c", localStorage.getItem("aurora_opacity_C") || "0.6");
+    root.style.setProperty("--opacity-r", localStorage.getItem("aurora_opacity_R") || "0.6");
+    root.style.setProperty("--blur-l", `${localStorage.getItem("aurora_blur_L") || "0"}px`);
+    root.style.setProperty("--blur-c", `${localStorage.getItem("aurora_blur_C") || "0"}px`);
+    root.style.setProperty("--blur-r", `${localStorage.getItem("aurora_blur_R") || "0"}px`);
+    root.style.setProperty("--panel-bg-l", "transparent");
+    root.style.setProperty("--panel-bg-c", "transparent");
+    root.style.setProperty("--panel-bg-r", "transparent");
+}
+
 export function getStoredThemeName(): string {
     return localStorage.getItem(THEME_STORAGE_KEY) || "aurora-dark";
 }
@@ -169,6 +200,7 @@ export function useInitializeTheme(): void {
         const stored = getStoredThemeName();
         const theme = getThemeByName(stored);
         applyTheme(theme);
+        applySkinBackgrounds();
         useStore.setState({ themeColors: { ...theme.colors, bgSecondary: theme.colors.surface, accentHover: theme.colors.accent } as any });
     }, []);
 }

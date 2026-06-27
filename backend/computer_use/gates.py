@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Computer Use Fine-Grained Permission Gates.
 
 Port of cc-haha's src/utils/computerUse/gates.ts.

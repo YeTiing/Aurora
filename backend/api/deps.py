@@ -27,15 +27,41 @@ def get_llm():
             if _llm is None:
                 from backend.agent.llm_client import LLMClient, LLMConfig
                 cfg = get_config()
-                if cfg.llm_api_key:
-                    _llm = LLMClient(LLMConfig(
-                        provider=cfg.get("llm.provider", "openai"),
-                        model=cfg.llm_model,
-                        api_key=cfg.llm_api_key,
-                        base_url=cfg.llm_base_url
-                    ))
-                else:
-                    raise HTTPException(503, detail="No API Key configured")
+                # Try primary provider first
+                providers = [
+                    {
+                        "provider": cfg.get("llm.provider", "openai"),
+                        "model": cfg.llm_model,
+                        "api_key": cfg.llm_api_key,
+                        "base_url": cfg.llm_base_url,
+                    },
+                ]
+                # Add fallback providers from config
+                fallback_raw = cfg.get("llm.fallbacks", [])
+                if fallback_raw:
+                    providers.extend(fallback_raw)
+                last_err = None
+                for p in providers:
+                    if not p.get("api_key"):
+                        last_err = HTTPException(503, detail="No API Key configured")
+                        continue
+                    try:
+                        _llm = LLMClient(LLMConfig(
+                            provider=p.get("provider", "openai"),
+                            model=p.get("model", cfg.llm_model),
+                            api_key=p["api_key"],
+                            base_url=p.get("base_url", cfg.llm_base_url),
+                        ))
+                        last_err = None
+                        break
+                    except Exception as e:
+                        last_err = e
+                        import logging
+                        logging.getLogger("aurora").warning(f"LLM provider {p.get('provider')} unavailable: {e}")
+                if last_err is not None:
+                    if isinstance(last_err, HTTPException):
+                        raise last_err
+                    raise HTTPException(503, detail=f"All LLM providers unavailable: {last_err}")
     return _llm
 
 

@@ -35,7 +35,7 @@ class PluginHotReload:
         self._reload_count = 0
         self._last_reload: float = 0.0
         self._reload_callbacks: list[Callable] = []
-        self._debounce_sec: float = 1.0  # Debounce multiple rapid changes
+        self._debounce_sec: float = max(1.0, poll_interval * 0.5)  # Debounce half the poll interval
 
     def set_manager(self, manager):
         self._manager = manager

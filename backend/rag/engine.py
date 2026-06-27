@@ -4,6 +4,8 @@ import re, math, os, hashlib, json
 from collections import defaultdict
 from pathlib import Path
 from .chunker import CodeChunk
+import logging
+logger = logging.getLogger("aurora")
 
 # ── BM25 ──
 class BM25Index:
@@ -73,14 +75,30 @@ class VectorStore:
                 indices.append(i)
         if not unembedded or not llm_client: return
         import asyncio
-        for batch_start in range(0, len(unembedded), batch_size):
-            batch = unembedded[batch_start:batch_start+batch_size]
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        async def _embed_batches():
+            for batch_start in range(0, len(unembedded), batch_size):
+                batch = unembedded[batch_start:batch_start+batch_size]
+                try:
+                    vecs = await llm_client.embeddings(batch)
+                    for v in vecs:
+                        self._embeddings.append(v)
+                        if not self._dim: self._dim = len(v)
+                except Exception:
+                    break
+
+        if loop is not None:
+            import asyncio
             try:
-                vecs = asyncio.run(llm_client.embeddings(batch))
-                for v in vecs:
-                    self._embeddings.append(v)
-                    if not self._dim: self._dim = len(v)
-            except Exception: break
+                asyncio.ensure_future(_embed_batches())
+            except Exception:
+                pass
+        else:
+            asyncio.run(_embed_batches())
 
     def search(self, query_vec: list[float], top_k=20) -> list[tuple[int,float]]:
         if not self._embeddings: return []
@@ -155,7 +173,7 @@ class RAGEngine:
                     chunks = chunker.chunk_file(fp)
                     all_chunks.extend(chunks)
                     self._indexed.add(str(fp))
-                except: pass
+                except Exception: logger.debug('rag embed failed', exc_info=True)
         if all_chunks:
             self.vector_store.add(all_chunks)
             self.bm25.index(self.vector_store._chunks)
@@ -167,11 +185,21 @@ class RAGEngine:
         vec_results = []
         if llm_client and query:
             try:
-                import asyncio
-                qvec = asyncio.run(llm_client.embeddings([query]))
+                import asyncio, concurrent.futures
+                async def _embed():
+                    return await llm_client.embeddings([query])
+                try:
+                    loop = asyncio.get_running_loop()
+                    # In async context: use thread pool to avoid nesting
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        fut = pool.submit(asyncio.run, _embed())
+                        qvec = fut.result(timeout=15)
+                except RuntimeError:
+                    # No running loop: safe direct call
+                    qvec = asyncio.run(_embed())
                 if qvec and qvec[0]:
                     vec_results = self.vector_store.search(qvec[0], 20)
-            except Exception: pass
+            except Exception: logger.debug('rag search failed', exc_info=True)
 
 
         # BM25

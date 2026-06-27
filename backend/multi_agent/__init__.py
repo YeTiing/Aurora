@@ -46,15 +46,15 @@ class MultiAgentOrchestrator:
     async def spawn(self, parent_id: str | None, name: str, task: str, priority: int = 0, metadata: dict | None = None) -> AgentNode:
         # Use swarm backend when available
         try:
-            from backend.swarm import get_backend_registry, AgentContext as SwarmCtx, InProcessBackend
+            from backend.swarm import get_backend_registry, AgentContext as SwarmCtx
             registry = get_backend_registry()
             backend = registry.get_best()
-            agent_id = f"agent_{uuid.uuid4().hex[:8]}"
-            ctx = SwarmCtx(agent_id=agent_id, name=name, task=task, parent_id=parent_id or "", priority=priority, metadata=metadata or {})
-            # Store backend reference for later use
-            if not hasattr(self, "_swarm_backend"):
-                self._swarm_backend = backend
-        except ImportError:
+            if backend is not None:
+                agent_id = f"agent_{uuid.uuid4().hex[:8]}"
+                ctx = SwarmCtx(agent_id=agent_id, name=name, task=task, parent_id=parent_id or "", priority=priority, metadata=metadata or {})
+                if not hasattr(self, "_swarm_backend"):
+                    self._swarm_backend = backend
+        except (ImportError, Exception):
             pass
 
         return await self._spawn_internal(parent_id, name, task, priority, metadata)
@@ -103,9 +103,10 @@ class MultiAgentOrchestrator:
         async with self._lock:
             if not self._pending or len(self._running) >= self.max_parallel:
                 return
-            next_ids = sorted(self._pending, key=lambda aid: -self.agents.get(aid, AgentNode(id="", name="")).priority)
+            from collections import deque
+            next_ids = deque(sorted(self._pending, key=lambda aid: -self.agents.get(aid, AgentNode(id="", name="")).priority))
             while next_ids and len(self._running) < self.max_parallel:
-                aid = next_ids.pop(0)
+                aid = next_ids.popleft()
                 self._pending.discard(aid)
                 agent = self.agents.get(aid)
                 if agent and agent.status == AgentStatus.WAITING:

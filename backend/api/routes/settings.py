@@ -1,5 +1,7 @@
 """Aurora API - settings routes"""
 from __future__ import annotations
+import logging
+logger = logging.getLogger("aurora")
 import asyncio, json, time, uuid, os
 from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, UploadFile, File, Form
@@ -124,7 +126,7 @@ async def update_settings(req: SettingsUpdate):
         except Exception as e:
             import logging; logging.getLogger("aurora").warning(f"Failed to read config, backing up: {e}")
             try: config_path.rename(config_path.with_suffix(".toml.bak"))
-            except: pass
+            except Exception: logger.debug('config get failed', exc_info=True)
             existing = {}
     llm_updates = {}
     if req.provider: llm_updates["provider"] = req.provider
@@ -143,7 +145,7 @@ async def update_settings(req: SettingsUpdate):
     aurora_data = {}
     if aurora_json.exists():
         try: aurora_data = json.loads(aurora_json.read_text(encoding="utf-8"))
-        except: pass
+        except Exception: logger.debug('settings update failed', exc_info=True)
     if llm_updates: aurora_data.setdefault("llm", {}).update(llm_updates)
     if req.max_context_tokens: aurora_data.setdefault("context", {}).update({"token_budget": req.max_context_tokens, "max_tokens": req.max_context_tokens})
     if req.max_turn_iter: aurora_data.setdefault("agent", {}).update({"max_turn_iter": req.max_turn_iter})
@@ -160,9 +162,9 @@ async def update_settings(req: SettingsUpdate):
     _cfg = None; _llm = None; _graph = None
     _init()
     try: _init_llm()
-    except: pass
+    except Exception: logger.debug('llm_test failed', exc_info=True)
     try: _init_graph()
-    except: pass
+    except Exception: logger.debug('llm_test cleanup failed', exc_info=True)
     return {"ok": True, "updated": list(llm_updates.keys())}
 
 @router.get("/models")
@@ -305,7 +307,7 @@ async def list_providers():
         try:
             data = json.loads(config_path.read_text(encoding="utf-8"))
             saved = data.get("providers", [])
-        except: pass
+        except Exception: logger.debug('preset load failed', exc_info=True)
     result = []
     for s in saved:
         result.append({
@@ -327,7 +329,7 @@ async def save_provider(req: ProviderProfile):
     existing = {}
     if config_path.exists():
         try: existing = json.loads(config_path.read_text(encoding="utf-8"))
-        except: pass
+        except Exception: logger.debug('prompt load failed', exc_info=True)
     
     providers = existing.get("providers", [])
     # Find and update or append

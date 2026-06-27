@@ -380,7 +380,7 @@ class SkinManager:
     def _sanitize_name(name: str) -> str:
         """Reject names containing path separators or traversal."""
         name = name.strip()
-        if not name or ".." in name or "/" in name or "\" in name:
+        if not name or ".." in name or "/" in name or "\\" in name:
             raise ValueError(f"Invalid skin name: {name!r}")
         return name
 

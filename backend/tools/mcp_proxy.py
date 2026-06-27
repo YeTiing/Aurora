@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from .base import ToolSpec, ToolCallResult
+import logging
+logger = logging.getLogger("aurora")
 
 @dataclass
 class MCPServerConfig:
@@ -102,7 +104,7 @@ class MCPProxy:
                 await asyncio.wait_for(state.process.wait(), timeout=5)
             except Exception:
                 try: state.process.kill()
-                except: pass
+                except Exception: logger.debug('mcp proxy tool call failed', exc_info=True)
 
     async def call_tool(self, server_name: str, tool_name: str, arguments: dict) -> ToolCallResult:
         state = self._servers.get(server_name)
@@ -156,7 +158,7 @@ class MCPProxy:
         req_id = self._next_id(state)
         request = json.dumps({"jsonrpc": "2.0", "id": req_id, "method": method, "params": params})
 
-        future: asyncio.Future = asyncio.get_event_loop().create_future()
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
         state.pending[req_id] = future
 
         try:

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 "Reconnection manager for swarm agents."
 from __future__ import annotations
 import asyncio, logging, time

@@ -6,56 +6,56 @@ const SOCIALS = [
         icon: "▶",
         url: "https://www.bilibili.com",
         color: "#fb7299",
-        desc: "Chinese video platform"
+        desc: "中文视频平台"
     },
     {
         name: "Douyin",
         icon: "♫",
         url: "https://www.douyin.com",
         color: "#000000",
-        desc: "Short video platform"
+        desc: "短视频平台"
     },
     {
         name: "Xiaohongshu",
         icon: "📕",
         url: "https://www.xiaohongshu.com",
         color: "#fe2c55",
-        desc: "Lifestyle platform"
+        desc: "生活方式平台"
     },
     {
         name: "GitHub",
         icon: "⬡",
         url: "https://github.com/YeTiing/Aurora",
         color: "#6e40c9",
-        desc: "Aurora source code"
+        desc: "Aurora 源代码"
     },
     {
         name: "StackOverflow",
         icon: "📚",
         url: "https://stackoverflow.com",
         color: "#f48024",
-        desc: "Developer Q&A"
+        desc: "开发者问答"
     },
     {
         name: "npm",
         icon: "📦",
         url: "https://www.npmjs.com",
         color: "#cb3837",
-        desc: "Node.js packages"
+        desc: "Node.js 包"
     },
     {
         name: "PyPI",
         icon: "🐍",
         url: "https://pypi.org",
         color: "#3776ab",
-        desc: "Python packages"
+        desc: "Python 包"
     },
     {
         name: "MDN",
         icon: "📖",
         url: "https://developer.mozilla.org",
         color: "#000000",
-        desc: "Web docs"
+        desc: "Web 文档"
     },
 ];
 
@@ -80,9 +80,9 @@ export function SocialPanel({ onClose }: { onClose: () => void }) {
                 padding: "12px 16px", borderBottom: "1px solid var(--border, #252636)",
             }}>
                 <div>
-                    <div style={{ fontSize: 16, fontWeight: 700 }}>🔗 Social & Resources</div>
+                    <div style={{ fontSize: 16, fontWeight: 700 }}>🔗 资源导航</div>
                     <div style={{ fontSize: 11, color: "var(--text-dim, #565f89)", marginTop: 2 }}>
-                        Quick access to development resources
+                        快速打开开发和常用资源
                     </div>
                 </div>
                 <button onClick={onClose}
@@ -140,7 +140,7 @@ export function SocialPanel({ onClose }: { onClose: () => void }) {
                 padding: "10px 16px", borderTop: "1px solid var(--border, #252636)",
                 fontSize: 11, color: "var(--text-faint, #3b4261)", textAlign: "center",
             }}>
-                Click to open in embedded browser · Aurora v0.2.0
+                点击后在内置浏览器中打开 · Aurora v0.2.0
             </div>
         </div>
     );

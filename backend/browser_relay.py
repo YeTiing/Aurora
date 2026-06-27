@@ -1,6 +1,6 @@
 # Browser Relay - direct WebSocket bridge to desktop BrowserView (no CDP needed!)
 from __future__ import annotations
-import asyncio, json, time, uuid
+import asyncio, json, time, uuid, threading
 
 class BrowserRelay:
     """Relay browser commands to Electron desktop via WebSocket."""
@@ -9,28 +9,31 @@ class BrowserRelay:
         self._ws = None
         self._pending: dict[str, asyncio.Future] = {}
         self._connected = False
+        self._lock = threading.Lock()
 
     def connected(self) -> bool:
         return self._connected
 
     def set_ws(self, ws):
-        self._ws = ws
-        self._connected = True
+        with self._lock:
+            self._ws = ws
+            self._connected = True
 
     def clear_ws(self):
-        self._ws = None
-        self._connected = False
-        for fut in self._pending.values():
-            if not fut.done():
-                fut.set_exception(ConnectionError("Desktop disconnected"))
-        self._pending.clear()
+        with self._lock:
+            self._ws = None
+            self._connected = False
+            for fut in list(self._pending.values()):
+                if not fut.done():
+                    fut.set_exception(ConnectionError("Desktop disconnected"))
+            self._pending.clear()
 
     async def _send_command(self, method: str, params: dict, timeout: float = 15) -> dict:
         if not self._ws:
             return {"error": "Desktop not connected"}
         cmd_id = uuid.uuid4().hex[:8]
         msg = {"type": "browser_cmd", "id": cmd_id, "method": method, "params": params}
-        fut: asyncio.Future = asyncio.get_event_loop().create_future()
+        fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending[cmd_id] = fut
         try:
             await self._ws.send_text(json.dumps(msg, ensure_ascii=False))

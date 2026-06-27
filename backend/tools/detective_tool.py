@@ -1,6 +1,8 @@
 """Detective tool — trace bugs to their root cause commit."""
 import json
 from backend.tools.base import ToolSpec, ToolCallResult
+import logging
+logger = logging.getLogger("aurora")
 
 async def detective_handler(action: str = "", file: str = "", lines: str = "", bug: str = "") -> ToolCallResult:
     try:
@@ -13,7 +15,7 @@ async def detective_handler(action: str = "", file: str = "", lines: str = "", b
             line_nums = None
             if lines:
                 try: line_nums = [int(x) for x in lines.split(",") if x.strip().isdigit()]
-                except: pass
+                except Exception: logger.debug('detective tool import failed', exc_info=True)
             desc = bug or "Bug investigation"
             result = await d.trace_bug_origin(file, desc, line_nums)
             return ToolCallResult(success=True, output=json.dumps(result, indent=2, ensure_ascii=False))
@@ -24,7 +26,7 @@ async def detective_handler(action: str = "", file: str = "", lines: str = "", b
             line_nums = None
             if lines:
                 try: line_nums = [int(x) for x in lines.split(",") if x.strip().isdigit()]
-                except: pass
+                except Exception: logger.debug('detective tool exec failed', exc_info=True)
             report = await d.analyze_file(file, line_nums)
             result = {
                 "file": file,

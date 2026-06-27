@@ -138,16 +138,12 @@ export default function App() {
             showRe={panels.re.show}
             onToggleDetective={() => panels.detective.toggle()}
             showDetective={panels.detective.show}
+            onToggleBrowser={() => panels.browser.toggle()}
+            showBrowser={panels.browser.show}
+            onToggleSocial={() => panels.social.toggle()}
+            showSocial={panels.social.show}
             />
 
-            <div style={{ display: "flex", gap: 6, padding: "2px 16px 8px" }}>
-              <button onClick={() => panels.browser.toggle()}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border] transition-all"
-                title="Browser (Ctrl+Shift+B)">🌐 Browser</button>
-              <button onClick={() => panels.social.toggle()}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[--bg-button] text-[--text-dim] hover:text-[--text] hover:bg-[--border] transition-all"
-                title="Social & Resources">🔗 Social</button>
-            </div>
             <div className="aurora-main">
                 {/* Left: Session list - NOW ABSOLUTE */}
                 <div className="aurora-left-sidebar" style={{ borderRight: `none` }}>

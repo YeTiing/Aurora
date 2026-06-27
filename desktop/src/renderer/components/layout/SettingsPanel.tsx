@@ -138,7 +138,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         { id: "providers", label: "服务商" },
         { id: "general", label: "设置" },
         { id: "llm", label: "LLM API" },
-        { id: "vision", label: "Vision" },
+        { id: "vision", label: "视觉模型" },
         { id: "editor", label: "编辑器" },
         { id: "terminal", label: "终端" },
         { id: "shortcuts", label: "快捷键" },
@@ -422,8 +422,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                     border: `1px solid ${testResult.ok ? colors.success : colors.error}`,
                                 }}>
                                     {testResult.ok
-                                        ? `OK: ${testResult.response}`
-                                        : `ERROR: ${testResult.error || t("unknownError")}`
+                                        ? `成功：${testResult.response}`
+                                        : `错误：${testResult.error || t("unknownError")}`
                                     }
                                 </div>
                             )}
@@ -434,7 +434,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                             <div>
                                 <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 6 }}>
-                                    Theme
+                                    主题
                                 </label>
                                 <select
                                     value={activeTheme.name}
@@ -474,17 +474,17 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                     {activeTab === "vision" && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                             <div style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 1.5 }}>
-                                When main model can&apos;t see images, auto-fallback to a vision-capable model.
-                                Zero-config: reuses your LLM API key by default.
+                                主模型无法识别图片时，自动切换到支持视觉的备用模型。
+                                默认复用你的主 LLM API Key。
                             </div>
 
                             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: colors.text }}>
                                 <input type="checkbox" checked={visionEnabled} onChange={e => setVisionEnabled(e.target.checked)} />
-                                Enable Vision Fallback
+                                启用视觉备用模型
                             </label>
 
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                <label style={{ fontSize: 11, color: colors.textSecondary }}>Vision Model</label>
+                                <label style={{ fontSize: 11, color: colors.textSecondary }}>视觉模型</label>
                                 <select
                                     value={visionModel}
                                     onChange={e => setVisionModel(e.target.value)}
@@ -499,7 +499,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                 <label style={{ fontSize: 11, color: colors.textSecondary }}>
-                                    Vision API Key <span style={{ color: colors.textSecondary || colors.textSecondary }}>(optional — reuses main LLM key)</span>
+                                    视觉 API Key <span style={{ color: colors.textSecondary || colors.textSecondary }}>(可选，默认复用主 LLM Key)</span>
                                 </label>
                                 <input
                                     type="password"
@@ -515,7 +515,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                 <label style={{ fontSize: 11, color: colors.textSecondary }}>
-                                    Vision Base URL <span style={{ color: colors.textSecondary || colors.textSecondary }}>(optional)</span>
+                                    视觉 Base URL <span style={{ color: colors.textSecondary || colors.textSecondary }}>(可选)</span>
                                 </label>
                                 <input
                                     type="text"
@@ -533,22 +533,22 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
                     {activeTab === "editor" && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <label style={{ fontSize: 11, color: colors.textSecondary }}>Font Size: {fontSize}px</label>
+                            <label style={{ fontSize: 11, color: colors.textSecondary }}>字号：{fontSize}px</label>
                             <input type="range" min={10} max={30} value={fontSize} onChange={e => setEditorFontSize(parseInt(e.target.value))} />
-                            <label style={{ fontSize: 11, color: colors.textSecondary }}>Tab: {tabSize}</label>
+                            <label style={{ fontSize: 11, color: colors.textSecondary }}>缩进：{tabSize}</label>
                             <input type="range" min={2} max={8} value={tabSize} onChange={e => setEditorTabSize(parseInt(e.target.value))} />
                             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: colors.text }}>
-                                <input type="checkbox" checked={wordWrap} onChange={e => setEditorWordWrap(e.target.checked)} /> Word Wrap
+                                <input type="checkbox" checked={wordWrap} onChange={e => setEditorWordWrap(e.target.checked)} /> 自动换行
                             </label>
                             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: colors.text }}>
-                                <input type="checkbox" checked={minimap} onChange={e => setEditorMinimap(e.target.checked)} /> Minimap
+                                <input type="checkbox" checked={minimap} onChange={e => setEditorMinimap(e.target.checked)} /> 代码缩略图
                             </label>
                         </div>
                     )}
 
                     {activeTab === "terminal" && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <label style={{ fontSize: 11, color: colors.textSecondary }}>Terminal Font: {terminalFontSize}px</label>
+                            <label style={{ fontSize: 11, color: colors.textSecondary }}>终端字号：{terminalFontSize}px</label>
                             <input type="range" min={10} max={24} value={terminalFontSize} onChange={e => setTerminalFontSize(parseInt(e.target.value))} />
                         </div>
                     )}
@@ -559,7 +559,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                 fontSize: 10, color: colors.textSecondary,
                                 marginBottom: 4, fontStyle: "italic",
                             }}>
-                                Click a shortcut to rebind; press desired key combination.
+                                点击快捷键项重新绑定，然后按下想使用的组合键。
                             </div>
                             {shortcutBindings.map(s => (
                                 <div key={s.id} style={{
@@ -593,7 +593,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                                     lineHeight: 1, padding: "0 2px",
                                                 }}
                                             >
-                                                Reset
+                                                重置
                                             </button>
                                         )}
                                     </div>

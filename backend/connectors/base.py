@@ -38,6 +38,7 @@ class ConnectorBase(ABC):
         self._connected = False
         self._access_token: str | None = None
         self._refresh_token: str | None = None
+        self._token_expires_at: float = 0.0
         self._token_data: dict = {}
 
     @property
@@ -97,7 +98,8 @@ class ConnectorBase(ABC):
         self._access_token = data.get("access_token")
         self._refresh_token = data.get("refresh_token")
         if "expires_in" in data:
-            data["expires_at"] = time.time() + int(data["expires_in"])
+            self._token_expires_at = time.time() + int(data["expires_in"])
+            data["expires_at"] = self._token_expires_at
         self._token_data = data
         return data
 
@@ -105,28 +107,41 @@ class ConnectorBase(ABC):
         """Refresh the access token using the stored refresh token.  Returns True on success."""
         if not self._refresh_token:
             return False
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                self._config.token_url,
-                data={
-                    "grant_type": "refresh_token",
-                    "refresh_token": self._refresh_token,
-                    "client_id": self._config.client_id,
-                    "client_secret": self._config.client_secret,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    self._config.token_url,
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": self._refresh_token,
+                        "client_id": self._config.client_id,
+                        "client_secret": self._config.client_secret,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception:
+            return False
 
         self._access_token = data.get("access_token")
         self._refresh_token = data.get("refresh_token", self._refresh_token)
         if "expires_in" in data:
-            data["expires_at"] = time.time() + int(data["expires_in"])
+            self._token_expires_at = time.time() + int(data["expires_in"])
+            data["expires_at"] = self._token_expires_at
         self._token_data.update(data)
         return True
 
+    async def _ensure_token(self) -> None:
+        """Auto-refresh token if expired (within 30s buffer)."""
+        if not self._access_token:
+            return
+        if self._token_expires_at > 0 and time.time() > self._token_expires_at - 30:
+            if self._refresh_token:
+                await self.refresh_token()
+
     async def _api_get(self, path: str, headers: dict | None = None, **kwargs) -> dict:
         """Authenticated GET request to the connector API.  Extra kwargs become query params."""
+        await self._ensure_token()
         async with httpx.AsyncClient() as client:
             req_headers = {"Authorization": f"Bearer {self._access_token}"}
             if headers:
@@ -141,6 +156,7 @@ class ConnectorBase(ABC):
 
     async def _api_post(self, path: str, json_data: dict | None = None, headers: dict | None = None, **kwargs) -> dict:
         """Authenticated POST request to the connector API.  Extra kwargs become query params."""
+        await self._ensure_token()
         async with httpx.AsyncClient() as client:
             req_headers = {"Authorization": f"Bearer {self._access_token}"}
             if headers:
@@ -179,12 +195,17 @@ class ConnectorRegistry:
     """Singleton registry that discovers and manages all ConnectorBase subclasses."""
 
     _instance: ConnectorRegistry | None = None
+    _lock: object = None
     _connectors: dict[str, ConnectorBase]
 
     def __new__(cls) -> ConnectorRegistry:
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._connectors = {}
+            import threading
+            cls._lock = threading.Lock()
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._connectors = {}
         return cls._instance
 
     def register(self, connector: ConnectorBase) -> None:

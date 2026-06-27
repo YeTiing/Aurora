@@ -120,20 +120,16 @@ async def search_rag(query: str, top_k: int = 5):
     return {"count":len(chunks),"results":[{"content":c["content"][:200],"file":c["metadata"].get("file","")} for c in chunks]}
 
 # Sessions
-_sessions_meta: dict[str, dict] = {}
 @router.get("/sessions")
-async def list_sessions():
+async def list_active_sessions():
     ws_count = 0
     try:
         from backend.api.routes.chat import _ws_connections
         ws_count = sum(len(v) for v in _ws_connections.values())
     except ImportError:
         pass
-    active = []
-    now = __import__("time").time()
-    for sid, meta in list(_sessions_meta.items()):
-        if now - meta.get("last_seen", 0) < 3600:
-            active.append(meta)
+    from backend.session_registry import list_active
+    active = list_active()
     return {"sessions": active, "ws_connections": ws_count}
 
 # Tools

@@ -162,7 +162,7 @@ class LSPClient:
         """Send JSON-RPC request and await response."""
         self._check_start_failed()
         rid = self._next_id()
-        future: asyncio.Future = asyncio.get_event_loop().create_future()
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending_requests[rid] = future
 
         msg = RPCRequest(id=rid, method=method, params=params)

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Aurora LSP Integration."""
 from __future__ import annotations
 from .client import LSPClient, create_lsp_client

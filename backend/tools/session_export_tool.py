@@ -1,6 +1,8 @@
 """Session export tool - export conversations as Markdown/JSON."""
 import json
 from backend.tools.base import ToolSpec, ToolCallResult
+import logging
+logger = logging.getLogger("aurora")
 
 async def session_export_handler(action: str = "", session_data: str = "", format: str = "md") -> ToolCallResult:
     try:
@@ -20,7 +22,7 @@ async def session_export_handler(action: str = "", session_data: str = "", forma
                 slug = "".join(c for c in title if c.isalnum() or c in "_-")
                 p = Path.cwd() / f"{slug}.md"
                 p.write_text(md, encoding="utf-8")
-            except: pass
+            except Exception: logger.debug('session export tool failed', exc_info=True)
             preview = md[:2000] + ("\n\n... (full file saved)" if p else "")
             return ToolCallResult(success=True, output=preview, metadata={"file": str(p) if p else None})
 

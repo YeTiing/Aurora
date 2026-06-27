@@ -844,6 +844,8 @@ class ProviderPool:
             return None
         # 加权轮询
         total_weight = sum(p.weight for p in available)
+        if total_weight <= 0:
+            return available[0] if available else None
         idx = self._round_robin_idx % total_weight
         self._round_robin_idx = (self._round_robin_idx + 1) % total_weight
         cumulative = 0
@@ -878,17 +880,27 @@ class ProviderPool:
         raise ProviderError(f"All providers failed: {'; '.join(errors)}")
 
     async def chat_stream(self, messages: list[dict], tools: list[dict] | None = None, **kwargs) -> AsyncIterator[StreamChunk]:
-        pp = self._next_provider()
-        if pp is None:
-            raise ProviderError("No healthy providers available")
-        try:
-            async for chunk in pp.provider.chat_stream(messages, tools, **kwargs):
-                yield chunk
-        except ProviderError:
-            pp.failures += 1
-            pp.last_failure = time.time()
-            pp.cooldown_until = time.time() + self._cooldown
-            raise
+        errors = []
+        tried = set()
+        for _ in range(len(self._pool)):
+            pp = self._next_provider()
+            if pp is None or id(pp) in tried:
+                break
+            tried.add(id(pp))
+            try:
+                async for chunk in pp.provider.chat_stream(messages, tools, **kwargs):
+                    yield chunk
+                return
+            except (RateLimitError, ServerOverloadError) as e:
+                pp.failures += 1
+                pp.last_failure = time.time()
+                pp.cooldown_until = time.time() + self._cooldown
+                errors.append(f"{pp.provider.model}: {e}")
+            except ProviderError as e:
+                if not e.retryable:
+                    pp.healthy = False
+                errors.append(f"{pp.provider.model}: {e}")
+        raise ProviderError(f"All providers failed streaming: {'; '.join(errors)}")
 
     async def close(self):
         for pp in self._pool:

@@ -376,7 +376,16 @@ class SkinManager:
                 pass
         return skins
 
+    @staticmethod
+    def _sanitize_name(name: str) -> str:
+        """Reject names containing path separators or traversal."""
+        name = name.strip()
+        if not name or ".." in name or "/" in name or "\" in name:
+            raise ValueError(f"Invalid skin name: {name!r}")
+        return name
+
     def get_skin(self, name: str) -> Skin | None:
+        name = self._sanitize_name(name)
         path = SKINS_DIR / f"{name}.json"
         if path.exists():
             try:
@@ -388,6 +397,7 @@ class SkinManager:
 
     def save_skin(self, name: str, data: dict) -> Skin:
         """Create or update a skin."""
+        name = self._sanitize_name(name)
         skin = Skin.from_dict(data)
         skin.name = name
         path = SKINS_DIR / f"{name}.json"
@@ -395,6 +405,7 @@ class SkinManager:
         return skin
 
     def delete_skin(self, name: str) -> bool:
+        name = self._sanitize_name(name)
         if name in BUILTIN_SKINS:
             return False  # Cannot delete built-in skins
         path = SKINS_DIR / f"{name}.json"

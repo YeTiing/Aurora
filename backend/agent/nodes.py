@@ -341,8 +341,9 @@ async def synthesizer_node(state: AgentState, llm: LLMClient) -> dict:
     # AutoDream background memory consolidation (fire-and-forget)
     try:
         asyncio.create_task(post_session_hook())
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger("aurora").warning(f"post_session_hook spawn failed: {e}")
 
     return {"done": True, "final_response": state.final_response}
 

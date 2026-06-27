@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 "Swarm Backends — agent execution backends."
 from __future__ import annotations
 import asyncio, logging, os, subprocess, sys, json
@@ -124,25 +124,45 @@ class TerminalBackend(SwarmBackend):
     async def spawn(self, ctx, runner):
         title = self.config.window_title or f"Aurora: {ctx.name}"
         cwd = self.config.cwd or os.getcwd()
-        ctx_json = json.dumps({"agent_id":ctx.agent_id,"name":ctx.name,"task":ctx.task,"parent_id":ctx.parent_id,"priority":ctx.priority})
-        script_lines = [
-            "import sys,asyncio,json,os",
-            f"sys.path.insert(0,{json.dumps(cwd)})",
-            f"ctx_data = json.loads({json.dumps(ctx_json)})",
-            "print(f'Aurora Agent: {ctx_data[\"name\"]}')",
-            "print(f'Task: {ctx_data[\"task\"][:120]}')",
+        ctx_data = {"agent_id": ctx.agent_id, "name": ctx.name, "task": ctx.task,
+                    "parent_id": ctx.parent_id, "priority": ctx.priority}
+        # 把上下文写到临时 JSON 文件传给子进程，避免把 task/name 拼进 shell 命令字符串造成注入
+        import tempfile
+        ctx_fd, ctx_path = tempfile.mkstemp(prefix="aurora_ctx_", suffix=".json")
+        with os.fdopen(ctx_fd, "w", encoding="utf-8") as fh:
+            json.dump(ctx_data, fh, ensure_ascii=False)
+        # 把 agent 引导脚本写到临时 .py 文件，子进程直接运行该文件，全程不经过 shell
+        boot_lines = [
+            "import sys, json, os, time",
+            f"ctx_path = {json.dumps(ctx_path)}",
+            "with open(ctx_path, encoding='utf-8') as _f: ctx_data = json.load(_f)",
+            "print(f'Aurora Agent: {ctx_data[chr(34)+chr(110)+chr(97)+chr(109)+chr(101)+chr(34)]}')",
+            "print('Task: ' + str(ctx_data.get('task',''))[:120])",
             "print('Press Ctrl+C to stop')",
             "try:",
-            "    while True: import time; time.sleep(3600)",
+            "    while True: time.sleep(3600)",
             "except KeyboardInterrupt: print('Stopped')",
         ]
-        script = "; ".join(script_lines)
+        boot_fd, boot_path = tempfile.mkstemp(prefix="aurora_agent_", suffix=".py")
+        with os.fdopen(boot_fd, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(boot_lines) + "\n")
+        py = sys.executable
         if sys.platform == "win32":
-            proc = subprocess.Popen(["start", title, "powershell", "-NoExit", "-Command", f"python -c \"{script}\""], shell=True)
+            # win32 下用 cmd /c start ... 启动新窗口，但脚本路径为受控临时文件，不拼用户数据
+            proc = subprocess.Popen(
+                ["cmd", "/c", "start", title, "powershell", "-NoExit", "-Command", py, boot_path],
+                cwd=cwd,
+            )
         elif sys.platform == "darwin":
-            proc = subprocess.Popen(["osascript", "-e", f'tell app "Terminal" to do script "python3 -c \'{script}\'"'])
+            # osascript 里只引用受控路径，不嵌入 task 文本
+            proc = subprocess.Popen(
+                ["osascript", "-e",
+                 f'tell application "Terminal" to do script "{py} {boot_path}"'],
+            )
         else:
-            proc = subprocess.Popen(["xterm", "-title", title, "-e", f"python3 -c '{script}'"])
+            proc = subprocess.Popen(
+                ["xterm", "-title", title, "-e", py, boot_path], cwd=cwd,
+            )
         self._procs[ctx.agent_id] = proc
         logger.info(f"Terminal agent: {ctx.agent_id} PID={proc.pid}")
         return {"agent_id": ctx.agent_id, "backend": self.kind.value, "pid": proc.pid}

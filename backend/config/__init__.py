@@ -41,6 +41,7 @@ def _map_env_to_config(env: dict) -> dict:
         "AURORA_LLM_PROVIDER": ("llm.provider", "llm", "provider"),
         "AURORA_VISION_API_KEY": ("vision_fallback.api_key", "vision_fallback", "api_key"),
         "AURORA_VISION_MODEL": ("vision_fallback.model", "vision_fallback", "model"),
+        "AURORA_VISION_BASE_URL": ("vision_fallback.base_url", "vision_fallback", "base_url"),
         "AURORA_HOST": ("server.host", "server", "host"),
         "AURORA_PORT": ("server.port", "server", "port"),
     }

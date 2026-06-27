@@ -105,7 +105,7 @@ function createWindow() {
             preload: path.join(__dirname, "preload.js"),
             nodeIntegration: false,
             contextIsolation: true,
-            webSecurity: false, // 允许本地图片加载作为二次元壁纸
+            // keep webSecurity on; local wallpaper images allowed via CSP img-src file: data:
         },
     });
 

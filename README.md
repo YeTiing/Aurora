@@ -1,7 +1,7 @@
 ﻿<div align="center">
 
 <img src="https://img.shields.io/badge/version-0.2.0-8b5cf6?style=flat-square">
-<img src="https://img.shields.io/badge/tests-202%2F202-brightgreen?style=flat-square">
+<img src="https://img.shields.io/badge/tests-391%2F391-brightgreen?style=flat-square">
 <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
 <img src="https://img.shields.io/badge/python-3.11%2B-3776ab?style=flat-square">
 
@@ -64,7 +64,7 @@ Aurora/
 │   ├── multi_agent/          # 多Agent并行编排器
 │   ├── skills/               # Skill 热加载管理器
 │   ├── plugins/              # 插件系统
-│   ├── mcp_hub/              # MCP 服务管理
+│   ├── mcp_hub.py            # MCP 服务管理
 │   ├── config/               # 三级配置 (global < user < project)
 │   ├── context/              # Token 预算追踪
 │   ├── observability/        # 日志/统计/追踪
@@ -74,7 +74,7 @@ Aurora/
 │   └── src/renderer/         # React 前端 (Chat / Diff / Terminal / FileTree)
 ├── plugins/                  # 内置插件 (auto-format)
 ├── skills/                   # 内置 Skill
-├── tests/                    # 202 个 pytest 测试
+├── tests/                    # 391 个 pytest 测试
 ├── aurora.json               # 项目配置
 └── run_server.py             # 启动入口
 ```
@@ -142,7 +142,7 @@ pytest tests/ -v
 ```
 
 ```
-202 passed in 17s ✅
+391 passed in 28.86s ✅
 ```
 
 ## 桌面端
@@ -161,7 +161,7 @@ npm run build    # 构建 Electron 应用
 | 后端框架 | FastAPI + Uvicorn |
 | Agent 引擎 | LangGraph StateGraph |
 | LLM | OpenAI / DeepSeek / Claude (多Provider) |
-| 向量检索 | SQLite FTS5 + NumPy cosine similarity |
+| 向量检索 | FTS5 全文 + NumPy cosine（语义记忆可选 ChromaDB） |
 | 代码解析 | tree-sitter (Python / TypeScript) |
 | 桌面端 | Electron + React + Vite + Tailwind + Zustand |
 | 测试 | pytest (asyncio) |

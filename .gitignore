@@ -37,6 +37,12 @@ desktop/node_modules/
 .aurora/*.db
 .aurora/memories/curator_state.json
 
+
+# Backend runtime data (chronicle captures/logs/state)
+backend/data/captures/
+backend/data/chronicle_log.jsonl
+backend/data/chronicle_state.json
+
 # SQLite WAL
 *.db-shm
 *.db-wal

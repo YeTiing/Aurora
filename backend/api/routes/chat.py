@@ -366,10 +366,18 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
         sse_bus.unsubscribe(session_id, forward_event)
         if session_id in _ws_connections: _ws_connections[session_id].remove(ws)
 
+def _resolve_workspace_path(path: str) -> Path:
+    root = Path.cwd().resolve()
+    resolved = (root / path).resolve()
+    if resolved != root and root not in resolved.parents:
+        raise HTTPException(403, "Path outside workspace")
+    return resolved
+
+
 # Files
 @router.get("/files")
 async def list_files_api(path: str = "."):
-    p = Path(path)
-    if not p.exists(): raise HTTPException(404, "Not found")
+    p = _resolve_workspace_path(path)
+    if not p.exists() or not p.is_dir(): raise HTTPException(404, "Not found")
     return {"path":str(p),"entries":[{"name":e.name,"isDirectory":e.is_dir(),"isFile":e.is_file()} for e in sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))]}
 

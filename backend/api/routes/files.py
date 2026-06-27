@@ -56,15 +56,42 @@ def _init_plugins():
 
 
 
+def _workspace_root() -> Path:
+    return Path.cwd().resolve()
+
+
+def _resolve_workspace_path(path: str) -> Path:
+    root = _workspace_root()
+    resolved = (root / path).resolve()
+    if resolved != root and root not in resolved.parents:
+        raise HTTPException(403, "Path outside workspace")
+    return resolved
+
+
+def _mask_config_secrets(value: Any) -> Any:
+    if isinstance(value, dict):
+        masked = {}
+        for key, item in value.items():
+            lowered = str(key).lower()
+            if any(token in lowered for token in ("api_key", "apikey", "access_key", "privatekey", "private_key", "token", "secret", "password", "credential", "authorization")):
+                masked[key] = "***" if item else item
+            else:
+                masked[key] = _mask_config_secrets(item)
+        return masked
+    if isinstance(value, list):
+        return [_mask_config_secrets(item) for item in value]
+    return value
+
+
 @router.get("/files/read")
 async def read_file(path: str):
-    p = Path(path)
-    if not p.exists(): raise HTTPException(404, "Not found")
+    p = _resolve_workspace_path(path)
+    if not p.exists() or not p.is_file(): raise HTTPException(404, "Not found")
     return {"path":str(p),"content":p.read_text(encoding="utf-8", errors="ignore")}
 
 @router.post("/files/write")
 async def write_file(req: dict):
-    p = Path(req["path"]); p.parent.mkdir(parents=True, exist_ok=True)
+    p = _resolve_workspace_path(req["path"]); p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(req.get("content",""), encoding="utf-8")
     return {"path":str(p),"written":True}
 
@@ -72,8 +99,11 @@ async def write_file(req: dict):
 async def search_files(req: dict):
     import subprocess
     try:
-        r = subprocess.run(["rg","--line-number","--max-count",str(req.get("max_results",50)),req.get("query",""),str(req.get("path","."))], capture_output=True, text=True, timeout=10)
+        search_root = _resolve_workspace_path(str(req.get("path",".")))
+        r = subprocess.run(["rg","--line-number","--max-count",str(req.get("max_results",50)),req.get("query",""),str(search_root)], capture_output=True, text=True, timeout=10)
         return {"results":r.stdout[:10000],"count":len(r.stdout.splitlines())}
+    except HTTPException:
+        raise
     except Exception as e:
         import logging; logging.getLogger("aurora").warning(f"search_files failed: {e}")
         return {"results":"","count":0,"error":f"Search failed: {type(e).__name__}"}
@@ -113,5 +143,5 @@ async def list_tools():
 
 # Config
 @router.get("/config")
-async def get_config(): _init(); return _cfg.all()
+async def get_config(): _init(); return _mask_config_secrets(_cfg.all())
 

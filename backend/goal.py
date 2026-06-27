@@ -3,6 +3,7 @@ import time
 import json
 import os
 import logging
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Literal
@@ -50,6 +51,7 @@ class Goal:
 
 class GoalManager:
     def __init__(self):
+        self._lock = threading.Lock()
         self._goals: list[Goal] = []
         self._active: Optional[Goal] = None
         self._load()
@@ -81,22 +83,24 @@ class GoalManager:
             logger.debug("goal load failed", exc_info=True)
 
     def create_goal(self, objective: str, token_budget: Optional[int] = None) -> Goal:
-        goal = Goal(objective=objective, token_budget=token_budget, status="running")
-        self._goals.append(goal)
-        self._active = goal
-        self._save()
-        return goal
+        with self._lock:
+            goal = Goal(objective=objective, token_budget=token_budget, status="running")
+            self._goals.append(goal)
+            self._active = goal
+            self._save()
+            return goal
 
     def update_goal(self, goal_id: str, status: Literal["complete", "blocked"]) -> Optional[Goal]:
-        for g in self._goals:
-            if g.id == goal_id:
-                g.status = status
-                g.completed_at = time.time()
-                if self._active and self._active.id == goal_id:
-                    self._active = None
-                self._save()
-                return g
-        return None
+        with self._lock:
+            for g in self._goals:
+                if g.id == goal_id:
+                    g.status = status
+                    g.completed_at = time.time()
+                    if self._active and self._active.id == goal_id:
+                        self._active = None
+                    self._save()
+                    return g
+            return None
 
     def get_active_goal(self) -> Optional[Goal]:
         return self._active
@@ -110,8 +114,9 @@ class GoalManager:
         return True
 
     def track_turn(self) -> None:
-        if self._active:
-            self._active.turns_used += 1
+        with self._lock:
+            if self._active:
+                self._active.turns_used += 1
 
     def is_budget_exhausted(self) -> bool:
         if not self._active or self._active.token_budget is None:

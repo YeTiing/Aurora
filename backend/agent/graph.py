@@ -272,6 +272,10 @@ class AgentGraph:
                             soul_text = p.read_text(encoding="utf-8").strip()
                             break
                 except Exception: logger.debug('sync_agent failed', exc_info=True)
+                if soul_text:
+                    MAX_SOUL_CHARS = 8000
+                    if len(soul_text) > MAX_SOUL_CHARS:
+                        soul_text = soul_text[:MAX_SOUL_CHARS] + "\n\n[... SOUL.md truncated to " + str(MAX_SOUL_CHARS) + " chars ...]"
                 sys_prompt = (soul_text + "\n\n" + mem + "\n\nYou CAN browse the web and open websites. Use browser_use for navigation when asked. Answer concisely and naturally.") if soul_text else ("You are Aurora, a helpful AI assistant. You CAN browse websites and search the web.\n\n" + mem + "\n\nAnswer concisely and naturally.")
                 # Build messages with conversation history
                 messages = [{"role": "system", "content": sys_prompt}]

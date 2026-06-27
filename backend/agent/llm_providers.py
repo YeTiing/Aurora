@@ -812,6 +812,7 @@ class PoolProvider:
     failures: int = 0
     last_failure: float = 0.0
     cooldown_until: float = 0.0
+    last_success: float = 0.0
 
     @property
     def available(self) -> bool:
@@ -821,9 +822,12 @@ class PoolProvider:
 class ProviderPool:
     """多Provider池 — 加权轮询 + 健康检查 + 故障转移"""
 
-    def __init__(self, providers: list[BaseProvider], cooldown_sec: float = 30.0):
+    def __init__(self, providers: list[BaseProvider], cooldown_sec: float = 30.0, recovery_sec: float = 120.0):
         self._pool: list[PoolProvider] = []
         self._cooldown = cooldown_sec
+        self._recovery_sec = recovery_sec
+        self._max_weight = 10
+        self._min_weight = 1
         self._round_robin_idx = 0
         for p in providers:
             self.add(p)
@@ -834,12 +838,23 @@ class ProviderPool:
     def remove(self, model: str):
         self._pool = [p for p in self._pool if p.provider.model != model]
 
+    def _recover(self, pp: PoolProvider) -> None:
+        """Auto-recover unhealthy providers after recovery interval."""
+        if not pp.healthy and time.time() - pp.last_failure > self._recovery_sec:
+            pp.healthy = True
+            pp.failures = 0
+            pp.weight = max(pp.weight, self._min_weight)
+
     @property
     def healthy_count(self) -> int:
         return sum(1 for p in self._pool if p.available)
 
     def _next_provider(self) -> PoolProvider | None:
         available = [p for p in self._pool if p.available]
+        if not available:
+            for pp in self._pool:
+                self._recover(pp)
+            available = [p for p in self._pool if p.available]
         if not available:
             return None
         # 加权轮询
@@ -861,20 +876,35 @@ class ProviderPool:
         tried = set()
 
         for _ in range(len(self._pool)):
+            for pp in self._pool:
+                self._recover(pp)
             pp = self._next_provider()
             if pp is None or id(pp) in tried:
                 break
             tried.add(id(pp))
             try:
-                return await pp.provider.chat(messages, tools, **kwargs)
+                result = await pp.provider.chat(messages, tools, **kwargs)
+                pp.failures = max(0, pp.failures - 1)
+                pp.last_success = time.time()
+                pp.healthy = True
+                if pp.weight < self._max_weight:
+                    pp.weight = min(self._max_weight, pp.weight + 1)
+                return result
             except (RateLimitError, ServerOverloadError) as e:
                 pp.failures += 1
                 pp.last_failure = time.time()
                 pp.cooldown_until = time.time() + self._cooldown
+                pp.weight = max(self._min_weight, pp.weight - 1)
                 errors.append(f"{pp.provider.model}: {e}")
             except ProviderError as e:
+                pp.failures += 1
+                pp.last_failure = time.time()
                 if not e.retryable:
                     pp.healthy = False
+                    pp.weight = self._min_weight
+                else:
+                    pp.cooldown_until = time.time() + self._cooldown
+                    pp.weight = max(self._min_weight, pp.weight - 1)
                 errors.append(f"{pp.provider.model}: {e}")
 
         raise ProviderError(f"All providers failed: {'; '.join(errors)}")

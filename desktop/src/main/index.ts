@@ -4,6 +4,8 @@ import * as fs from "fs";
 import { spawn, ChildProcess } from "child_process";
 import WebSocket from "ws";
 
+const isDev = process.env.NODE_ENV === "development" || process.argv.includes("--dev");
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let ws: WebSocket | null = null;
@@ -109,9 +111,9 @@ function createWindow() {
         },
     });
 
-    console.log("[Aurora] NODE_ENV:", process.env.NODE_ENV);
-    console.log("[Aurora] args:", process.argv.filter(a => a.startsWith("-")));
-    console.log("[Aurora] isDev:", process.env.NODE_ENV === "development" || process.argv.includes("--dev"));
+    if (isDev) console.log("[Aurora] NODE_ENV:", process.env.NODE_ENV);
+    if (isDev) console.log("[Aurora] args:", process.argv.filter(a => a.startsWith("-")));
+    if (isDev) console.log("[Aurora] isDev:", isDev);
 
     mainWindow.webContents.on("did-fail-load", (_e, code, desc, url) => {
         console.error("[Aurora] PAGE LOAD FAILED:", code, desc, url);
@@ -121,12 +123,12 @@ function createWindow() {
     });
 
     if (process.env.NODE_ENV === "development" || process.argv.includes("--dev")) {
-        console.log("[Aurora] Loading dev URL: http://localhost:5173");
+        if (isDev) console.log("[Aurora] Loading dev URL: http://localhost:5173");
         mainWindow.loadURL("http://localhost:5173");
         mainWindow.webContents.openDevTools({ mode: "detach" });
     } else {
         const prodPath = path.join(__dirname, "../renderer/index.html");
-        console.log("[Aurora] Loading production file:", prodPath);
+        if (isDev) console.log("[Aurora] Loading production file:", prodPath);
         mainWindow.loadFile(prodPath);
     }
 
@@ -311,7 +313,7 @@ async function handleBrowserCommand(msg: { id: string; method: string; params: a
 // Start Python backend on app launch
 function startBackend() {
     const cwd = path.resolve(__dirname, "..", "..", "..");
-    console.log("[Aurora] Starting backend in", cwd);
+    if (isDev) console.log("[Aurora] Starting backend in", cwd);
     try {
         backendProcess = spawn("python", ["main.py"], {
             cwd,
@@ -319,10 +321,10 @@ function startBackend() {
             env: { ...process.env, PYTHONUNBUFFERED: "1" },
         });
         backendProcess.stdout?.on("data", (d: Buffer) => {
-            console.log("[Aurora backend]", d.toString().trim());
+            if (isDev) console.log("[Aurora backend]", d.toString().trim());
         });
         backendProcess.stderr?.on("data", (d: Buffer) => {
-            console.log("[Aurora backend]", d.toString().trim());
+            if (isDev) console.log("[Aurora backend]", d.toString().trim());
         });
     } catch (e: any) {
         console.error("[Aurora] Backend error:", e.message);
@@ -406,7 +408,7 @@ function connectBackend() {
     ws = new WebSocket(BACKEND_URL + "/ws/desktop");
 
     ws.on("open", () => {
-        console.log("[Aurora] Backend connected");
+        if (isDev) console.log("[Aurora] Backend connected");
         mainWindow?.webContents.send("backend:connected");
     });
 
@@ -436,7 +438,7 @@ function connectBackend() {
     });
 
     ws.on("close", () => {
-        console.log("[Aurora] Backend disconnected, reconnecting in 5s...");
+        if (isDev) console.log("[Aurora] Backend disconnected, reconnecting in 5s...");
         setTimeout(connectBackend, 5000);
     });
 
@@ -462,7 +464,7 @@ function loadPty() {
     ptyLoadAttempted = true;
     try {
         ptyModule = require("node-pty");
-        console.log("[Aurora] node-pty loaded OK");
+        if (isDev) console.log("[Aurora] node-pty loaded OK");
     } catch (e: any) {
         console.warn("[Aurora] node-pty unavailable, terminal disabled:", e.message);
         ptyModule = null;

@@ -771,7 +771,7 @@ class FTSSessions:
         try:
             rows = self.c.execute("SELECT sid,summary,turns,ended FROM meta ORDER BY ended DESC LIMIT ?", (n,)).fetchall()
             return [{"sid":r[0],"summary":r[1][:200],"turns":r[2],"ended":r[3]} for r in rows]
-        except: return []
+        except Exception: return []
 
 
 # ── Closed-Loop Master Manager ──

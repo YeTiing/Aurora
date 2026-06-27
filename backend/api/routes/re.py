@@ -126,7 +126,7 @@ async def re_import_har(req: dict):
     har_data = req.get("har", req)
     if isinstance(har_data, str):
         try: har_data = json.loads(har_data)
-        except: raise HTTPException(400, "Invalid HAR JSON")
+        except Exception: raise HTTPException(400, "Invalid HAR JSON")
     mgr = get_re_manager()
     sess = mgr.create(url=req.get("url","HAR Import"))
     entries = har_data.get("log",{}).get("entries",[]) or []

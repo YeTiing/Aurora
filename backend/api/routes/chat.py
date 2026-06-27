@@ -364,7 +364,10 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                         "data": {"error": str(e), "traceback": tb[:500]},
                     }, ensure_ascii=False))
             elif msg.get("type") == "cancel":
-                # Cancel handled by breaking the loop conceptually
+                try:
+                    await _graph.cancel(session_id)
+                except Exception:
+                    pass
                 await ws.send_text(json.dumps({"type": "codex/event/turn_aborted", "data": {"reason": "user_cancelled"}}))
     except WebSocketDisconnect: pass
     finally:

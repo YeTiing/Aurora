@@ -174,7 +174,7 @@ class TerminalBackend(SwarmBackend):
         proc = self._procs.pop(agent_id, None)
         if proc:
             try: proc.terminate(); proc.wait(5)
-            except: proc.kill()
+            except Exception: proc.kill()
     async def shutdown(self):
         for aid in list(self._procs): await self.stop_agent(aid)
     def is_available(self):

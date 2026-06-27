@@ -12,7 +12,7 @@ async def session_export_handler(action: str = "", session_data: str = "", forma
             if not session_data:
                 return ToolCallResult(success=False, output="", error="'session_data' required - pass the session JSON")
             try: data = json.loads(session_data)
-            except: return ToolCallResult(success=False, output="", error="Invalid JSON in session_data")
+            except Exception: return ToolCallResult(success=False, output="", error="Invalid JSON in session_data")
             config = ExportConfig()
             md = export_session(data, config)
             p = None

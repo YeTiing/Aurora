@@ -128,7 +128,7 @@ class DiffDetective:
             elif raw.startswith("author-time "):
                 try:
                     current["date"] = time.strftime('%Y-%m-%d', time.gmtime(int(raw.split()[-1])))
-                except: current["date"] = ""
+                except Exception: current["date"] = ""
                 current["commit_short"] = current.get("hash", "")[:8]
             elif raw.startswith('\t'):
                 current["content"] = raw[1:]

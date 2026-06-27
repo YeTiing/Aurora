@@ -58,7 +58,7 @@ async def post_file_edit_hook(
 
         # Notify LSP of file change
         try:
-            content = open(filepath, encoding="utf-8", errors="replace").read()
+            content = Path(filepath).read_text(encoding="utf-8", errors="replace")
             await mgr.change_file(filepath, content)
         except Exception:
             pass

@@ -24,11 +24,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    yield
+    try:
+        from backend.log_archive import LogArchiveManager
+        mgr = LogArchiveManager()
+        result = mgr.archive_old_logs(30)
+        import logging
+        logging.getLogger("aurora").info(f"Log archive on shutdown: {result}")
+    except Exception:
+        pass
+
 app = FastAPI(
     title="Aurora AI Agent",
     version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -68,6 +83,25 @@ async def add_timing(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Process-Time"] = f"{(time.time() - start) * 1000:.0f}ms"
     return response
+
+
+# Simple in-memory IP rate limiter (60 req/min per IP)
+_rate_buckets: dict[str, tuple[float, int]] = {}
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    if request.url.path in ("/health", "/docs", "/redoc", "/openapi.json"):
+        return await call_next(request)
+    ip = request.client.host if request.client else "127.0.0.1"
+    now = time.time()
+    window_start, count = _rate_buckets.get(ip, (now, 0))
+    if now - window_start > 60:
+        window_start, count = now, 0
+    count += 1
+    _rate_buckets[ip] = (window_start, count)
+    if count > 60:
+        return JSONResponse(status_code=429, content={"error": "Too many requests", "detail": "Rate limit exceeded"})
+    return await call_next(request)
 
 # Public paths that don't require authentication
 _AUTH_FREE_PREFIXES = ("/health", "/docs", "/redoc", "/openapi.json", "/auth", "/i18n")

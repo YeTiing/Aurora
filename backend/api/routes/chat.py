@@ -88,6 +88,8 @@ async def chat(req: ChatRequest):
 {rag_ctx}\
 User: {req.message}" if (skills_ctx or rag_ctx) else req.message
     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
+    from backend.api.routes.files import _sessions_meta
+    _sessions_meta[sid] = {"session_id": sid, "workspace": req.workspace, "last_seen": time.time()}
     state = await _graph.run(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history)
     return AgentResponse(session_id=sid, response=state.final_response, plan=[p.to_dict() for p in state.plan], diffs=state.diffs)
 
@@ -106,6 +108,8 @@ async def chat_stream(req: ChatRequest):
 {rag_ctx}\
 User: {req.message}" if (skills_ctx or rag_ctx) else req.message
     history2 = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
+    from backend.api.routes.files import _sessions_meta
+    _sessions_meta[sid] = {"session_id": sid, "workspace": req.workspace, "last_seen": time.time()}
     async def gen():
         async for chunk in _graph.run_with_stream(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history2):
             yield f"data: {json.dumps(chunk, ensure_ascii=False)}\

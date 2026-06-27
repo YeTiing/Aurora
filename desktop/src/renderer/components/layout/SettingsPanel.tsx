@@ -48,10 +48,31 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     const [visionLoaded, setVisionLoaded] = useState(false);
     const [savedProviders, setSavedProviders] = useState<any[]>([]);
     const [newProviderName, setNewProviderName] = useState("");
+    const [editingProviderName, setEditingProviderName] = useState<string | null>(null);
     const [showSaveProvider, setShowSaveProvider] = useState(false);
     const loadProviders = async () => { try { setSavedProviders((await (await fetch("http://127.0.0.1:9876/providers")).json()).providers||[]); } catch {} };
-    const saveProvider = async () => { const name=newProviderName.trim()||provider; await fetch("http://127.0.0.1:9876/providers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,provider,api_key:apiKey,base_url:baseUrl,model})});setNewProviderName("");setShowSaveProvider(false);loadProviders(); };
+    const saveProvider = async () => {
+        const name = newProviderName.trim() || provider;
+        await fetch("http://127.0.0.1:9876/providers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, provider, api_key: apiKey, base_url: baseUrl, model, max_context_tokens: maxContext }) });
+        if (editingProviderName && editingProviderName !== name) {
+            await fetch("http://127.0.0.1:9876/providers/" + encodeURIComponent(editingProviderName), { method: "DELETE" });
+        }
+        setNewProviderName("");
+        setEditingProviderName(null);
+        setShowSaveProvider(false);
+        loadProviders();
+    };
     const deleteProvider = async (name:string) => { await fetch("http://127.0.0.1:9876/providers/"+encodeURIComponent(name),{method:"DELETE"});loadProviders(); };
+    const editProvider = (p: any) => {
+        setEditingProviderName(p.name || "");
+        setNewProviderName(p.name || "");
+        setProvider(p.provider || "openai");
+        setBaseUrl(p.base_url || "");
+        setModel(p.model || "gpt-4o");
+        setMaxContext(p.max_context_tokens || 24000);
+        setApiKey(p.api_key || "");
+        setActiveTab("llm");
+    };
     const switchProvider = async (p:any) => {
         setProvider(p.provider||"openai");setBaseUrl(p.base_url||"");
         if (p.api_key) setApiKey(p.api_key);
@@ -335,6 +356,15 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                 <input value={newProviderName} onChange={(e: any) => setNewProviderName(e.target.value)}
                                     placeholder="服务商名称"
                                     style={{ ...inputStyle, fontSize: 13, fontWeight: 600 }} />
+                                {editingProviderName && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                                        <span style={{ fontSize: 10, color: colors.accent }}>正在编辑：{editingProviderName}</span>
+                                        <button onClick={() => { setEditingProviderName(null); setNewProviderName(""); setApiKey(""); }}
+                                            style={{ background: "transparent", border: "none", color: colors.textSecondary, fontSize: 10, cursor: "pointer" }}>
+                                            取消编辑
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label style={{ fontSize: 11, color: colors.textSecondary, display: "block", marginBottom: 4 }}>API Base URL</label>
@@ -376,7 +406,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                                 <button onClick={handleSave} disabled={saving}
                                     style={{ flex: 1, padding: "8px", background: colors.accent, color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, opacity: saving ? 0.7 : 1 }}>
-                                    {saving ? t("saving") : t("saveSettings")}
+                                    {saving ? t("saving") : (editingProviderName ? "保存服务商修改" : t("saveSettings"))}
                                 </button>
                                 <button onClick={handleTest}
                                     style={{ flex: 1, padding: "8px", background: colors.success, color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
@@ -575,7 +605,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                     {activeTab === "providers" && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>
-                                点击服务商自动填入配置 · 在 LLM API 页点 💾保存 添加
+                                点击服务商切换配置 · 点“编辑”可修改后保存
                             </div>
                             {savedProviders.map((p: any) => (
                                 <div key={p.name} onClick={() => switchProvider(p)} style={{
@@ -594,18 +624,20 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                                         {(p.provider===provider && p.base_url===baseUrl) && (
                                             <span style={{ fontSize: 9, color: "#22c55e", fontWeight: 600 }}>当前</span>
                                         )}
-                                        {(
+                                        <button onClick={(e: any) => { e.stopPropagation(); editProvider(p); }}
+                                            style={{ padding: "3px 8px", fontSize: 10, borderRadius: 4, border: "none", background: colors.accent, color: "#fff", cursor: "pointer" }}>
+                                            编辑
+                                        </button>
                                         <button onClick={(e: any) => { e.stopPropagation(); deleteProvider(p.name); }}
                                             style={{ padding: "3px 8px", fontSize: 10, borderRadius: 4, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer" }}>
                                             删除
                                         </button>
-                                        )}
                                     </div>
                                 </div>
                             ))}
                             {savedProviders.length === 0 && (
                                 <div style={{ color: colors.textSecondary, fontSize: 12, textAlign: "center", padding: 20 }}>
-                                    还没有保存的服务商<br/>在 LLM API 页配置后点 💾保存
+                                    还没有保存的服务商<br/>在 LLM API 页配置后保存
                                 </div>
                             )}
                         </div>

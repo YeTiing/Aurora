@@ -121,9 +121,20 @@ async def test_shell_handler_uses_approval_bridge_without_auto_approving(monkeyp
         def needs_approval(self, risk, tool_name):
             return True
 
+        async def wait_for_decision(self, request_id, timeout):
+            return "approved"
+
+    class FakeRequest:
+        id = "request-shell"
+        timeout = 30
+
     class FakeBridge:
         manager = FakeManager()
-        request_command_approval = staticmethod(fake_request_command_approval)
+
+        @staticmethod
+        async def request_command_approval(**kwargs):
+            captured.append(kwargs)
+            return FakeRequest()
 
     import backend.approval as approval_module
     monkeypatch.setattr(approval_module, "approval_bridge", FakeBridge())

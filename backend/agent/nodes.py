@@ -147,10 +147,17 @@ async def tool_select_node(
 
         if tool_calls:
             for tc in tool_calls:
+                function_call = tc.get("function") or {}
+                name = function_call.get("name") or tc.get("name") or "unknown"
+                raw_arguments = function_call.get("arguments", tc.get("arguments", "{}"))
+                if isinstance(raw_arguments, str):
+                    arguments = json.loads(raw_arguments or "{}")
+                else:
+                    arguments = raw_arguments or {}
                 inv = ToolInvocation(
                     id=tc.get("id", f"call_{state.total_turns}"),
-                    name=tc.get("function", {}).get("name", "unknown"),
-                    arguments=json.loads(tc.get("function", {}).get("arguments", "{}"))
+                    name=name,
+                    arguments=arguments
                 )
                 state.tool_invocations.append(inv)
                 state.add_message(Message.assistant(

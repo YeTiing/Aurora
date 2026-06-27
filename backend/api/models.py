@@ -10,6 +10,7 @@ class ChatRequest(BaseModel):
     workspace: str = "."
     stream: bool = False
     sandbox_mode: str = "full-access"
+    approval_mode: str = "never"
     model: str = ""
     history: list[dict] | None = None
 

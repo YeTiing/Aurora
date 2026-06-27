@@ -130,7 +130,7 @@ class Config:
         # Persist to project config file
         try:
             import json
-            project_path = self._project_root / "aurora.json"
+            project_path = self.project_root / "aurora.json"
             with open(project_path, "w", encoding="utf-8") as f:
                 json.dump(self._project, f, indent=2, ensure_ascii=False)
         except Exception:

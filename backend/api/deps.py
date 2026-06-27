@@ -25,6 +25,7 @@ def get_llm():
         cfg = get_config()
         if cfg.llm_api_key:
             _llm = LLMClient(LLMConfig(
+                provider=cfg.get("llm.provider", "openai"),
                 model=cfg.llm_model,
                 api_key=cfg.llm_api_key,
                 base_url=cfg.llm_base_url

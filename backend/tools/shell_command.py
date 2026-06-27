@@ -65,13 +65,16 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
         from backend.approval import approval_bridge
         risk = approval_bridge.manager.assess_risk("shell_command", arguments)
         if approval_bridge.manager.needs_approval(risk, "shell_command"):
-            await approval_bridge.request_command_approval(
+            request = await approval_bridge.request_command_approval(
                 session_id=str(arguments.get("session_id", "")),
                 thread_id=str(arguments.get("thread_id", arguments.get("session_id", ""))),
                 command=command,
                 risk=risk,
                 description=f"Shell: {command[:80]}",
             )
+            decision = await approval_bridge.manager.wait_for_decision(request.id, request.timeout)
+            if decision != "approved":
+                return {"success": False, "stdout": "", "stderr": f"Command approval {decision}", "exit_code": -1}
     except ImportError:
         pass
 

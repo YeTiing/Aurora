@@ -157,7 +157,9 @@ class AgentGraph:
 
     # ══ 核心执行循环 ══
 
-    async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "", history: list[dict] | None = None) -> AgentState:
+    async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", approval_mode: str = "never", model: str = "", history: list[dict] | None = None) -> AgentState:
+
+        self._apply_approval_mode(approval_mode)
 
         ws = workspace or self.workspace
 
@@ -483,9 +485,11 @@ class AgentGraph:
         return state
 
 
-    async def run_with_stream(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", model: str = "", history: list[dict] | None = None):
+    async def run_with_stream(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", approval_mode: str = "never", model: str = "", history: list[dict] | None = None):
 
         """流式执行 — 每步 yield SSE 进度更新"""
+
+        self._apply_approval_mode(approval_mode)
 
         ws = workspace or self.workspace
 
@@ -710,6 +714,21 @@ class AgentGraph:
 
 
     # ══ 内部方法 ══
+
+    def _apply_approval_mode(self, approval_mode: str):
+
+        try:
+
+            from backend.approval import approval_bridge, ApprovalPolicy
+
+            policy = ApprovalPolicy(approval_mode or "never")
+
+            approval_bridge.manager.set_policy(policy)
+
+        except Exception:
+
+            pass
+
 
     async def _run_planner(self, state: AgentState):
 

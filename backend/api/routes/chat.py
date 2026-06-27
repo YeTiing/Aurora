@@ -87,17 +87,26 @@ async def chat(req: ChatRequest):
 {rag_ctx}\
 User: {req.message}" if (skills_ctx or rag_ctx) else req.message
     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
-    state = await _graph.run(full, session_id=sid, workspace=req.workspace, history=history)
+    state = await _graph.run(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history)
     return AgentResponse(session_id=sid, response=state.final_response, plan=[p.to_dict() for p in state.plan], diffs=state.diffs)
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest):
     sid = req.session_id or f"session_{uuid.uuid4().hex[:8]}"
     _init_graph(); _init_skills(); _init_rag()
-    full = req.message
+    skills_ctx = ""; rag_ctx = ""
+    if _skills:
+        triggered = _skills.match(req.message)
+        skills_ctx = _skills.inject(triggered)
+    if _rag and _rag.vector_store.count() > 0:
+        chunks = _rag.search(req.message, top_k=5, llm_client=_llm)
+        if chunks: rag_ctx = _rag.format_context(chunks)
+    full = f"{skills_ctx}\
+{rag_ctx}\
+User: {req.message}" if (skills_ctx or rag_ctx) else req.message
     history2 = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
     async def gen():
-        async for chunk in _graph.run_with_stream(full, session_id=sid, workspace=req.workspace, history=history2):
+        async for chunk in _graph.run_with_stream(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history2):
             yield f"data: {json.dumps(chunk, ensure_ascii=False)}\
 \
 "
@@ -169,6 +178,7 @@ async def desktop_websocket(ws: WebSocket):
                         session_id=session_id,
                         workspace=workspace,
                         sandbox_mode=sandbox_mode,
+                        approval_mode=msg.get("approvalMode", "on-request"),
                         model=model,
                         history=history,
                     )
@@ -326,6 +336,7 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                         session_id=session_id,
                         workspace=msg.get("workspace","."),
                         sandbox_mode=sandbox_mode,
+                        approval_mode=msg.get("approvalMode", "on-request"),
                         model=model,
                         history=history,
                     )

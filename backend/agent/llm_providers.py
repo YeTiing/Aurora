@@ -15,6 +15,7 @@ class ProviderKind(Enum):
     OLLAMA = "ollama"
     OPENROUTER = "openrouter"
     AZURE = "azure"
+    DEEPSEEK = "deepseek"
     CUSTOM = "custom"
 
 
@@ -46,6 +47,8 @@ class ProviderConfig:
             return (self.base_url or "http://localhost:11434").rstrip("/") + "/api/chat"
         elif self.kind == ProviderKind.OPENROUTER:
             return "https://openrouter.ai/api/v1/chat/completions"
+        elif self.kind == ProviderKind.DEEPSEEK:
+            return (self.base_url or "https://api.deepseek.com").rstrip("/") + "/chat/completions"
         elif self.kind == ProviderKind.AZURE:
             base = self.base_url.rstrip("/") if self.base_url else f"https://{os.environ.get('AZURE_RESOURCE_NAME','')}.openai.azure.com"
             return f"{base}/openai/deployments/{self.model}/chat/completions?api-version={self.api_version or '2024-02-15-preview'}"
@@ -777,6 +780,7 @@ _PROVIDER_REGISTRY: dict[ProviderKind, type[BaseProvider]] = {
     ProviderKind.OLLAMA: OllamaProvider,
     ProviderKind.OPENROUTER: OpenAIProvider,  # OpenRouter 用 OpenAI 兼容接口
     ProviderKind.AZURE: OpenAIProvider,        # Azure 也用 OpenAI 兼容
+    ProviderKind.DEEPSEEK: OpenAIProvider,     # DeepSeek uses OpenAI-compatible chat completions
     ProviderKind.CUSTOM: OpenAIProvider,
 }
 

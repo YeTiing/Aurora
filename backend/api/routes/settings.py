@@ -151,6 +151,11 @@ async def update_settings(req: SettingsUpdate):
     if req.model: aurora_data["model"] = req.model
     if req.provider: aurora_data["provider"] = req.provider
     aurora_json.write_text(json.dumps(aurora_data, indent=4, ensure_ascii=False), encoding="utf-8")
+    import backend.api.deps as deps
+    import backend.api.routes.chat as chat_routes
+    deps.reset_deps()
+    chat_routes._cfg = None; chat_routes._llm = None; chat_routes._graph = None
+    chat_routes._rag = None; chat_routes._skills = None; chat_routes._plugins = None
     global _cfg, _llm, _graph
     _cfg = None; _llm = None; _graph = None
     _init()

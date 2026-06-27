@@ -99,6 +99,20 @@ class ApprovalManager:
     def get_pending(self) -> list[ApprovalRequest]:
         return [r for r in self._pending.values() if r.status == "pending"]
 
+    async def wait_for_decision(self, request_id: str, timeout: float | None = None) -> str:
+        deadline = time.time() + (timeout or 30.0)
+        while time.time() < deadline:
+            request = self._pending.get(request_id)
+            if request is None:
+                for item in reversed(self._history):
+                    if item.id == request_id:
+                        return item.status
+                return "missing"
+            if request.status != "pending":
+                return request.status
+            await asyncio.sleep(0.05)
+        return "timeout"
+
     def stats(self) -> dict:
         return {
             "policy": self.policy.value,

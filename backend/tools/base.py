@@ -128,14 +128,33 @@ class ToolRegistry:
             try:
                 output = await handler(arguments, workspace)
                 duration = (time.time() - start) * 1000
-                output_str = str(output)
-                truncated = len(output_str) > 65536
-                result = ToolCallResult(
-                    id="", name=name,
-                    output=truncate_output(output_str) if truncated else output_str,
-                    success=True, duration_ms=duration,
-                    metadata={"truncated": truncated}
-                )
+                if isinstance(output, dict) and "success" in output:
+                    success = bool(output.get("success"))
+                    output_text = output.get("output")
+                    if output_text is None:
+                        output_text = output.get("stdout", "")
+                    error_text = output.get("error") or output.get("stderr") or None
+                    output_str = str(output_text or "")
+                    truncated = len(output_str) > 65536
+                    metadata = {k: v for k, v in output.items() if k not in {"success", "output", "stdout", "error", "stderr"}}
+                    metadata["truncated"] = truncated
+                    result = ToolCallResult(
+                        id="", name=name,
+                        output=truncate_output(output_str) if truncated else output_str,
+                        success=success,
+                        error=str(error_text) if error_text else None,
+                        duration_ms=duration,
+                        metadata=metadata,
+                    )
+                else:
+                    output_str = str(output)
+                    truncated = len(output_str) > 65536
+                    result = ToolCallResult(
+                        id="", name=name,
+                        output=truncate_output(output_str) if truncated else output_str,
+                        success=True, duration_ms=duration,
+                        metadata={"truncated": truncated}
+                    )
             except PermissionError as e:
                 result = ToolCallResult(id="", name=name, output="", success=False,
                                          error=f"Permission denied: {e}", duration_ms=(time.time()-start)*1000)

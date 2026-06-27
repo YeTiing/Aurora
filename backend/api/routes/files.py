@@ -11,7 +11,7 @@ router = APIRouter()
 from backend.api.models import IndexRequest
 
 from backend.config import config as _cfg_module
-from backend.agent.llm_client import LLMClient, LLMConfig
+from backend.api.path_security import resolve_allowed_path
 
 
 # Shared lazy deps
@@ -56,16 +56,9 @@ def _init_plugins():
 
 
 
-def _workspace_root() -> Path:
-    return Path.cwd().resolve()
-
-
-def _resolve_workspace_path(path: str) -> Path:
-    root = _workspace_root()
-    resolved = (root / path).resolve()
-    if resolved != root and root not in resolved.parents:
-        raise HTTPException(403, "Path outside workspace")
-    return resolved
+def _resolve_workspace_path(path: str, workspace: str = ".") -> Path:
+    _init_cfg()
+    return resolve_allowed_path(path, workspace, _cfg)
 
 
 def _mask_config_secrets(value: Any) -> Any:
@@ -84,14 +77,14 @@ def _mask_config_secrets(value: Any) -> Any:
 
 
 @router.get("/files/read")
-async def read_file(path: str):
-    p = _resolve_workspace_path(path)
+async def read_file(path: str, workspace: str = "."):
+    p = _resolve_workspace_path(path, workspace)
     if not p.exists() or not p.is_file(): raise HTTPException(404, "Not found")
     return {"path":str(p),"content":p.read_text(encoding="utf-8", errors="ignore")}
 
 @router.post("/files/write")
 async def write_file(req: dict):
-    p = _resolve_workspace_path(req["path"]); p.parent.mkdir(parents=True, exist_ok=True)
+    p = _resolve_workspace_path(req["path"], str(req.get("workspace", "."))); p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(req.get("content",""), encoding="utf-8")
     return {"path":str(p),"written":True}
 
@@ -99,7 +92,7 @@ async def write_file(req: dict):
 async def search_files(req: dict):
     import subprocess
     try:
-        search_root = _resolve_workspace_path(str(req.get("path",".")))
+        search_root = _resolve_workspace_path(str(req.get("path",".")), str(req.get("workspace", ".")))
         r = subprocess.run(["rg","--line-number","--max-count",str(req.get("max_results",50)),req.get("query",""),str(search_root)], capture_output=True, text=True, timeout=10)
         return {"results":r.stdout[:10000],"count":len(r.stdout.splitlines())}
     except HTTPException:
@@ -112,8 +105,9 @@ async def search_files(req: dict):
 @router.post("/rag/index")
 async def index_project(req: IndexRequest):
     _init_rag(); import os
+    index_root = _resolve_workspace_path(req.path, req.workspace)
     files = []
-    for dirpath, dirnames, filenames in os.walk(req.path):
+    for dirpath, dirnames, filenames in os.walk(index_root):
         dirnames[:] = [d for d in dirnames if d not in (".git","node_modules","__pycache__","venv",".venv")]
         for f in filenames: files.append(os.path.join(dirpath, f))
     _rag.index_files(files)

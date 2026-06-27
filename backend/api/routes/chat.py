@@ -15,6 +15,7 @@ from backend.api.models import ChatRequest, AgentResponse
 
 from backend.config import config as _cfg_module
 from backend.agent.llm_client import LLMClient, LLMConfig
+from backend.api.path_security import resolve_allowed_path
 
 
 # Shared lazy deps
@@ -366,18 +367,15 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
         sse_bus.unsubscribe(session_id, forward_event)
         if session_id in _ws_connections: _ws_connections[session_id].remove(ws)
 
-def _resolve_workspace_path(path: str) -> Path:
-    root = Path.cwd().resolve()
-    resolved = (root / path).resolve()
-    if resolved != root and root not in resolved.parents:
-        raise HTTPException(403, "Path outside workspace")
-    return resolved
+def _resolve_workspace_path(path: str, workspace: str = ".") -> Path:
+    _init_cfg()
+    return resolve_allowed_path(path, workspace, _cfg)
 
 
 # Files
 @router.get("/files")
-async def list_files_api(path: str = "."):
-    p = _resolve_workspace_path(path)
+async def list_files_api(path: str = ".", workspace: str = "."):
+    p = _resolve_workspace_path(path, workspace)
     if not p.exists() or not p.is_dir(): raise HTTPException(404, "Not found")
     return {"path":str(p),"entries":[{"name":e.name,"isDirectory":e.is_dir(),"isFile":e.is_file()} for e in sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))]}
 

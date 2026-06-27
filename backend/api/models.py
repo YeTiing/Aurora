@@ -25,6 +25,7 @@ class AgentResponse(BaseModel):
 
 class IndexRequest(BaseModel):
     path: str
+    workspace: str = "."
 
 
 

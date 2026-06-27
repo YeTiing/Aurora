@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useStore } from "../../store";
 import { t } from "../../i18n";
+import { applySkinBackgrounds, applyTheme, getThemeByName, getStoredThemeName } from "../../theme";
 
 interface SkinBrowserProps {
     onClose: () => void;
@@ -21,18 +22,54 @@ const BUILTIN_SKINS = [
 
 export function SkinBrowser({ onClose }: SkinBrowserProps) {
     const colors = useStore((s) => s.themeColors);
-    const activeTheme = useStore((s) => s.theme);
+    const [activeSkin, setActiveSkin] = useState(() => getStoredThemeName());
     
     // 超级预览隐身与停靠状态
     const [ghost, setGhost] = useState(false);
     const [panelPos, setPanelPos] = useState<"left" | "center" | "right">("center");
 
     const handleApply = async (skinName: string) => {
+        const theme = getThemeByName(skinName);
+        applyTheme(theme);
+        applySkinBackgrounds();
+        useStore.setState({
+            theme: theme.name === "aurora-light" || theme.name === "github-light" || theme.name === "sakura-petals" ? "light" : "dark",
+            themeColors: { ...theme.colors, bgSecondary: theme.colors.surface, accentHover: theme.colors.accent } as any,
+        });
+        setActiveSkin(theme.name);
         try {
-            console.log('Theme apply:', skinName);
-        } catch (e: any) {
-            console.error("Theme Fail:", e);
-        }
+            await fetch(`http://127.0.0.1:9876/skins/${encodeURIComponent(skinName)}/apply`, { method: "POST" });
+        } catch {}
+    };
+
+    const saveImage = (key: string, value: string) => {
+        localStorage.setItem(key, value);
+        applySkinBackgrounds();
+    };
+
+    const clearImage = (key: string) => {
+        localStorage.removeItem(key);
+        applySkinBackgrounds();
+    };
+
+    const pickImage = (key: string) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0] as any;
+            const localPath = file?.path;
+            if (localPath) {
+                saveImage(key, localPath);
+                return;
+            }
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = () => saveImage(key, String(reader.result || ""));
+                reader.readAsDataURL(file);
+            }
+        };
+        input.click();
     };
 
     // 所有滑动条共通的超级隐身挂载钩子
@@ -96,20 +133,14 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                         </div>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                             <button className="toolbar-btn" style={{ background: 'var(--dark-border)', color: 'var(--dark-text)', padding: '0 12px', minWidth: '80px' }}
-                            onClick={() => {
-                                const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
-                                input.onchange = (e) => {
-                                    const file = (e.target as HTMLInputElement).files?.[0];
-                                    if (file) { localStorage.setItem('aurora_anime_bg', file.path); window.dispatchEvent(new Event('storage')); location.reload(); }
-                                }; input.click();
-                            }}>📁 本地图</button>
+                            onClick={() => pickImage('aurora_anime_bg')}>📁 本地图</button>
                             <input type="text" placeholder="C:\ 或 https://..." 
                             style={{ flex: 1, padding: '4px 8px', background: 'var(--dark-bg)', border: '1px solid var(--dark-border)', color: 'var(--dark-text)', borderRadius: '6px' }}
                             defaultValue={localStorage.getItem('aurora_anime_bg') || ""}
-                            onChange={(e) => { localStorage.setItem('aurora_anime_bg', e.target.value); }}
-                            onBlur={() => { location.reload(); }}/>
+                            onChange={(e) => { saveImage('aurora_anime_bg', e.target.value); }}
+                            onBlur={() => { applySkinBackgrounds(); }}/>
                             <button className="toolbar-btn" style={{ background: '#7f1d1d', color: '#fff', padding: '0 12px' }}
-                            onClick={() => { localStorage.removeItem('aurora_anime_bg'); location.reload(); }}>✕ 清除</button>
+                            onClick={() => { clearImage('aurora_anime_bg'); }}>✕ 清除</button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
                             <span style={{ fontSize: "12px", color: "var(--dark-text)" }}>全局壁纸 定位微调:</span>
@@ -155,20 +186,14 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                         </div>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                             <button className="toolbar-btn" style={{ background: 'var(--dark-border)', color: 'var(--dark-text)', padding: '0 12px', minWidth: '60px' }}
-                            onClick={() => {
-                                const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
-                                input.onchange = (e) => {
-                                    const file = (e.target as HTMLInputElement).files?.[0];
-                                    if (file) { localStorage.setItem('aurora_bg_L', file.path); window.dispatchEvent(new Event('storage')); location.reload(); }
-                                }; input.click();
-                            }}>📁 图</button>
-                            <input type="text" placeholder="C:\ 或 https://..." 
+                            onClick={() => pickImage('aurora_bg_L')}>📁 图</button>
+                            <input type="text" placeholder="C:\ 或 https://..."
                             style={{ flex: 1, padding: '4px 8px', background: 'var(--dark-bg)', border: '1px solid var(--dark-border)', color: 'var(--dark-text)', borderRadius: '6px' }}
                             defaultValue={localStorage.getItem('aurora_bg_L') || ""}
-                            onChange={(e) => { localStorage.setItem('aurora_bg_L', e.target.value); }}
-                            onBlur={() => { location.reload(); }}/>
+                            onChange={(e) => { saveImage('aurora_bg_L', e.target.value); }}
+                            onBlur={() => { applySkinBackgrounds(); }}/>
                             <button className="toolbar-btn" style={{ background: '#7f1d1d', color: '#fff', padding: '0 12px' }}
-                            onClick={() => { localStorage.removeItem('aurora_bg_L'); location.reload(); }}>✕ 重置</button>
+                            onClick={() => { clearImage('aurora_bg_L'); }}>✕ 重置</button>
                         </div>
                         {/* 左侧XYZ定位调整（已修复极窄断行） */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '15px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
@@ -209,20 +234,14 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                         </div>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                             <button className="toolbar-btn" style={{ background: 'var(--dark-border)', color: 'var(--dark-text)', padding: '0 12px', minWidth: '60px' }}
-                            onClick={() => {
-                                const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
-                                input.onchange = (e) => {
-                                    const file = (e.target as HTMLInputElement).files?.[0];
-                                    if (file) { localStorage.setItem('aurora_bg_C', file.path); window.dispatchEvent(new Event('storage')); location.reload(); }
-                                }; input.click();
-                            }}>📁 图</button>
-                            <input type="text" placeholder="C:\ 或 https://..." 
+                            onClick={() => pickImage('aurora_bg_C')}>📁 图</button>
+                            <input type="text" placeholder="C:\ 或 https://..."
                             style={{ flex: 1, padding: '4px 8px', background: 'var(--dark-bg)', border: '1px solid var(--dark-border)', color: 'var(--dark-text)', borderRadius: '6px' }}
                             defaultValue={localStorage.getItem('aurora_bg_C') || ""}
-                            onChange={(e) => { localStorage.setItem('aurora_bg_C', e.target.value); }}
-                            onBlur={() => { location.reload(); }}/>
+                            onChange={(e) => { saveImage('aurora_bg_C', e.target.value); }}
+                            onBlur={() => { applySkinBackgrounds(); }}/>
                             <button className="toolbar-btn" style={{ background: '#7f1d1d', color: '#fff', padding: '0 12px' }}
-                            onClick={() => { localStorage.removeItem('aurora_bg_C'); location.reload(); }}>✕ 重置</button>
+                            onClick={() => { clearImage('aurora_bg_C'); }}>✕ 重置</button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '15px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
                             <span style={{ fontSize: "12px", color: "var(--dark-text)" }}>中控 背景图定位调整:</span>
@@ -262,20 +281,14 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                         </div>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                             <button className="toolbar-btn" style={{ background: 'var(--dark-border)', color: 'var(--dark-text)', padding: '0 12px', minWidth: '60px' }}
-                            onClick={() => {
-                                const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
-                                input.onchange = (e) => {
-                                    const file = (e.target as HTMLInputElement).files?.[0];
-                                    if (file) { localStorage.setItem('aurora_bg_R', file.path); window.dispatchEvent(new Event('storage')); location.reload(); }
-                                }; input.click();
-                            }}>📁 图</button>
-                            <input type="text" placeholder="C:\ 或 https://..." 
+                            onClick={() => pickImage('aurora_bg_R')}>📁 图</button>
+                            <input type="text" placeholder="C:\ 或 https://..."
                             style={{ flex: 1, padding: '4px 8px', background: 'var(--dark-bg)', border: '1px solid var(--dark-border)', color: 'var(--dark-text)', borderRadius: '6px' }}
                             defaultValue={localStorage.getItem('aurora_bg_R') || ""}
-                            onChange={(e) => { localStorage.setItem('aurora_bg_R', e.target.value); }}
-                            onBlur={() => { location.reload(); }}/>
+                            onChange={(e) => { saveImage('aurora_bg_R', e.target.value); }}
+                            onBlur={() => { applySkinBackgrounds(); }}/>
                             <button className="toolbar-btn" style={{ background: '#7f1d1d', color: '#fff', padding: '0 12px' }}
-                            onClick={() => { localStorage.removeItem('aurora_bg_R'); location.reload(); }}>✕ 重置</button>
+                            onClick={() => { clearImage('aurora_bg_R'); }}>✕ 重置</button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '15px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
                             <span style={{ fontSize: "12px", color: "var(--dark-text)" }}>右侧 背景图定位调整:</span>
@@ -303,7 +316,7 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                         {/* ===================== 主题卡片渲染 ===================== */}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "16px" }}>
                             {BUILTIN_SKINS.map((skin) => {
-                                const isActive = activeTheme === skin.name;
+                                const isActive = activeSkin === skin.name;
                                 return (
                                     <div key={skin.name} className={`skin-card ${isActive ? 'active' : ''}`}
                                         style={{ padding: "16px", borderRadius: "10px", border: `2px solid ${isActive ? skin.accent : colors.border}`, backgroundColor: "rgba(0,0,0,0.3)", cursor: "pointer", transition: "all 0.15s ease" }}

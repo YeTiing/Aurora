@@ -1062,9 +1062,6 @@ body {
     background: transparent !important;
     background-color: transparent !important;
 }
-/* REMOVED WILDCARD */ {
-    /* If some child like session-list has a hardcoded color, this doesn't kill it but we killed it in TSX */
-}
 
 /* ========================================= */
 /* 终极顶边栏完全透视法术 */
@@ -1164,7 +1161,7 @@ body {
     content: ""; position: absolute; z-index: -2; top:0; left:0; right:0; bottom:0;
     pointer-events: none;
     background-image: var(--bg-r, none); background-size: cover; background-position: var(--pos-r, center);
-    opacity: var(--opacity-c, 0.6);
+    opacity: var(--opacity-r, 0.6);
 }
 
 /* 3. 第二层（覆盖层）：专职负责蒙黑板和毛玻璃！压在图片之上！ */
@@ -1205,9 +1202,6 @@ body {
 
 .aurora-chat-wrapper { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 
-/* REMOVED WILDCARD */ {
-    /* If this is getting overridden by an inline style, CSS !important on a wildcard fixes it locally */
-}
 .chat-panel-container {
     background: transparent !important;
     background-color: transparent !important;

@@ -541,6 +541,45 @@ class AgentGraph:
 
         state.add_message(Message.user(user_input))
 
+        # Simple chat: bypass agent loop for greetings and basic questions
+        chat_keywords = ("hello", "hi", "hey", "你好", "嗨", "谢谢", "thank", "what is", "who are", "how are", "explain", "解释", "帮我理解", "聊天", "聊")
+        is_simple_chat = (
+            len(user_input) < 200 and
+            not any(kw in user_input.lower() for kw in ["code", "代码", "fix", "修", "bug", "error", "错", "build", "test", "file", "文件", "write", "写", "create", "创建", "run", "运行", "deploy", "git", "commit", "install", "安装", "config", "配置", "terminal", "终端", "shell", "重构", "refactor", "delete", "删", "rename", "改", "add ", "加", "patch", "diff", "command", "命令", "api", "API", "docker", "database", "数据库", "www", "http", ".com", ".cn", "打开", "访问", "浏览", "网站", "browse", "open", "navigate", "search the web", "search for", "搜", "查"])
+            or
+            any(user_input.lower().startswith(kw) for kw in chat_keywords)
+        )
+        if is_simple_chat:
+            try:
+                mem = (_mem.system_prompt(user_input) if _mem else "") or ""
+                soul_text = ""
+                try:
+                    from pathlib import Path
+                    for p in [Path(".aurora") / "SOUL.md", Path("..") / ".aurora" / "SOUL.md"]:
+                        if p.exists():
+                            soul_text = p.read_text(encoding="utf-8").strip()
+                            break
+                except Exception:
+                    pass
+                if soul_text and len(soul_text) > 8000:
+                    soul_text = soul_text[:8000] + "\n\n[... SOUL.md truncated to 8000 chars ...]"
+                sys_prompt = (soul_text + "\n\n" + mem + "\n\nYou CAN browse the web. Answer concisely.") if soul_text else ("You are Aurora, a helpful AI assistant.\n\n" + mem + "\n\nAnswer concisely.")
+                messages = [{"role": "system", "content": sys_prompt}]
+                if history:
+                    for h in history[-8:]:
+                        r = h.get("role","user")
+                        if r in ("user", "assistant"):
+                            messages.append({"role": r, "content": h.get("content","")})
+                messages.append({"role": "user", "content": user_input})
+                resp = await self.llm.chat(messages, max_tokens=2000)
+                state.final_response = resp.content if hasattr(resp, "content") else str(resp)
+            except Exception as e:
+                state.final_response = f"Error: {str(e)[:200]}"
+            yield {"type": "codex/event/agent_message", "data": {"content": state.final_response}, "session_id": session_id}
+            yield {"type": "codex/event/task_complete", "data": {"result": state.final_response[:200]}, "session_id": session_id}
+            yield {"type": "done", "response": state.final_response}
+            return
+
         # URL Auto-detection: if user input looks like a browser request,  
         # force-inject browser_use instruction to bypass model refusal training
         import re

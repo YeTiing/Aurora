@@ -2,6 +2,7 @@
 from __future__ import annotations
 import asyncio, json, time, re, traceback
 from typing import Any, Callable
+from dataclasses import asdict
 from .state import AgentState, Message, PlanStep, ToolInvocation, ToolResult
 from .llm_client import LLMClient
 from .llm_providers import LLMResponse, StreamChunk
@@ -356,6 +357,3 @@ def truncate_tool_output(output: str, max_len: int = 16000) -> str:
     head = output[:max_len // 2]
     tail = output[-(max_len // 2):]
     return f"{head}\n\n... [{len(output) - max_len} chars truncated] ...\n\n{tail}"
-
-
-from dataclasses import asdict

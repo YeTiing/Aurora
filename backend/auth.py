@@ -35,6 +35,8 @@ class AuthState:
             return bool(self.api_key)
         if self.method == "oauth":
             return bool(self.access_token)
+        if self.method == "none":
+            return True  # no auth configured
         return False
 
 

@@ -437,13 +437,23 @@ function connectBackend() {
         }
     });
 
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleReconnect = () => {
+        if (!reconnectTimer) {
+            reconnectTimer = setTimeout(() => { reconnectTimer = null; connectBackend(); }, 5000);
+        }
+    };
+
     ws.on("close", () => {
         if (isDev) console.log("[Aurora] Backend disconnected, reconnecting in 5s...");
-        setTimeout(connectBackend, 5000);
+        scheduleReconnect();
     });
 
     ws.on("error", (err) => {
         console.error("[Aurora] WebSocket error:", err.message);
+        // close will fire after error, so just schedule reconnect here too
+        // to handle cases where close doesn't fire
+        if (ws) { try { ws.close(); } catch (_) {} }
     });
 }
 

@@ -99,6 +99,8 @@ async def rate_limit(request: Request, call_next):
         window_start, count = now, 0
     count += 1
     _rate_buckets[ip] = (window_start, count)
+    if len(_rate_buckets) > 10000:
+        _rate_buckets.clear()
     if count > 60:
         return JSONResponse(status_code=429, content={"error": "Too many requests", "detail": "Rate limit exceeded"})
     return await call_next(request)

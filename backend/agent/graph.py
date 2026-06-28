@@ -120,14 +120,7 @@ class AgentGraph:
                 pass
 
 
-        # Quality gate check (non-blocking)
-        try:
-            from backend.quality_gate import QualityGate, QualityGateConfig
-            cfg = QualityGateConfig.from_args(quick=True)
-            gate = QualityGate(cfg)
-            # Fire-and-forget: gate.check_async()
-        except ImportError:
-            pass
+        # Quality gate: skipped at startup (use CLI: python -m backend.quality_gate)
 
         # Start heartbeat
         try:

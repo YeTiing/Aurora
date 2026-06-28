@@ -61,12 +61,14 @@ class FigmaConnector(ConnectorBase):
         return await self._api_get(f"/files/{file_key}/comments", **kwargs)
 
     async def test_connection(self) -> dict:
-        """Test Figma connection by fetching team projects."""
+        """Test Figma connection by verifying token validity."""
+        if not self._access_token:
+            return {"status": "disconnected", "has_token": False}
         try:
-            # Figma doesn't have a /me endpoint; try fetching team projects
-            return {"status": "connected", "has_token": bool(self._access_token)}
+            result = await self._api_get("/me")
+            return {"status": "connected", "user": result}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": str(e), "has_token": True}
 
 
 # Auto-register on import

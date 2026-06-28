@@ -34,7 +34,7 @@ class WSLRequest(BaseModel):
 
 class ExecRequest(BaseModel):
     command: str
-    timeout: float = 30.0
+    timeout: float = Field(default=30.0, ge=1.0, le=300.0, description="Timeout in seconds (1-300)")
 
 
 # ---- Enrollment Endpoints ----

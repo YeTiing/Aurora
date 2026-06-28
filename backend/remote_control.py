@@ -12,6 +12,7 @@ import logging
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Literal
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ class RemoteControlManager:
             try:
                 return json.loads(REMOTE_STATE_FILE.read_text(encoding="utf-8"))
             except Exception:
-                pass
+                logger.warning("Failed to load remote_state.json: %s", traceback.format_exc())
         return {"enrollments": {}, "ssh": {}, "wsl": {}}
 
     def _save_state(self) -> None:
@@ -272,6 +273,11 @@ class RemoteControlManager:
 
     async def run_ssh_command(self, host: str, command: str, timeout: float = 30) -> dict:
         """Run a command on a connected SSH host. Returns {stdout, stderr, exit_code}."""
+        try:
+            from backend.tools.base import sanitize_command
+            sanitize_command(command)
+        except PermissionError as e:
+            return {"stdout": "", "stderr": str(e), "exit_code": -1}
         session = self._ssh_sessions.get(host)
 
         # asyncssh path
@@ -342,6 +348,11 @@ class RemoteControlManager:
 
     async def run_wsl_command(self, distribution: str, command: str, timeout: float = 30) -> dict:
         """Run a command inside a WSL distribution."""
+        try:
+            from backend.tools.base import sanitize_command
+            sanitize_command(command)
+        except PermissionError as e:
+            return {"stdout": "", "stderr": str(e), "exit_code": -1}
         try:
             proc = await asyncio.create_subprocess_exec(
                 "wsl.exe", "-d", distribution, "--", "bash", "-c", command,

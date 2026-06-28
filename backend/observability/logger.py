@@ -1,6 +1,6 @@
 # Structured Logger
 from __future__ import annotations
-import json, time, threading, os, sys
+import json, time, threading, os, sys, atexit
 from enum import IntEnum
 from pathlib import Path
 
@@ -30,6 +30,18 @@ class Logger:
         if log_file:
             Path(log_file).parent.mkdir(parents=True, exist_ok=True)
             self._file = open(log_file, "a", encoding="utf-8")
+            Logger._all_files.append(self._file)
+
+    _all_files: list = []  # track all open file handles for cleanup
+
+    @classmethod
+    def _cleanup_all(cls):
+        for fh in cls._all_files:
+            try:
+                fh.close()
+            except Exception:
+                pass
+        cls._all_files.clear()
 
     @classmethod
     def get(cls, name: str = "aurora") -> "Logger":
@@ -77,4 +89,5 @@ class Logger:
             self._file = None
 
 
+atexit.register(Logger._cleanup_all)
 log = Logger.get("aurora")

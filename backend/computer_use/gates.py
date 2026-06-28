@@ -150,11 +150,38 @@ def is_combo_forbidden(keys: list[str]) -> bool:
 # ── Pixel Validation (optional, off by default) ────────────────
 
 async def validate_pixel(x, y, expected_rgb, screenshot_fn):
+    """Validate a pixel at (x,y) matches expected RGB.
+    
+    screenshot_fn should return either:
+    - A PIL Image object with .getpixel() method
+    - A ScreenshotInfo-like object with .data_url (base64 PNG) 
+    - A dict with a 'url' key containing a base64 data URL
+    """
     try:
         img = await screenshot_fn()
-        if img:
+        if img is None:
+            return True  # Fail open
+        # Try PIL Image path
+        if hasattr(img, 'getpixel'):
             pixel = img.getpixel((x, y))
             return tuple(pixel) == tuple(expected_rgb)
+        # Try ScreenshotInfo / dict with data URL
+        import base64, io
+        from PIL import Image
+        if hasattr(img, 'data_url') and img.data_url:
+            b64_data = img.data_url.split(',', 1)[-1]
+            img_bytes = base64.b64decode(b64_data)
+            pil_img = Image.open(io.BytesIO(img_bytes))
+            pixel = pil_img.getpixel((x, y))
+            return tuple(pixel) == tuple(expected_rgb)
+        if isinstance(img, dict):
+            url = img.get('url', '')
+            if url and ',' in url:
+                b64_data = url.split(',', 1)[-1]
+                img_bytes = base64.b64decode(b64_data)
+                pil_img = Image.open(io.BytesIO(img_bytes))
+                pixel = pil_img.getpixel((x, y))
+                return tuple(pixel) == tuple(expected_rgb)
     except Exception as e:
         logger.debug(f"Pixel validation failed: {e}")
     return True  # Fail open

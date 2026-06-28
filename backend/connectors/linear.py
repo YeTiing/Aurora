@@ -60,9 +60,24 @@ class LinearConnector(ConnectorBase):
 
     async def list_issues(self, team_id: str = "", **kwargs) -> dict:
         """List issues, optionally filtered by team."""
-        filter_clause = f', filter: {{ team: {{ id: {{ eq: "{team_id}" }} }} }}' if team_id else ""
+        if team_id:
+            query = (
+                "query ListIssues($teamId: String!) "
+                "{ issues(first: 50, filter: { team: { id: { eq: $teamId } } }) {"
+                "    nodes {"
+                "      id"
+                "      title"
+                "      identifier"
+                "      state { name }"
+                "      assignee { name }"
+                "      createdAt"
+                "    }"
+                "  }"
+                "}"
+            )
+            return await self._graphql(query, {"teamId": team_id})
         query = """query ListIssues {
-          issues(first: 50""" + filter_clause + """) {
+          issues(first: 50) {
             nodes {
               id
               title

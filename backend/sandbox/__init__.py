@@ -42,6 +42,12 @@ class DockerSandbox:
         await self._ensure()
         timeout = timeout or self.config.timeout_sec
         cmd = command.strip()
+        if not cmd:
+            return {"success":False,"stdout":"","stderr":"Empty command","exit_code":-1,"sandboxed":False}
+        # Block shell metacharacters to prevent chaining/piping bypass
+        dangerous_chars = {'&', '|', ';', '$', '', '(', ')', '{', '}', '<', '>', '\n', '\r'}
+        if any(c in cmd for c in dangerous_chars):
+            return {"success":False,"stdout":"","stderr":"Command contains forbidden shell characters","exit_code":-1,"sandboxed":False}
         first = cmd.split()[0] if cmd else ""
         if first not in self.config.whitelist:
             return {"success":False,"stdout":"","stderr":f"Not whitelisted: {first}","exit_code":-1,"sandboxed":False}
@@ -49,7 +55,10 @@ class DockerSandbox:
             return await self._run_local(cmd, timeout)
 
         try:
-            proc = await asyncio.create_subprocess_exec("docker","exec","-w",cwd,self._name,"sh","-c",cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+            # Use direct exec (no shell) to prevent command chaining bypass
+            import shlex
+            cmd_parts = shlex.split(cmd)
+            proc = await asyncio.create_subprocess_exec("docker","exec","-w",cwd,self._name,*cmd_parts,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             return {"success":proc.returncode==0,"stdout":stdout.decode(errors="replace")[:16000],"stderr":stderr.decode(errors="replace")[:4000],"exit_code":proc.returncode,"sandboxed":True}
         except asyncio.TimeoutError:
@@ -59,7 +68,9 @@ class DockerSandbox:
 
     async def _run_local(self, cmd: str, timeout: int) -> dict:
         try:
-            proc = await asyncio.create_subprocess_shell(cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+            import shlex
+            cmd_parts = shlex.split(cmd)
+            proc = await asyncio.create_subprocess_exec(*cmd_parts,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
             stdout,stderr = await asyncio.wait_for(proc.communicate(),timeout=timeout)
             return {"success":proc.returncode==0,"stdout":stdout.decode(errors="replace")[:16000],"stderr":stderr.decode(errors="replace")[:4000],"exit_code":proc.returncode,"sandboxed":False}
         except asyncio.TimeoutError:

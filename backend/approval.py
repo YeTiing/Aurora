@@ -85,6 +85,11 @@ class ApprovalManager:
         if req:
             req.status = "approved"
             self._history.append(req)
+            # Wake up any waiters
+            key = f"_evt_{request_id}"
+            evt = getattr(self, key, None)
+            if evt:
+                evt.set()
             return True
         return False
 
@@ -93,6 +98,10 @@ class ApprovalManager:
         if req:
             req.status = "denied"
             self._history.append(req)
+            key = f"_evt_{request_id}"
+            evt = getattr(self, key, None)
+            if evt:
+                evt.set()
             return True
         return False
 
@@ -100,8 +109,12 @@ class ApprovalManager:
         return [r for r in self._pending.values() if r.status == "pending"]
 
     async def wait_for_decision(self, request_id: str, timeout: float | None = None) -> str:
-        deadline = time.time() + (timeout or 30.0)
-        while time.time() < deadline:
+        timeout = timeout or 30.0
+        event = asyncio.Event()
+        key = f"_evt_{request_id}"
+        setattr(self, key, event)
+        try:
+            # Check if already decided
             request = self._pending.get(request_id)
             if request is None:
                 for item in reversed(self._history):
@@ -110,8 +123,38 @@ class ApprovalManager:
                 return "missing"
             if request.status != "pending":
                 return request.status
-            await asyncio.sleep(0.05)
-        return "timeout"
+            # Wait for signal or timeout
+            try:
+                await asyncio.wait_for(event.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
+                return "timeout"
+            # Re-check status after event
+            request = self._pending.get(request_id)
+            if request and request.status != "pending":
+                return request.status
+            for item in reversed(self._history):
+                if item.id == request_id:
+                    return item.status
+            return "timeout"
+        finally:
+            try:
+                delattr(self, key)
+            except AttributeError:
+                pass
+
+    def purge_stale(self, max_age_sec: float = 300) -> int:
+        """Remove pending requests older than max_age_sec. Returns count."""
+        now = time.time()
+        stale = [
+            rid for rid, req in self._pending.items()
+            if req.status == "pending" and now - req.created_at > max_age_sec
+        ]
+        for rid in stale:
+            req = self._pending.pop(rid, None)
+            if req:
+                req.status = "timeout"
+                self._history.append(req)
+        return len(stale)
 
     def stats(self) -> dict:
         return {

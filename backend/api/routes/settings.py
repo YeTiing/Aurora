@@ -29,17 +29,17 @@ from backend.api.deps import (
 )
 
 # Alias for backward compatibility with existing route code
-_cfg = None; _llm = None; _graph = None; _rag = None; _skills = None; _plugins = None
+pass  # deps managed centrally; _rag = None; _skills = None; _plugins = None
 
-def _init_cfg():
+def ensure_all():
     global _cfg
     _cfg = _get_cfg()
 
-def _init_llm():
+def ensure_all():
     global _llm
     _llm = _get_llm()
 
-def _init_graph():
+def ensure_all():
     global _graph
     _graph = _get_graph()
 
@@ -51,10 +51,10 @@ def _init_skills():
     global _skills
     _skills = _get_skills()
 
-def _init():
-    _init_cfg()
+def ensure_all():
+    ensure_all()
 
-def _init_plugins():
+def ensure_all():
     global _plugins
     _plugins = _get_plugins()
 
@@ -64,18 +64,18 @@ def _init_plugins():
 
 @router.post("/config")
 async def update_config(req: ConfigUpdateRequest):
-    _init()
+    ensure_all()
     if req.value is not None:
-        _cfg.set(req.key, req.value)
+        cfg().set(req.key, req.value)
         return {"key": req.key, "value": req.value, "updated": True}
-    return {"key": req.key, "current": _cfg.get(req.key)}
+    return {"key": req.key, "current": cfg().get(req.key)}
 
 # Plugins
 @router.get("/plugins")
-async def list_plugins(): _init_plugins(); return {"plugins":_plugins.list_all()}
+async def list_plugins(): ensure_all(); return {"plugins":plugins().list_all()}
 
 @router.post("/plugins/{name}/reload")
-async def reload_plugin(name: str): _init_plugins(); return {"name":name,"reloaded":_plugins.reload(name)}
+async def reload_plugin(name: str): ensure_all(); return {"name":name,"reloaded":plugins().reload(name)}
 
 # Prompts
 @router.get("/prompts")
@@ -100,24 +100,24 @@ async def agent_tree():
 
 @router.get("/settings")
 async def get_settings():
-    _init()
-    key = _cfg.get("llm.api_key", "")
+    ensure_all()
+    key = cfg().get("llm.api_key", "")
     return {
-        "provider": _cfg.get("llm.provider", "openai"),
-        "model": _cfg.get("llm.model", "gpt-4o"),
+        "provider": cfg().get("llm.provider", "openai"),
+        "model": cfg().get("llm.model", "gpt-4o"),
         "api_key": (key[:8] + "***") if key else "",
-        "base_url": _cfg.get("llm.base_url", "https://api.openai.com/v1"),
-        "max_context_tokens": _cfg.get("context.max_tokens", 24000),
-        "max_turn_iter": _cfg.get("agent.max_turn_iter", 30),
-        "temperature": _cfg.get("llm.temperature", 0.3),
-        "context_window": _cfg.model_context_window,
-        "compaction_threshold": _cfg.get("context.compaction_threshold", 0.85),
-        "vision_fallback": _cfg.get("vision_fallback", {"enabled": True, "model": "gpt-4o-mini", "provider": "openai"}),
+        "base_url": cfg().get("llm.base_url", "https://api.openai.com/v1"),
+        "max_context_tokens": cfg().get("context.max_tokens", 24000),
+        "max_turn_iter": cfg().get("agent.max_turn_iter", 30),
+        "temperature": cfg().get("llm.temperature", 0.3),
+        "context_window": cfg().model_context_window,
+        "compaction_threshold": cfg().get("context.compaction_threshold", 0.85),
+        "vision_fallback": cfg().get("vision_fallback", {"enabled": True, "model": "gpt-4o-mini", "provider": "openai"}),
     }
 
 @router.post("/settings")
 async def update_settings(req: SettingsUpdate):
-    _init()
+    ensure_all()
     config_path = Path.home() / ".aurora" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     existing = {}
@@ -156,39 +156,39 @@ async def update_settings(req: SettingsUpdate):
     import backend.api.deps as deps
     import backend.api.routes.chat as chat_routes
     deps.reset_deps()
-    chat_routes._cfg = None; chat_routes._llm = None; chat_routes._graph = None
-    chat_routes._rag = None; chat_routes._skills = None; chat_routes._plugins = None
+    pass  # deps managed centrally
+    
     global _cfg, _llm, _graph
-    _cfg = None; _llm = None; _graph = None
-    _init()
-    try: _init_llm()
+    pass  # deps managed centrally
+    ensure_all()
+    try: ensure_all()
     except Exception: logger.debug('llm_test failed', exc_info=True)
-    try: _init_graph()
+    try: ensure_all()
     except Exception: logger.debug('llm_test cleanup failed', exc_info=True)
     return {"ok": True, "updated": list(llm_updates.keys())}
 
 @router.get("/models")
 async def list_models():
-    _init()
+    ensure_all()
     from backend.model_discovery import model_discovery as md
-    base_url = _cfg.get("llm.base_url", "https://api.openai.com/v1")
-    api_key = _cfg.get("llm.api_key", "")
-    provider = _cfg.get("llm.provider", "openai")
+    base_url = cfg().get("llm.base_url", "https://api.openai.com/v1")
+    api_key = cfg().get("llm.api_key", "")
+    provider = cfg().get("llm.provider", "openai")
     models = await md.list_models(base_url, api_key, provider)
     return {"count":len(models),"models":[{"id":m.id,"max_tokens":m.max_tokens,"provider":m.provider} for m in models],"base_url":base_url}
 
 @router.get("/models/context")
 async def model_context_info(model: str = ""):
-    _init()
+    ensure_all()
     from backend.model_discovery import model_discovery as md
-    m = model or _cfg.get("llm.model", "gpt-4o")
-    return md.get_context_limit(m, _cfg.get("context.max_tokens", 0))
+    m = model or cfg().get("llm.model", "gpt-4o")
+    return md.get_context_limit(m, cfg().get("context.max_tokens", 0))
 
 @router.post("/llm/test")
 async def test_llm(req: LLMTestRequest = LLMTestRequest()):
-    _init_llm()
+    ensure_all()
     try:
-        resp = await _llm.chat([{"role":"user","content":req.message}], max_tokens=50, temperature=0.1)
+        resp = await llm().chat([{"role":"user","content":req.message}], max_tokens=50, temperature=0.1)
         return {"ok":True,"response":resp.content[:200],"model":resp.model or "","tokens":resp.total_tokens or 0}
     except Exception as e:
         return {"ok":False,"error":str(e)[:300]}
@@ -300,7 +300,7 @@ async def cron_list():
 @router.get("/providers")
 async def list_providers():
     """List only user-saved provider profiles."""
-    _init()
+    ensure_all()
     config_path = Path.home() / ".aurora" / "config.toml"
     saved = []
     if config_path.exists():
@@ -323,7 +323,7 @@ async def list_providers():
 @router.post("/providers")
 async def save_provider(req: ProviderProfile):
     """Save a provider profile."""
-    _init()
+    ensure_all()
     config_path = Path.home() / ".aurora" / "config.toml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     existing = {}
@@ -349,7 +349,7 @@ async def save_provider(req: ProviderProfile):
 @router.delete("/providers/{name}")
 async def delete_provider(name: str):
     """Delete a saved provider profile."""
-    _init()
+    ensure_all()
     config_path = Path.home() / ".aurora" / "config.toml"
     if not config_path.exists():
         return {"ok": False, "error": "No saved providers"}

@@ -7,53 +7,14 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from typing import Any, Optional
 
+from backend.api.deps import cfg, llm, graph, rag, skills, plugins, ensure_all
+
 router = APIRouter()
 
 from backend.config import config as _cfg_module
 from backend.agent.llm_client import LLMClient, LLMConfig
 
-
 # Shared lazy deps
-from backend.api.deps import (
-    get_config as _get_cfg,
-    get_llm as _get_llm,
-    get_graph as _get_graph,
-    get_rag as _get_rag,
-    get_skills as _get_skills,
-    get_plugins as _get_plugins,
-)
-
-# Alias for backward compatibility with existing route code
-_cfg = None; _llm = None; _graph = None; _rag = None; _skills = None; _plugins = None
-
-def _init_cfg():
-    global _cfg
-    _cfg = _get_cfg()
-
-def _init_llm():
-    global _llm
-    _llm = _get_llm()
-
-def _init_graph():
-    global _graph
-    _graph = _get_graph()
-
-def _init_rag():
-    global _rag
-    _rag = _get_rag()
-
-def _init_skills():
-    global _skills
-    _skills = _get_skills()
-
-def _init_plugins():
-    global _plugins
-    _plugins = _get_plugins()
-
-
-
-
-
 # ---- Inline Models ----
 
 class ApprovalAction(BaseModel):
@@ -67,10 +28,10 @@ class DiffMergeRequest(BaseModel):
     base: str; ours: str; theirs: str
 
 @router.post("/plugins/{name}/load")
-async def load_plugin(name: str): _init_plugins(); return {"name":name,"loaded":_plugins.load(name)}
+async def load_plugin(name: str): ensure_all(); return {"name":name,"loaded":plugins().load(name)}
 
 @router.post("/plugins/{name}/unload")
-async def unload_plugin(name: str): _init_plugins(); return {"name":name,"unloaded":_plugins.unload(name)}
+async def unload_plugin(name: str): ensure_all(); return {"name":name,"unloaded":plugins().unload(name)}
 
 @router.post("/mcp/servers/start")
 async def start_mcp_server(req: dict):
@@ -109,7 +70,6 @@ async def get_process(proc_id: str):
         "exit_code": proc.exit_code,
     }
 
-
 @router.post("/processes/{proc_id}/kill")
 async def kill_process(proc_id: str):
     from backend.process_manager import process_manager
@@ -141,7 +101,6 @@ async def storage_overview():
         "disk_total_bytes": disk_usage.total if disk_usage else 0,
     }
 
-
 @router.get("/storage/stats")
 async def storage_stats():
     from backend.sqlite_persistence import get_thread_goals_db, get_logs_db, get_memories_db
@@ -156,7 +115,6 @@ async def logs_stats():
     mgr = LogArchiveManager()
     return mgr.get_log_stats()
 
-
 @router.post("/logs/archive")
 async def logs_archive(req: dict):
     """Archive logs older than N days. Body: {"before_days": 30}"""
@@ -164,7 +122,6 @@ async def logs_archive(req: dict):
     mgr = LogArchiveManager()
     before_days = req.get("before_days", 30)
     return mgr.archive_old_logs(before_days=int(before_days))
-
 
 @router.post("/logs/cleanup")
 async def logs_cleanup(req: dict):
@@ -174,14 +131,12 @@ async def logs_cleanup(req: dict):
     before_days = req.get("before_days", 90)
     return mgr.cleanup_old_logs(before_days=int(before_days))
 
-
 @router.get("/logs/archives")
 async def logs_archives():
     """List archive files with size, date range, and log count."""
     from backend.log_archive import LogArchiveManager
     mgr = LogArchiveManager()
     return {"archives": mgr.get_archive_list()}
-
 
 @router.post("/logs/restore/{name}")
 async def logs_restore(name: str):
@@ -193,7 +148,6 @@ async def logs_restore(name: str):
         return {"restored": restored, "archive": name}
     except FileNotFoundError:
         raise HTTPException(404, f"Archive not found: {name}")
-
 
 @router.get("/storage/memories")
 async def list_memories(category: str|None=None):
@@ -322,7 +276,6 @@ async def read_agents_md(path: str = "."):
     content = agents_loader.inject(path)
     return {"path": path, "has_instructions": bool(content), "content": content[:3000]}
 
-
 # ── File Upload ──
 @router.post("/files/upload")
 async def upload_file(file: UploadFile = File(...), workspace: str = Form(".")):
@@ -400,8 +353,6 @@ async def models_discover(req: dict):
         })
     return {"provider": provider, "count": len(result), "models": result}
 
-
-
 # ─── Notifications ───
 
 @router.get("/notifications")
@@ -433,8 +384,6 @@ async def send_notification(req: dict):
     )
     return {"sent": True, "notification": notif.to_dict()}
 
-
-
 # ========== Deep Link Router ==========
 
 class DeepLinkParseRequest(BaseModel):
@@ -462,11 +411,7 @@ async def deep_link_route(req: DeepLinkParseRequest):
     action = deep_link_router.route(req.url)
     return action.to_dict()
 
-
-
 # ---- Log Archive routes defined above ----
-
-
 
 def _fmt_bytes(size_bytes: int) -> str:
     for unit in ("B", "KB", "MB", "GB"):
@@ -474,7 +419,6 @@ def _fmt_bytes(size_bytes: int) -> str:
             return f"{size_bytes:.1f} {unit}"
         size_bytes /= 1024
     return f"{size_bytes:.1f} TB"
-
 
 # ---- ELF Parser ----
 

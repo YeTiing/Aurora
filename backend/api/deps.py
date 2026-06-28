@@ -113,6 +113,18 @@ def get_plugins():
 _ws_connections: dict[str, object] = {}
 
 
+# Convenience accessors - call these instead of per-file lazy init globals
+def cfg(): return get_config()
+def llm(): return get_llm()
+def graph(): return get_graph()
+def rag(): return get_rag()
+def skills(): return get_skills()
+def plugins(): return get_plugins()
+
+def ensure_all():
+    """Lazy-init all cached dependencies. Idempotent - safe to call repeatedly."""
+    get_config(); get_llm(); get_graph(); get_rag(); get_skills(); get_plugins()
+
 def reset_deps():
     """Reset all cached dependencies (for testing)."""
     global _cfg, _llm, _graph, _rag, _skills, _plugins

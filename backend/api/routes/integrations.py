@@ -9,17 +9,7 @@ from typing import Any, Optional
 
 router = APIRouter()
 
-from backend.api.deps import (
-    get_config as _get_cfg, get_llm as _get_llm,
-)
-
-_cfg = None; _llm = None
-def _init_cfg():
-    global _cfg; _cfg = _get_cfg()
-def _init_llm():
-    global _llm; _llm = _get_llm()
-def _init():
-    _init_cfg()
+from backend.api.deps import cfg, llm, graph, rag, skills, plugins, ensure_all
 
 
 # ====== MagicDocs ======
@@ -38,7 +28,7 @@ async def register_magic_doc(req: dict):
 @router.post("/magic-docs/{path:path}/update")
 async def update_magic_doc(path: str, req: dict):
     from backend.magic_docs import magic_docs_manager
-    _init_llm()
+    ensure_all()
     conversation = req.get("conversation", "")
     result = await magic_docs_manager.run_update(
         "/" + path, conversation, _llm, None

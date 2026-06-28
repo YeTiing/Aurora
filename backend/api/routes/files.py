@@ -6,6 +6,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Re
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Any, Optional
 
+from backend.api.deps import cfg, llm, graph, rag, skills, plugins, ensure_all
+
 router = APIRouter()
 
 from backend.api.models import IndexRequest
@@ -13,53 +15,10 @@ from backend.api.models import IndexRequest
 from backend.config import config as _cfg_module
 from backend.api.path_security import resolve_allowed_path
 
-
 # Shared lazy deps
-from backend.api.deps import (
-    get_config as _get_cfg,
-    get_llm as _get_llm,
-    get_graph as _get_graph,
-    get_rag as _get_rag,
-    get_skills as _get_skills,
-    get_plugins as _get_plugins,
-)
-
-# Alias for backward compatibility with existing route code
-_cfg = None; _llm = None; _graph = None; _rag = None; _skills = None; _plugins = None
-
-def _init_cfg():
-    global _cfg
-    _cfg = _get_cfg()
-
-def _init_llm():
-    global _llm
-    _llm = _get_llm()
-
-def _init_graph():
-    global _graph
-    _graph = _get_graph()
-
-def _init_rag():
-    global _rag
-    _rag = _get_rag()
-
-def _init_skills():
-    global _skills
-    _skills = _get_skills()
-
-def _init():
-    _init_cfg()
-
-def _init_plugins():
-    global _plugins
-    _plugins = _get_plugins()
-
-
-
 def _resolve_workspace_path(path: str, workspace: str = ".") -> Path:
-    _init_cfg()
-    return resolve_allowed_path(path, workspace, _cfg)
-
+    ensure_all()
+    return resolve_allowed_path(path, workspace, cfg())
 
 def _mask_config_secrets(value: Any) -> Any:
     if isinstance(value, dict):
@@ -74,7 +33,6 @@ def _mask_config_secrets(value: Any) -> Any:
     if isinstance(value, list):
         return [_mask_config_secrets(item) for item in value]
     return value
-
 
 @router.get("/files/read")
 async def read_file(path: str, workspace: str = "."):
@@ -104,19 +62,19 @@ async def search_files(req: dict):
 # RAG
 @router.post("/rag/index")
 async def index_project(req: IndexRequest):
-    _init_rag(); import os
+    ensure_all(); import os
     index_root = _resolve_workspace_path(req.path, req.workspace)
     files = []
     for dirpath, dirnames, filenames in os.walk(index_root):
         dirnames[:] = [d for d in dirnames if d not in (".git","node_modules","__pycache__","venv",".venv")]
         for f in filenames: files.append(os.path.join(dirpath, f))
-    _rag.index_files(files)
+    rag().index_files(files)
     return {"indexed":len(files)}
 
 @router.get("/rag/search")
 async def search_rag(query: str, top_k: int = 5):
-    _init_rag()
-    chunks = _rag.search(query, top_k=top_k, llm_client=_llm)
+    ensure_all()
+    chunks = rag().search(query, top_k=top_k, llm_client=_llm)
     return {"count":len(chunks),"results":[{"content":c["content"][:200],"file":c["metadata"].get("file","")} for c in chunks]}
 
 # Sessions
@@ -140,5 +98,5 @@ async def list_tools():
 
 # Config
 @router.get("/config")
-async def get_config(): _init(); return _mask_config_secrets(_cfg.all())
+async def get_config(): ensure_all(); return _mask_config_secrets(cfg().all())
 

@@ -9,6 +9,8 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from typing import Any, Optional
 
+from backend.api.deps import cfg, llm, graph, rag, skills, plugins, ensure_all
+
 router = APIRouter()
 
 from backend.api.models import IndexRequest
@@ -16,51 +18,7 @@ from backend.api.models import IndexRequest
 from backend.config import config as _cfg_module
 from backend.agent.llm_client import LLMClient, LLMConfig
 
-
 # Shared lazy deps
-from backend.api.deps import (
-    get_config as _get_cfg,
-    get_llm as _get_llm,
-    get_graph as _get_graph,
-    get_rag as _get_rag,
-    get_skills as _get_skills,
-    get_plugins as _get_plugins,
-)
-
-# Alias for backward compatibility with existing route code
-_cfg = None; _llm = None; _graph = None; _rag = None; _skills = None; _plugins = None
-
-def _init_cfg():
-    global _cfg
-    _cfg = _get_cfg()
-
-def _init_llm():
-    global _llm
-    _llm = _get_llm()
-
-def _init_graph():
-    global _graph
-    _graph = _get_graph()
-
-def _init_rag():
-    global _rag
-    _rag = _get_rag()
-
-def _init_skills():
-    global _skills
-    _skills = _get_skills()
-
-def _init():
-    _init_cfg()
-
-def _init_plugins():
-    global _plugins
-    _plugins = _get_plugins()
-
-
-
-
-
 # ---- Inline Models ----
 
 class TaskSubmitRequest(BaseModel):
@@ -210,7 +168,7 @@ async def auth_login(req: dict):
 @router.get("/memory/sessions/search")
 async def memory_sessions_search(q: str = ""):
     """Search past sessions."""
-    _init()
+    ensure_all()
     from backend.dual_memory import get_dual_memory
     dm = get_dual_memory()
     results = dm.search_past_sessions(q)
@@ -348,7 +306,6 @@ async def session_export_markdown(req: dict):
         return {"format": "json", "content": export_session_json(req.get("session", req))}
     return {"format": "markdown", "content": export_session(req.get("session", req), config)}
 
-
 @router.get("/sessions/{session_id}/export")
 async def session_export_by_id(session_id: str, fmt: str = "markdown"):
     """Export a single session by ID. Format: markdown, json, or html."""
@@ -379,7 +336,6 @@ async def session_export_by_id(session_id: str, fmt: str = "markdown"):
         return HTMLResponse(content=html, status_code=200)
     else:
         return {"format": "markdown", "content": export_session(session_data, config)}
-
 
 @router.post("/sessions/export/batch")
 async def session_export_batch(req: dict):
@@ -441,7 +397,6 @@ async def session_export_batch(req: dict):
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=sessions_export.zip"},
     )
-
 
 @router.get("/recent")
 async def recent_sessions(limit: int = 10):

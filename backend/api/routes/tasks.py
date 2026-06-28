@@ -7,61 +7,21 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Re
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Any, Optional
 
+from backend.api.deps import cfg, llm, graph, rag, skills, plugins, ensure_all
+
 router = APIRouter()
 
 from backend.config import config as _cfg_module
 from backend.agent.llm_client import LLMClient, LLMConfig
 
-
 # Shared lazy deps
-from backend.api.deps import (
-    get_config as _get_cfg,
-    get_llm as _get_llm,
-    get_graph as _get_graph,
-    get_rag as _get_rag,
-    get_skills as _get_skills,
-    get_plugins as _get_plugins,
-)
-
-# Alias for backward compatibility with existing route code
-_cfg = None; _llm = None; _graph = None; _rag = None; _skills = None; _plugins = None
-
-def _init_cfg():
-    global _cfg
-    _cfg = _get_cfg()
-
-def _init_llm():
-    global _llm
-    _llm = _get_llm()
-
-def _init_graph():
-    global _graph
-    _graph = _get_graph()
-
-def _init_rag():
-    global _rag
-    _rag = _get_rag()
-
-def _init_skills():
-    global _skills
-    _skills = _get_skills()
-
-def _init():
-    _init_cfg()
-
-def _init_plugins():
-    global _plugins
-    _plugins = _get_plugins()
-
-
-
 @router.post("/tasks")
 async def submit_task(req: TaskSubmitRequest):
     """Submit a background task."""
     from backend.task_queue import task_queue as tq
     from backend.api import _init_rag, _init_llm, _rag, _llm
     if req.type == "rag_index":
-        _init_rag()
+        ensure_all()
         import os as _os
         async def index_task(p):
             files = []
@@ -69,14 +29,14 @@ async def submit_task(req: TaskSubmitRequest):
                 dirnames[:] = [d for d in dirnames if d not in (".git","node_modules","__pycache__","venv",".venv")]
                 for fn in filenames:
                     files.append(_os.path.join(dirpath, fn))
-            _rag.index_files(files)
+            rag().index_files(files)
             return f"Indexed {len(files)} files"
         task_id = await tq.submit(index_task, req.path, name="rag_index")
         return {"task_id": task_id, "type": "rag_index", "status": "pending"}
     elif req.type == "llm_test":
-        _init_llm()
+        ensure_all()
         async def llm_test_task(msg):
-            resp = await _llm.chat([{"role":"user","content":msg}], max_tokens=50, temperature=0.1)
+            resp = await llm().chat([{"role":"user","content":msg}], max_tokens=50, temperature=0.1)
             return resp.content[:200]
         task_id = await tq.submit(llm_test_task, req.message, name="llm_test")
         return {"task_id": task_id, "type": "llm_test", "status": "pending"}
@@ -150,7 +110,6 @@ async def cron_stats():
     from backend.cron_scheduler import get_cron
     return get_cron().stats()
 
-
 # ─── Automations (enhanced cron) ───
 
 @router.get("/automations")
@@ -208,19 +167,17 @@ async def mark_inbox_read(item_id: str):
     db.mark_read(item_id)
     return {"id": item_id, "read": True}
 
-
 # === Observability Stats ===
 @router.get("/observability/stats")
 async def observability_stats():
     from backend.observability.stats import get_stats
     return get_stats()
 
-
 # === Dual-File Memory (Hermes-style) ===
 @router.get("/memory/agent")
 async def memory_agent_list():
     """List agent memory entries."""
-    _init()
+    ensure_all()
     from backend.dual_memory import get_dual_memory
     dm = get_dual_memory()
     return dm.agent_memory.list_entries()

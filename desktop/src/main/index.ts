@@ -328,6 +328,16 @@ function startBackend() {
         backendProcess.stderr?.on("data", (d: Buffer) => {
             if (isDev) console.log("[Aurora backend]", d.toString().trim());
         });
+        backendProcess.on("exit", (code) => {
+            if (isDev) console.log("[Aurora] Backend exited with code", code);
+            backendProcess = null;
+            if (!isQuitting) {
+                setTimeout(() => { if (!isQuitting) startBackend(); }, 3000);
+            }
+        });
+        backendProcess.on("error", (err) => {
+            console.error("[Aurora] Backend process error:", err.message);
+        });
     } catch (e: any) {
         console.error("[Aurora] Backend error:", e.message);
     }

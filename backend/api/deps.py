@@ -117,3 +117,13 @@ def reset_deps():
     """Reset all cached dependencies (for testing)."""
     global _cfg, _llm, _graph, _rag, _skills, _plugins
     _cfg = None; _llm = None; _graph = None; _rag = None; _skills = None; _plugins = None
+
+
+def ensure_deps():
+    """Lazy-init all cached dependencies. Idempotent - safe to call repeatedly."""
+    get_config()
+    get_llm()
+    get_graph()
+    get_rag()
+    get_skills()
+    get_plugins()

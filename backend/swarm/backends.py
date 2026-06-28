@@ -117,6 +117,7 @@ class TerminalBackend(SwarmBackend):
     def __init__(self, config=None):
         super().__init__(config or BackendConfig(kind=BackendKind.TERMINAL))
         self._procs = {}
+        self._tmpfiles: dict = {}  # agent_id -> [temp file paths]
     @property
     def kind(self): return BackendKind.TERMINAL
     @property
@@ -131,6 +132,7 @@ class TerminalBackend(SwarmBackend):
         ctx_fd, ctx_path = tempfile.mkstemp(prefix="aurora_ctx_", suffix=".json")
         with os.fdopen(ctx_fd, "w", encoding="utf-8") as fh:
             json.dump(ctx_data, fh, ensure_ascii=False)
+        self._tmpfiles[ctx.agent_id] = [ctx_path]
         # 把 agent 引导脚本写到临时 .py 文件，子进程直接运行该文件，全程不经过 shell
         boot_lines = [
             "import sys, json, os, time",
@@ -175,6 +177,10 @@ class TerminalBackend(SwarmBackend):
         if proc:
             try: proc.terminate(); proc.wait(5)
             except Exception: proc.kill()
+        # Clean up temp files
+        for fp in self._tmpfiles.pop(agent_id, []):
+            try: os.unlink(fp)
+            except OSError: pass
     async def shutdown(self):
         for aid in list(self._procs): await self.stop_agent(aid)
     def is_available(self):

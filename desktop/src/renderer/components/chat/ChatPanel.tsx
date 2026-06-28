@@ -81,10 +81,16 @@ const MermaidBlock: React.FC<{ code: string }> = ({ code }) => {
       }}
     >
       <div style={{ fontSize: 10, color: "var(--aurora-text-muted)", marginBottom: 8 }}>Mermaid Diagram</div>
-      <div
-        dangerouslySetInnerHTML={{ __html: svg || "<div style='padding:20px;color:var(--aurora-text-muted)'>Loading diagram...</div>" }}
-        style={{ display: "flex", justifyContent: "center" }}
-      />
+      {svg ? (
+        <iframe
+          srcDoc={svg}
+          sandbox=""
+          style={{ width: "100%", minHeight: 300, border: "none", display: "flex", justifyContent: "center" }}
+          title="Mermaid diagram"
+        />
+      ) : (
+        <div style={{ padding: 20, color: "var(--aurora-text-muted)" }}>Loading diagram...</div>
+      )}
     </div>
   );
 };

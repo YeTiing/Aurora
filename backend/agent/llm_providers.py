@@ -913,6 +913,8 @@ class ProviderPool:
         errors = []
         tried = set()
         for _ in range(len(self._pool)):
+            for pp in self._pool:
+                self._recover(pp)
             pp = self._next_provider()
             if pp is None or id(pp) in tried:
                 break
@@ -920,15 +922,27 @@ class ProviderPool:
             try:
                 async for chunk in pp.provider.chat_stream(messages, tools, **kwargs):
                     yield chunk
+                pp.failures = max(0, pp.failures - 1)
+                pp.last_success = time.time()
+                pp.healthy = True
+                if pp.weight < self._max_weight:
+                    pp.weight = min(self._max_weight, pp.weight + 1)
                 return
             except (RateLimitError, ServerOverloadError) as e:
                 pp.failures += 1
                 pp.last_failure = time.time()
                 pp.cooldown_until = time.time() + self._cooldown
+                pp.weight = max(self._min_weight, pp.weight - 1)
                 errors.append(f"{pp.provider.model}: {e}")
             except ProviderError as e:
+                pp.failures += 1
+                pp.last_failure = time.time()
                 if not e.retryable:
                     pp.healthy = False
+                    pp.weight = self._min_weight
+                else:
+                    pp.cooldown_until = time.time() + self._cooldown
+                    pp.weight = max(self._min_weight, pp.weight - 1)
                 errors.append(f"{pp.provider.model}: {e}")
         raise ProviderError(f"All providers failed streaming: {'; '.join(errors)}")
 

@@ -188,6 +188,9 @@ async function ensureBrowserViewForAI(url?: string) {
         browserView.webContents.on("did-navigate", (_e, navUrl) => {
             mainWindow?.webContents.send("browser:navigated", { url: navUrl });
         });
+        browserView.webContents.on("did-navigate-in-page", (_e, navUrl) => {
+            mainWindow?.webContents.send("browser:navigated", { url: navUrl });
+        });
     }
     browserViewVisible = true;
     browserControlledByAI = true;
@@ -239,14 +242,14 @@ async function handleBrowserCommand(msg: { id: string; method: string; params: a
             }
             case "click": {
                 if (!browserView) { sendResult({ error: "BrowserView not open" }); break; }
-                const sel = (params?.selector || "body").replace(/'/g, "\'");
-                const js = "(function(){var el=document.querySelector('" + sel + "');if(!el)return null;var r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};})()";
+                const sel = JSON.stringify(params?.selector || "body");
+                const js = "(function(){var el=document.querySelector(" + sel + ");if(!el)return null;var r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};})()";
                 try {
                     const posCode = await browserView.webContents.executeJavaScript(js);
                     const pos = JSON.parse(JSON.stringify(posCode));
                     if (!pos) { sendResult({ error: "Element not found: " + params?.selector }); break; }
                     await browserView.webContents.executeJavaScript(
-                        "document.querySelector('" + sel + "').click()"
+                        "document.querySelector(" + sel + ").click()"
                     );
                     sendResult({ success: true, clicked: params?.selector, position: pos });
                 } catch (e: any) {
@@ -256,13 +259,12 @@ async function handleBrowserCommand(msg: { id: string; method: string; params: a
             }
             case "type": {
                 if (!browserView) { sendResult({ error: "BrowserView not open" }); break; }
-                const tsel = (params?.selector || "input").replace(/'/g, "\'");
+                const tsel = JSON.stringify(params?.selector || "input");
                 const ttext = params?.text || "";
+                const tval = JSON.stringify(ttext);
                 try {
                     await browserView.webContents.executeJavaScript(
-                        "(function(){var el=document.querySelector('" + tsel + "');if(el){el.focus();el.value='" +
-                        ttext.replace(/'/g, "\'") +
-                        "';el.dispatchEvent(new Event('input',{bubbles:true}));}})()"
+                        "(function(){var el=document.querySelector(" + tsel + ");if(el){el.focus();el.value=" + tval + ";el.dispatchEvent(new Event('input',{bubbles:true}));}})()"
                     );
                     sendResult({ success: true, typed: ttext.substring(0, 50) });
                 } catch (e: any) {
@@ -338,23 +340,7 @@ async function handleBrowserNative(msg: { id: string; method: string; params: an
             case "open":
             case "navigate": {
                 const url = params?.url || "about:blank";
-                if (!browserView) {
-                    browserView = new BrowserView({
-                        webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
-                    });
-                    mainWindow?.addBrowserView(browserView);
-                    const bounds = mainWindow!.getContentBounds();
-                    const bvWidth = Math.floor(bounds.width * 0.45);
-                    browserView.setBounds({ x: bounds.width - bvWidth, y: 60, width: bvWidth, height: bounds.height - 60 });
-                    browserView.setAutoResize({ width: true, height: true, horizontal: true, vertical: true });
-                    browserView.webContents.on("did-navigate", (_e, navUrl) => {
-                        mainWindow?.webContents.send("browser:navigated", { url: navUrl });
-                    });
-                }
-                browserViewVisible = true;
-                browserControlledByAI = true;
-                mainWindow?.webContents.send("browser:ai_control", { active: true });
-                await browserView.webContents.loadURL(url);
+                await ensureBrowserViewForAI(url);
                 return { success: true, url };
             }
             case "screenshot": {
@@ -364,18 +350,19 @@ async function handleBrowserNative(msg: { id: string; method: string; params: an
             }
             case "click": {
                 if (!browserView) return { error: "BrowserView not open" };
-                const sel = (params?.selector || "body").replace(/'/g, "\\'");
+                const sel = JSON.stringify(params?.selector || "body");
                 const pos = await browserView.webContents.executeJavaScript(
-                    "(function(){var el=document.querySelector('" + sel + "');if(!el)return null;el.click();var r=el.getBoundingClientRect();return{x:r.x,y:r.y};})()"
+                    "(function(){var el=document.querySelector(" + sel + ");if(!el)return null;el.click();var r=el.getBoundingClientRect();return{x:r.x,y:r.y};})()"
                 );
                 return pos ? { success: true, clicked: params?.selector, position: pos } : { error: "Element not found" };
             }
             case "type": {
                 if (!browserView) return { error: "BrowserView not open" };
-                const tsel = (params?.selector || "input").replace(/'/g, "\\'");
-                const ttext = (params?.text || "").replace(/'/g, "\\'");
+                const tsel = JSON.stringify(params?.selector || "input");
+                const ttext = params?.text || "";
+                const tval = JSON.stringify(ttext);
                 await browserView.webContents.executeJavaScript(
-                    "(function(){var el=document.querySelector('" + tsel + "');if(el){el.focus();el.value='" + ttext + "';el.dispatchEvent(new Event('input',{bubbles:true}));}})()"
+                    "(function(){var el=document.querySelector(" + tsel + ");if(el){el.focus();el.value=" + tval + ";el.dispatchEvent(new Event('input',{bubbles:true}));}})()"
                 );
                 return { success: true, typed: (params?.text || "").substring(0, 50) };
             }
@@ -714,37 +701,8 @@ ipcMain.handle("shell:openExternal", async (_event, url: string) => {
 // Native browser control via Electron APIs (executeJavaScript + capturePage)
 
 ipcMain.handle("browser:open", async (_event, url: string) => {
-    if (!mainWindow) return { error: "No main window" };
-    if (!browserView) {
-        browserView = new BrowserView({
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true,
-                sandbox: true,
-            },
-        });
-        mainWindow.addBrowserView(browserView);
-        const bounds = mainWindow.getContentBounds();
-        // Position on right side, 45% width
-        const bvWidth = Math.floor(bounds.width * 0.45);
-        browserView.setBounds({
-            x: bounds.width - bvWidth,
-            y: 60,
-            width: bvWidth,
-            height: bounds.height - 60,
-        });
-        browserView.setAutoResize({ width: true, height: true, horizontal: true, vertical: true });
-
-        browserView.webContents.on("did-navigate", (_e, navUrl) => {
-            mainWindow?.webContents.send("browser:navigated", { url: navUrl });
-        });
-        browserView.webContents.on("did-navigate-in-page", (_e, navUrl) => {
-            mainWindow?.webContents.send("browser:navigated", { url: navUrl });
-        });
-    }
-    browserViewVisible = true;
-    await browserView.webContents.loadURL(url);
-    mainWindow.webContents.send("browser:state", { visible: true, url });
+    await ensureBrowserViewForAI(url);
+    mainWindow?.webContents.send("browser:state", { visible: true, url });
     return { success: true };
 });
 

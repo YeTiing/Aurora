@@ -52,13 +52,13 @@ def safe_resolve_path(target: str, workspace: str) -> Path:
     return resolved
 
 def sanitize_command(command: str) -> str:
-    """清洗危险命令"""
-    dangerous = ["rm -rf /", "mkfs.", "dd if=", "> /dev/sda", "chmod 777 /"]
-    cmd_lower = command.lower()
-    for d in dangerous:
-        if d in cmd_lower:
-            raise PermissionError(f"Dangerous command blocked: '{d}' detected")
-    return command
+    """清洗危险命令 - 阻止已知危险模式"""
+    # Use the more comprehensive security module sanitizer
+    from backend.security import InputSanitizer
+    cleaned, warnings = InputSanitizer.sanitize_shell_command(command)
+    if warnings:
+        raise PermissionError(f"Command blocked: {'; '.join(warnings)}")
+    return cleaned
 
 # ── 输出截断 ──
 def truncate_output(output: str, max_chars: int = 16384) -> str:

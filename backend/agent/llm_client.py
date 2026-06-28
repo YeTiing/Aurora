@@ -263,6 +263,9 @@ class LLMClient:
         resp = await self.chat(messages, **kwargs)
         return resp.content
 
+    # NOTE: chat_with_tools is available but currently unused in the main agent flow.
+    # The graph executor handles tool calling via chat() directly.
+    # Keep for potential future use or external tool-calling scenarios.
     async def chat_with_tools(
         self,
         messages: list[dict],

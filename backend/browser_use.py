@@ -184,7 +184,9 @@ class BrowserUse:
             return {"error": "No target"}
         try:
             async with websockets.connect(ws_url, max_size=10*1024*1024) as ws:
-                js = f"(function(){{var el=document.querySelector('{selector.replace(chr(39), chr(92)+chr(39))}');if(!el)return null;var r=el.getBoundingClientRect();return{{x:r.left+r.width/2,y:r.top+r.height/2}};}})()"
+                import json as _json
+                safe_sel = _json.dumps(selector)
+                js = f"(function(){{var el=document.querySelector({safe_sel});if(!el)return null;var r=el.getBoundingClientRect();return{{x:r.left+r.width/2,y:r.top+r.height/2}};}})()"
                 await ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": js, "returnByValue": True}}))
                 pos_result = await asyncio.wait_for(ws.recv(), timeout=10)
                 pos = json.loads(pos_result).get("result", {}).get("result", {}).get("value")

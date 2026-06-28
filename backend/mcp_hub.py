@@ -1,10 +1,12 @@
 # Aurora MCP 系统 v2 — node_repl + 完整协议 + server 生命周期管理
 """MCP (Model Context Protocol) 集成：连接外部 MCP Server，自动发现工具"""
 from __future__ import annotations
-import asyncio, json, os, signal, subprocess, sys, time
+import asyncio, json, logging, os, signal, subprocess, sys, time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger("aurora.mcp")
 
 # ── MCP Server 配置 ──
 @dataclass
@@ -87,7 +89,7 @@ class MCPHub:
                 if tools_result and "tools" in tools_result:
                     state.tools = tools_result.get("tools", [])
             except Exception:
-                pass
+                logger.debug(f"MCP tools/list failed for {config.name}", exc_info=True)
 
             # 发现资源
             try:
@@ -95,7 +97,7 @@ class MCPHub:
                 if resources_result and "resources" in resources_result:
                     state.resources = resources_result.get("resources", [])
             except Exception:
-                pass
+                logger.debug(f"MCP resources/list failed for {config.name}", exc_info=True)
 
             state.connected = True
 

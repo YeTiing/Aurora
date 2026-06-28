@@ -115,7 +115,8 @@ class MultiAgentOrchestrator:
                     agent.started_at = time.time()
                     executor = self._executor_registry.pop(aid, None)
                     if executor:
-                        asyncio.create_task(self._wrap_run(agent, executor))
+                        task = asyncio.create_task(self._wrap_run(agent, executor))
+                        self._task_registry[aid] = task
 
     async def send(self, target_id: str, message: str, interrupt: bool = False) -> bool:
         agent = self.agents.get(target_id)

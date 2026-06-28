@@ -152,6 +152,29 @@ class AgentGraph:
             self._hook_registry = None
         self.cron = get_cron()
 
+    # Shared helpers for run() / run_with_stream()
+    @staticmethod
+    def _detect_url(user_input: str) -> tuple[bool, str]:
+        """Detect if user_input contains a URL; returns (has_url, extracted_url)."""
+        import re
+        _m = re.search(r"https?://\S+", user_input)
+        if _m:
+            return True, _m.group(0)
+        _m = re.search(r"www\.[a-zA-Z0-9-]+\.[a-z]{2,}", user_input)
+        if _m:
+            return True, "https://" + _m.group(0)
+        _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|cn|net|org|io|dev|app)", user_input)
+        if _m:
+            return True, "https://" + _m.group(0)
+        _url_lower = user_input.lower()
+        for _kw in ["打开", "访问", "浏览", "去", "上"]:
+            if _kw in _url_lower:
+                _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]{1,20}", user_input)
+                if _m:
+                    return True, "https://" + _m.group(0) + ".com"
+                    break
+        return False, ""
+
 
     # ══ 核心执行循环 ══
 
@@ -184,39 +207,9 @@ class AgentGraph:
 
         state.add_message(Message.user(user_input))
 
-        # URL Auto-detection: if user input looks like a browser request,  
-        # force-inject browser_use instruction to bypass model refusal training
-        import re
-        # URL Auto-detection: force browser_use for browser requests
+        # URL Auto-detection: shared helper
         _url_lower = user_input.lower()
-        _has_url = False
-        _extracted_url = ""
-        # Match explicit URLs
-        _m = re.search(r"https?://\S+", user_input)
-        if _m:
-            _has_url = True
-            _extracted_url = _m.group(0)
-        # Match www.xxx.yyy
-        if not _has_url:
-            _m = re.search(r"www\.[a-zA-Z0-9-]+\.[a-z]{2,}", user_input)
-            if _m:
-                _has_url = True
-                _extracted_url = "https://" + _m.group(0)
-        # Match domain.tld format
-        if not _has_url:
-            _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|cn|net|org|io|dev|app)", user_input)
-            if _m:
-                _has_url = True
-                _extracted_url = "https://" + _m.group(0)
-        # Match Chinese browser-intent keywords followed by a word
-        if not _has_url:
-            for _kw in ["打开", "访问", "浏览", "去", "上"]:
-                if _kw in _url_lower:
-                    _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]{1,20}", user_input)
-                    if _m:
-                        _has_url = True
-                        _extracted_url = "https://" + _m.group(0) + ".com"
-                        break
+        _has_url, _extracted_url = self._detect_url(user_input)
         # Inject browser_use instruction
         if _has_url and "browser_use" not in _url_lower:
             state.add_message(Message.system(

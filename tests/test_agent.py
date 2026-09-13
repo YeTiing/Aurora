@@ -2,8 +2,6 @@
 import sys, asyncio, pytest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-
 from backend.agent.state import AgentState, Message, PlanStep, ToolInvocation, ToolResult
 from backend.agent.llm_client import MockLLMClient, LLMClient, LLMConfig
 from backend.agent.llm_providers import LLMResponse, StreamChunk

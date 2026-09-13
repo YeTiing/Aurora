@@ -2,9 +2,7 @@ import pytest
 import sys, asyncio, tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-
-from tools.base import ToolRegistry, ToolSpec, safe_resolve_path, truncate_output
+from backend.tools.base import ToolRegistry, ToolSpec, safe_resolve_path, truncate_output
 
 
 class TestToolRegistry:

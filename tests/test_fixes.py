@@ -2,15 +2,13 @@
 import sys, asyncio
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-
 import pytest
 
 
 # ── 1. safe_resolve_path 路径穿越修复 ──────────────────────────────
 class TestSafeResolvePath:
     def test_normal_path_allowed(self, tmp_path):
-        from tools.base import safe_resolve_path
+        from backend.tools.base import safe_resolve_path
         ws = tmp_path / "proj"
         ws.mkdir()
         (ws / "a.txt").write_text("x")
@@ -18,14 +16,14 @@ class TestSafeResolvePath:
         assert resolved == (ws / "a.txt").resolve()
 
     def test_workspace_itself_allowed(self, tmp_path):
-        from tools.base import safe_resolve_path
+        from backend.tools.base import safe_resolve_path
         ws = tmp_path / "proj"
         ws.mkdir()
         assert safe_resolve_path(".", str(ws)) == ws.resolve()
 
     def test_sibling_prefix_traversal_blocked(self, tmp_path):
         """回归: /proj 不应被 /proj-evil 前缀绕过（旧实现 startswith 漏洞）"""
-        from tools.base import safe_resolve_path
+        from backend.tools.base import safe_resolve_path
         ws = tmp_path / "proj"
         evil = tmp_path / "proj-evil"
         ws.mkdir()
@@ -35,7 +33,7 @@ class TestSafeResolvePath:
             safe_resolve_path("../proj-evil/secret.txt", str(ws))
 
     def test_double_dot_escape_blocked(self, tmp_path):
-        from tools.base import safe_resolve_path
+        from backend.tools.base import safe_resolve_path
         ws = tmp_path / "proj"
         ws.mkdir()
         with pytest.raises(PermissionError):
@@ -90,12 +88,12 @@ class TestAgentStateRole:
 # ── 4. 工具注册（多Agent + 连接器） ────────────────────────────────
 class TestNewToolRegistration:
     def test_multi_agent_tools_registered(self):
-        from tools import tool_registry
+        from backend.tools import tool_registry
         names = {t.name for t in tool_registry.list_tools()}
         assert {"spawn_agent", "send_agent_message", "wait_agents", "close_agent"} <= names
 
     def test_connector_tool_registered(self):
-        from tools import tool_registry
+        from backend.tools import tool_registry
         names = {t.name for t in tool_registry.list_tools()}
         assert "connector_call" in names
 
@@ -143,7 +141,7 @@ class TestApprovalGate:
     @pytest.mark.asyncio
     async def test_never_policy_passthrough(self, _approval_policy_reset):
         from backend.approval import approval_bridge, ApprovalPolicy
-        from tools.approval_gate import maybe_request_approval
+        from backend.tools.approval_gate import maybe_request_approval
         approval_bridge.manager.set_policy(ApprovalPolicy.NEVER)
         decision = await maybe_request_approval("code_exec", {"code": "print(1)"}, description="test")
         assert decision is None
@@ -151,7 +149,7 @@ class TestApprovalGate:
     @pytest.mark.asyncio
     async def test_unknown_tool_passthrough(self, _approval_policy_reset):
         from backend.approval import approval_bridge, ApprovalPolicy
-        from tools.approval_gate import maybe_request_approval
+        from backend.tools.approval_gate import maybe_request_approval
         approval_bridge.manager.set_policy(ApprovalPolicy.ON_REQUEST)
         # LOW 风险工具不需要审批
         decision = await maybe_request_approval("code_search", {"query": "x"}, description="test")
@@ -201,7 +199,7 @@ class TestMultiAgentFixed:
 class TestConnectorTool:
     @pytest.mark.asyncio
     async def test_not_connected_error(self):
-        from tools.connector_tools import connector_call_handler
+        from backend.tools.connector_tools import connector_call_handler
         result = await connector_call_handler({"connector": "github", "action": "list_repos"}, ".")
         assert not result.success
         # 未注册或未连接都是正确的失败路径
@@ -209,14 +207,14 @@ class TestConnectorTool:
 
     @pytest.mark.asyncio
     async def test_unknown_connector_error(self):
-        from tools.connector_tools import connector_call_handler
+        from backend.tools.connector_tools import connector_call_handler
         result = await connector_call_handler({"connector": "nope", "action": "x"}, ".")
         assert not result.success
         assert "Unknown connector" in result.error
 
     @pytest.mark.asyncio
     async def test_unknown_action_error(self):
-        from tools.connector_tools import connector_call_handler
+        from backend.tools.connector_tools import connector_call_handler
         result = await connector_call_handler({"connector": "github", "action": "hack"}, ".")
         assert not result.success
         assert "Unknown action" in result.error

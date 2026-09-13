@@ -2,9 +2,7 @@
 import sys, json, time, pytest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-
-from memory import (
+from backend.memory import (
     MemoryHub, MemoryEntry, MemoryType, MemoryImportance,
     WorkingContext, EpisodicMemory, SemanticMemory, Episode, SemanticFact,
     init_memory, get_memory,

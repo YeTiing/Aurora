@@ -1,12 +1,10 @@
 import sys, pytest, time, asyncio
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-
-from observability.logger import Logger, LogLevel, log
-from observability.tracer import Tracer, Span, span_ctx, tracer as global_tracer
-from observability.tracer import Counter, Gauge, Histogram, MetricsRegistry, metrics
-from observability.tracer import EventBus, event_bus
+from backend.observability.logger import Logger, LogLevel, log
+from backend.observability.tracer import Tracer, Span, span_ctx, tracer as global_tracer
+from backend.observability.tracer import Counter, Gauge, Histogram, MetricsRegistry, metrics
+from backend.observability.tracer import EventBus, event_bus
 
 
 class TestLogger:
@@ -129,7 +127,7 @@ class TestMetrics:
         assert snap["counters"]["my_counter"]["value"] == 3
 
     def test_predefined_metrics(self):
-        from observability.tracer import llm_requests, tool_calls, active_sessions
+        from backend.observability.tracer import llm_requests, tool_calls, active_sessions
         llm_requests.inc()
         tool_calls.inc(2)
         active_sessions.set(5)

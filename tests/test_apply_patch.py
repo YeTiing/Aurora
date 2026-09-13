@@ -2,10 +2,9 @@
 import sys, os, pytest, tempfile, shutil
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 os.chdir(str(Path(__file__).parent.parent))
 
-from tools.apply_patch import parse_patch, _apply_hunk, _fuzzy_find_context, Hunk, HunkLine, apply_patch_handler
+from backend.tools.apply_patch import parse_patch, _apply_hunk, _fuzzy_find_context, Hunk, HunkLine, apply_patch_handler
 
 
 class TestParsePatch:

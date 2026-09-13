@@ -3,7 +3,6 @@ import sys, os, tempfile, shutil, asyncio
 from pathlib import Path
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 os.chdir(str(Path(__file__).parent.parent))
 
 

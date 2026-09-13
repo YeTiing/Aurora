@@ -2,10 +2,9 @@
 import sys, tempfile, os
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 os.chdir(str(Path(__file__).parent.parent))
 
-from dual_memory import (
+from backend.dual_memory import (
     MemoryStore, Curator, HonchoDialectic,
     ClosedLoopMemory, get_closed_loop,
     SkillManager, MemoryNudge, FTSSessions,

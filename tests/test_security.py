@@ -1,9 +1,7 @@
 import sys, pytest, time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-
-from security import (
+from backend.security import (
     InputSanitizer, SSRFGuard, RateLimiter, APIKeyManager,
     SecretsDetector, RequestValidator, SecurityHeaders,
     secure_filename, sanitize_input, validate_url,

@@ -36,7 +36,7 @@ class AuthState:
         if self.method == "oauth":
             return bool(self.access_token)
         if self.method == "none":
-            return True  # no auth configured
+            return False  # 未配置任何凭据 -> 未认证
         return False
 
 
@@ -111,6 +111,27 @@ class AuthManager:
         self._api_key_hashes: dict[str, str] = {}  # sha256(key) -> name
         self._oauth_flows: dict[str, dict] = {}  # state -> flow info
         self._load_saved_state()
+        self._load_env_api_key()
+
+    def _load_env_api_key(self) -> None:
+        """从环境变量注册一个可用于登录/请求头校验的 API Key。
+
+        没有这一步时 _api_keys 恒为空 -> login_api_key 恒抛 401 ->
+        AURORA_REQUIRE_AUTH=1 会把整站锁死且没有任何途径可登录。
+
+        注意：这里只注册、不自动写入 _state。若自动写入全局状态，则任何
+        客户端都会被判为已认证，等于没有认证。请求头校验见 verify_request_key。
+        """
+        key = os.environ.get("AURORA_AUTH_API_KEY", "").strip()
+        if key:
+            self.register_api_key("env", key)
+
+    def verify_request_key(self, presented: str) -> bool:
+        """校验请求携带的 API Key 是否有效。"""
+        if not presented:
+            return False
+        valid, _ = self.validate_api_key(presented)
+        return valid
 
     def _load_saved_state(self) -> None:
         try:

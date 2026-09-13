@@ -40,6 +40,16 @@ async def file_rw_handler(arguments: dict, workspace: str = ".") -> str:
     except PermissionError as e:
         return f"Error: {e}"
 
+    # 高风险操作审批门（delete / move / copy 覆盖目标）
+    if op in ("delete", "move", "copy"):
+        from .approval_gate import maybe_request_approval
+        decision = await maybe_request_approval(
+            "file_rw", arguments,
+            description=f"file_rw {op} {path_str}" + (f" -> {dest}" if dest else ""),
+        )
+        if decision is not None and decision != "approved":
+            return f"Operation {op} {decision}"
+
     try:
         if op == "read":
             return _handle_read(file_path, encoding)

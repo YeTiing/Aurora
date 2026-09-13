@@ -51,10 +51,42 @@ def _is_whitelisted(command: str) -> bool:
     base_cmd = base_cmd.split("\\")[-1].split("/")[-1]
     return base_cmd in COMMAND_WHITELIST
 
+
+def _violates_workspace(command: str) -> str | None:
+    """workspace-only 模式下的轻量逃逸检查（启发式，返回违规描述或 None）。
+
+    只拦截明显的越界模式：cd 出工作区、写绝对路径、访问系统敏感目录。
+    文件类工具已有 safe_resolve_path 强约束，这里是 shell 的兜底。
+    """
+    import re
+    c = command.strip()
+    if not c:
+        return None
+    # cd 逃逸：cd /、cd ~、cd ..、cd C:\
+    m = re.search(r'\bcd\s+(/|~|\.\.|\\\\?[A-Za-z]:)', c)
+    if m:
+        return f"cd escape: '{m.group(0)}'"
+    # 写绝对路径（重定向到 /xxx 或 C:\xxx）
+    m = re.search(r'(>>?)\s*([/\\]|[A-Za-z]:\\)', c)
+    if m:
+        return f"write outside workspace: '{m.group(0).strip()}'"
+    # 系统敏感路径
+    for pat in (r'/etc/', r'/usr/', r'C:\\Windows', r'C:\\Program', r'%APPDATA%', r'%USERPROFILE%', r'~/', r'\$HOME'):
+        if re.search(pat, c, re.IGNORECASE):
+            return f"sensitive path referenced: {pat}"
+    return None
+
+
 async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
     command = arguments.get("command", "")
     if not command:
         return {"success": False, "stdout": "", "stderr": "No command provided", "exit_code": -1}
+
+    # workspace-only 沙箱边界检查（由 graph 在 workspace-only 模式注入标志）
+    if arguments.get("_workspace_boundary"):
+        violation = _violates_workspace(command)
+        if violation:
+            return {"success": False, "stdout": "", "stderr": f"Sandbox (workspace-only): {violation}", "exit_code": -1}
 
     # 安全校验: 白名单
     if not _is_whitelisted(command):

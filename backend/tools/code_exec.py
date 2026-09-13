@@ -98,6 +98,15 @@ async def code_exec_handler(arguments: dict, workspace: str = ".") -> ToolCallRe
     if error:
         return ToolCallResult(id="", name="code_exec", output="", success=False, error=error)
 
+    # 审批门：代码执行属于 HIGH 风险（on-request/untrusted 模式下需确认）
+    from .approval_gate import maybe_request_approval
+    decision = await maybe_request_approval(
+        "code_exec", arguments, description=f"code_exec [{language}]: {code[:80]}",
+    )
+    if decision is not None and decision != "approved":
+        return ToolCallResult(id="", name="code_exec", output="", success=False,
+                              error=f"Execution {decision}")
+
     try:
         output = await _execute_code(language, code, timeout)
         return ToolCallResult(

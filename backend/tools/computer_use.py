@@ -34,7 +34,8 @@ COMPUTER_USE_SPEC = ToolSpec(
                 "enum": [
                     "get_window_state", "screenshot", "list_windows", "get_window",
                     "activate_window", "launch_app", "click", "click_element",
-                    "scroll", "drag", "type_text", "press_key", "get_accessibility_tree"
+                    "scroll", "drag", "type_text", "press_key", "get_accessibility_tree",
+                    "set_value"
                 ]
             },
             "title": {"type": "string", "description": "Window title to search/focus"},
@@ -50,6 +51,7 @@ COMPUTER_USE_SPEC = ToolSpec(
             "text": {"type": "string", "description": "Text to type"},
             "key_combo": {"type": "string", "description": "Key combo like Ctrl+C or Alt+Tab"},
             "app_name": {"type": "string", "description": "App to launch (e.g. chrome, notepad)"},
+            "value": {"type": "string", "description": "Value to set (for set_value)"},
             "include_screenshot": {"type": "boolean", "default": True},
             "save_screenshot_to": {"type": "string", "description": "Path to save screenshot file"},
         },
@@ -62,6 +64,16 @@ COMPUTER_USE_SPEC = ToolSpec(
 
 async def computer_use_handler(arguments: dict, workspace: str = ".") -> ToolCallResult:
     method = arguments.get("method", "")
+
+    # 审批门：computer_use 为 HIGH 风险（on-request/untrusted 模式下需确认）
+    from .approval_gate import maybe_request_approval
+    decision = await maybe_request_approval(
+        "computer_use", arguments, description=f"computer_use {method}",
+    )
+    if decision is not None and decision != "approved":
+        return ToolCallResult(id="", name="computer_use", output="", success=False,
+                              error=f"Operation {method} {decision}")
+
     try:
         cu = computer_use
 
@@ -161,6 +173,21 @@ async def computer_use_handler(arguments: dict, workspace: str = ".") -> ToolCal
             return ToolCallResult(id="", name="computer_use",
                 output=f"Accessibility tree ({tree['element_count']} elements):\n{tree['tree']}",
                 success=True, metadata=tree)
+
+        elif method == "set_value":
+            idx = arguments.get("element_index", 0)
+            value = arguments.get("value", "")
+            title = arguments.get("title", "")
+            hwnd = 0
+            if title:
+                w = cu.get_window(title)
+                if w: hwnd = w.id
+            result = cu.set_element_value(hwnd, idx, value)
+            if result.get("ok"):
+                return ToolCallResult(id="", name="computer_use",
+                    output=f"Set element #{idx} value ({len(value)} chars)", success=True)
+            return ToolCallResult(id="", name="computer_use", output="", success=False,
+                                  error=result.get("error", "set_value failed"))
 
         elif method == "get_window_state":
             title = arguments.get("title", "")

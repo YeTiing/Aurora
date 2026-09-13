@@ -59,6 +59,15 @@ async def web_fetch_handler(arguments: dict, workspace: str = ".") -> str:
         parsed = urlparse(url)
         return f"Error: Domain '{parsed.hostname}' is not in the allowed list. Allowed: GitHub, GitLab, PyPI, npm, crates.io, StackOverflow, docs sites, localhost."
 
+    # POST（网络写操作）审批门
+    if method == "POST":
+        from .approval_gate import maybe_request_approval
+        decision = await maybe_request_approval(
+            "web_fetch", arguments, description=f"POST {url[:120]}",
+        )
+        if decision is not None and decision != "approved":
+            return f"POST request {decision}"
+
     try:
         import aiohttp
         connector = aiohttp.TCPConnector(limit=5, force_close=True)

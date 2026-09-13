@@ -1,6 +1,6 @@
 # 工具系统基础 — ToolSpec / ToolExecutor / 安全校验 / 注册表
 from __future__ import annotations
-import asyncio, json, re, time, traceback
+import asyncio, json, re, time, traceback, os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Protocol
@@ -44,10 +44,18 @@ class ToolCallResult:
 
 # ── 安全工具 — 路径校验 ──
 def safe_resolve_path(target: str, workspace: str) -> Path:
-    """防路径穿越：确保目标路径在 workspace 内"""
+    """防路径穿越：确保目标路径在 workspace 内。
+
+    注意：不能用 ``str.startswith(str(ws))`` 判断——``/data/proj`` 会被
+    同级前缀目录 ``/data/proj-evil`` 绕过。必须按路径分量判断。
+    """
     ws = Path(workspace).resolve()
     resolved = (ws / target).resolve()
-    if not str(resolved).startswith(str(ws)):
+    try:
+        inside = resolved == ws or resolved.is_relative_to(ws)
+    except AttributeError:  # Python < 3.9 兼容
+        inside = resolved == ws or str(resolved).startswith(str(ws) + str(Path(os.sep)))
+    if not inside:
         raise PermissionError(f"Path traversal blocked: {target}")
     return resolved
 

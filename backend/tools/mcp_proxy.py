@@ -113,6 +113,20 @@ class MCPProxy:
             return ToolCallResult(id="", name=tool_name, output="", success=False,
                                  error=f"MCP server '{server_name}' not connected")
 
+        # 审批门：MCP 工具可能执行任意操作（shell/写文件/安装等）
+        try:
+            from .approval_gate import maybe_request_approval
+            decision = await maybe_request_approval(
+                "mcp_proxy",
+                {"server": server_name, "tool": tool_name, "arguments": arguments},
+                description=f"MCP {server_name}.{tool_name}({str(arguments)[:100]})",
+            )
+            if decision is not None and decision != "approved":
+                return ToolCallResult(id="", name=tool_name, output="", success=False,
+                                     error=f"MCP tool call {decision}")
+        except Exception:
+            pass
+
         try:
             result = await self._send_request(state, "tools/call", {
                 "name": tool_name,

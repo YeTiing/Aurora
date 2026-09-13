@@ -7,6 +7,51 @@ import logging
 logger = logging.getLogger("aurora.approval")
 
 
+def resolve_approval_policy(manager, arguments: dict):
+    """解析本次调用应使用的审批策略。
+
+    优先级：请求级注入（arguments["_approval_policy"]，由 AgentGraph 按会话写入）
+    > manager 上的全局策略。必须优先用请求级值：manager 是进程级单例，
+    并发会话若各自 set_policy 会互相覆盖，导致严格策略被静默降级。
+    """
+    from backend.approval import ApprovalPolicy
+    raw = ""
+    if isinstance(arguments, dict):
+        raw = str(arguments.get("_approval_policy", "") or "")
+    if raw:
+        try:
+            return ApprovalPolicy(raw)
+        except ValueError:
+            logger.warning(f"unknown approval policy {raw!r}, falling back to global")
+    return getattr(manager, "policy", None)
+
+
+def should_request_approval(manager, tool_name: str, arguments: dict, risk) -> bool:
+    """判断是否需要审批，兼容只实现了有状态接口的 manager。
+
+    优先走无状态的 policy_needs_approval（并发安全）；若 manager 未实现该方法
+    （例如测试替身或外部注入的实现），退回原有的 needs_approval，
+    避免因接口变更而抛 AttributeError。
+
+    **无策略上下文时按拒绝处理**（返回 True）。工具被直接调用（不经 AgentGraph，
+    因而没有 arguments["_approval_policy"]）且全局策略也未设置时，不能默认放行
+    —— 那等于给所有绕过 agent 的调用开了一个无声的后门。此时要求审批会因
+    超时被拒，是 fail-closed 的正确表现；需要放行的调用方应显式传入
+    arguments["_approval_policy"]="never"。
+    """
+    checker = getattr(manager, "policy_needs_approval", None)
+    if checker is not None:
+        policy = resolve_approval_policy(manager, arguments)
+        if policy is not None:
+            return bool(checker(policy, risk, tool_name))
+        # 无请求级策略，且 manager 未提供全局 policy
+        logger.warning(
+            f"no approval policy available for {tool_name}, requiring approval by default"
+        )
+        return True
+    return bool(manager.needs_approval(risk, tool_name))
+
+
 async def maybe_request_approval(
     tool_name: str,
     arguments: dict,
@@ -29,7 +74,8 @@ async def maybe_request_approval(
     try:
         from backend.approval import approval_bridge
         risk = approval_bridge.manager.assess_risk(tool_name, arguments)
-        if not approval_bridge.manager.needs_approval(risk, tool_name):
+        # 策略优先取请求级注入值，避免读全局单例被并发会话互相覆盖
+        if not should_request_approval(approval_bridge.manager, tool_name, arguments, risk):
             return None
         cmd = description or str(arguments)[:120]
         request = await approval_bridge.request_command_approval(

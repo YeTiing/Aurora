@@ -49,13 +49,25 @@ class ApprovalManager:
         self.policy = policy
 
     def needs_approval(self, risk: RiskLevel, tool_name: str = "") -> bool:
-        if self.policy == ApprovalPolicy.NEVER:
+        return self.policy_needs_approval(self.policy, risk, tool_name)
+
+    @staticmethod
+    def policy_needs_approval(policy: ApprovalPolicy, risk: RiskLevel, tool_name: str = "") -> bool:
+        """按给定策略判断是否需要审批（无状态，可安全并发）。
+
+        独立成静态方法的原因：approval_manager 是进程级单例，而
+        AgentGraph._apply_approval_mode 会按【请求】把 approval_mode 写到
+        该单例上。并发会话下后到的请求会覆盖先到的策略 —— 会话 A 用
+        'never'、会话 B 用 'untrusted' 时，A 可能被静默降级为放行。
+        调用方应携带自己的 policy 走本方法，而不是读全局 self.policy。
+        """
+        if policy == ApprovalPolicy.NEVER:
             return False
-        if self.policy == ApprovalPolicy.ON_FAILURE:
+        if policy == ApprovalPolicy.ON_FAILURE:
             return False  # 只在失败时触发
-        if self.policy == ApprovalPolicy.UNTRUSTED:
+        if policy == ApprovalPolicy.UNTRUSTED:
             return True
-        if self.policy == ApprovalPolicy.ON_REQUEST:
+        if policy == ApprovalPolicy.ON_REQUEST:
             return risk in (RiskLevel.HIGH, RiskLevel.CRITICAL)
         return False
 

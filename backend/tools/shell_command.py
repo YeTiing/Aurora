@@ -119,8 +119,10 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
     # Approval check
     try:
         from backend.approval import approval_bridge
+        from .approval_gate import should_request_approval
         risk = approval_bridge.manager.assess_risk("shell_command", arguments)
-        if approval_bridge.manager.needs_approval(risk, "shell_command"):
+        # 优先用请求级策略，避免并发会话互相覆盖全局单例的 policy（见 approval_gate）
+        if should_request_approval(approval_bridge.manager, "shell_command", arguments, risk):
             request = await approval_bridge.request_command_approval(
                 session_id=str(arguments.get("session_id", "")),
                 thread_id=str(arguments.get("thread_id", arguments.get("session_id", ""))),

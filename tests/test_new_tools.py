@@ -68,6 +68,23 @@ class TestPlanUpdate:
 
 
 class TestCodeExec:
+    """code_exec 工具的行为测试。
+
+    这些用例直接调用 handler，而生产路径一定经过 AgentGraph —— 图会在
+    _run_executor 里把会话策略注入 args["_approval_policy"]。裸调 handler 时
+    没有该键，会落到进程默认策略（on-request）并因无人审批而阻塞 30s 后拒绝。
+    这里显式补上策略上下文，让测试聚焦工具本身的行为而非审批链路
+    （审批链路另有 test_approval_bridge / test_p1_* 覆盖）。
+    """
+
+    @pytest.fixture(autouse=True)
+    def _with_never_policy(self):
+        from backend.approval import approval_bridge, ApprovalPolicy
+        prev = approval_bridge.manager.policy
+        approval_bridge.manager.set_policy(ApprovalPolicy.NEVER)
+        yield
+        approval_bridge.manager.set_policy(prev)
+
     @pytest.mark.asyncio
     async def test_python_simple(self):
         result = await code_exec_handler({"language": "python", "code": "print(1 + 1)"})

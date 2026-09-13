@@ -128,7 +128,8 @@ class AgentState:
     checkpoint_id: str = ""
     session_id: str = ""
     workspace: str = "."
-    sandbox_mode: str = "full-access"
+    sandbox_mode: str = "full-access"
+    approval_mode: str = "never"      # 审批策略，随会话传递（不写全局单例）
     reasoning_effort: str = "medium"  # low/medium/high/xhigh
     agent_role: str = ""              # 角色 key（roles/*.toml），注入 system prompt
 
@@ -150,6 +151,7 @@ class AgentState:
             "session_id": self.session_id,
             "workspace": self.workspace,
             "sandbox_mode": self.sandbox_mode,
+            "approval_mode": self.approval_mode,
             "reasoning_effort": self.reasoning_effort,
             "agent_role": self.agent_role,
         }
@@ -175,6 +177,7 @@ class AgentState:
             session_id=d.get("session_id", ""),
             workspace=d.get("workspace", "."),
             sandbox_mode=d.get("sandbox_mode", "full-access"),
+            approval_mode=d.get("approval_mode", "never"),
             reasoning_effort=d.get("reasoning_effort", "medium"),
             agent_role=d.get("agent_role", ""),
         )

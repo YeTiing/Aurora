@@ -1,4 +1,4 @@
-# LangGraph StateGraph — 真实状态图 + SSE事件集成 + 条件边 + Send 并行分发
+# 自研六阶段状态机 — 手写 while 主循环 + SSE 事件集成 + 条件分支（非 LangGraph）
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from .nodes import (
 
 from .llm_client import LLMClient
 
-from .checkpoint import CheckpointManager
+from .checkpoint import CheckpointManager, get_checkpoint_manager
 
 from .sse_events import sse_bus, SSEEventBus
 
@@ -63,7 +63,7 @@ def _configured_sandbox_mode() -> str:
 
 class AgentGraph:
 
-    """基于 LangGraph StateGraph 的六步流水线"""
+    """自研六阶段状态机流水线（手写 while 主循环，不依赖 LangGraph）"""
 
 
     def __init__(
@@ -102,7 +102,9 @@ class AgentGraph:
 
         self.workspace = workspace
 
-        self.checkpoints = checkpoint_manager or CheckpointManager()
+        # 默认复用进程级单例：若每个图各自 new 一个，执行期 save_workspace_state
+        # 落的快照与 /checkpoint 路由看到的实例就不是同一个，undo 栈跨请求不可见。
+        self.checkpoints = checkpoint_manager or get_checkpoint_manager()
 
         self.events = event_bus or sse_bus
 
@@ -143,6 +145,15 @@ class AgentGraph:
         except ImportError:
             pass
 
+        # Initialize background task monitor
+        # 必须在下面的调度判断之前赋值：此前初始化被放在判断之后，
+        # self._monitor 恒为 None，导致 if 分支成为死代码、monitor.start(60) 永不入队。
+        try:
+            from backend.task_monitor import get_monitor
+            self._monitor = get_monitor()
+        except ImportError:
+            self._monitor = None
+
         # Start background services (lazy init)
         if self._monitor and not self._monitor_started:
             try:
@@ -160,13 +171,6 @@ class AgentGraph:
             heartbeat_manager.configure(interval=300, enabled=True)
         except ImportError:
             pass
-
-        # Initialize background task monitor
-        try:
-            from backend.task_monitor import get_monitor
-            self._monitor = get_monitor()
-        except ImportError:
-            self._monitor = None
 
         # Initialize transcript index
         try:
@@ -231,6 +235,10 @@ class AgentGraph:
         # 配置回退：请求未显式指定时用 config.sandbox_mode
         # （此前该配置字段无任何读取点，用户配置被完全忽略）
         state.sandbox_mode = _normalize_sandbox_mode(sandbox_mode or _configured_sandbox_mode())
+
+        # 审批策略存到 state 上随会话传递，避免写全局单例被并发覆盖
+
+        state.approval_mode = approval_mode or "on-request"
 
         if model:
 
@@ -408,6 +416,11 @@ class AgentGraph:
                 self._last_tracked_tokens = llm_tokens
             budget_result = {"exhausted": self.token_budget.usage_ratio() >= 1.0}
 
+            # B12：接近预算上限时先用 LLM 摘要压缩旧消息再续跑，而不是直接中止。
+            # 放在 exhausted 判断之前：压缩能移除中止的成因，让长任务跑完而非硬停。
+            from backend.agent.nodes import maybe_compact_context
+            await maybe_compact_context(state, self.llm, max_tokens=self.token_budget.limit())
+
             if budget_result["exhausted"]:
 
                 state.add_message(Message.system("Session token budget exhausted."))
@@ -430,7 +443,9 @@ class AgentGraph:
 
                 state.add_message(Message.system(f"ToolSelect error: {str(e)[:200]}"))
 
-                state.empty_turns += 1; state.total_turns += 1
+                # total_turns 由 tool_select_node 统一递增（它才是真正消耗一轮的地方），
+                # 异常路径不再补加，否则一轮会被记成两次。
+                state.empty_turns += 1
 
                 continue
 
@@ -438,6 +453,8 @@ class AgentGraph:
             # Executor
 
             if state.tool_invocations:
+
+                self._checkpoint_for_tools(state)
 
                 for inv in state.tool_invocations:
 
@@ -468,8 +485,7 @@ class AgentGraph:
                 break
 
 
-            state.total_turns += 1
-
+            # 不在循环末尾再加一次：tool_select_node 已为这一轮计过数。
             self.checkpoints.save(state, f"post_turn_{state.total_turns}")
 
         state.done = True
@@ -546,6 +562,10 @@ class AgentGraph:
         # 配置回退：请求未显式指定时用 config.sandbox_mode
         # （此前该配置字段无任何读取点，用户配置被完全忽略）
         state.sandbox_mode = _normalize_sandbox_mode(sandbox_mode or _configured_sandbox_mode())
+
+        # 审批策略存到 state 上随会话传递，避免写全局单例被并发覆盖
+
+        state.approval_mode = approval_mode or "on-request"
 
         if model:
 
@@ -709,6 +729,11 @@ class AgentGraph:
                 self._last_tracked_tokens = llm_tokens
             budget_result = {"exhausted": self.token_budget.usage_ratio() >= 1.0}
 
+            # B12：接近预算上限时先用 LLM 摘要压缩旧消息再续跑，而不是直接中止。
+            # 放在 exhausted 判断之前：压缩能移除中止的成因，让长任务跑完而非硬停。
+            from backend.agent.nodes import maybe_compact_context
+            await maybe_compact_context(state, self.llm, max_tokens=self.token_budget.limit())
+
             if budget_result["exhausted"]:
 
                 state.add_message(Message.system("Session token budget exhausted."))
@@ -734,7 +759,8 @@ class AgentGraph:
 
             except Exception as e:
 
-                state.empty_turns += 1; state.total_turns += 1
+                # 同 run()：计数归 tool_select_node，异常路径不重复递增
+                state.empty_turns += 1
 
                 yield {"type": "codex/event/error", "data": {"error": str(e)[:200]}, "session_id": session_id}
 
@@ -742,6 +768,8 @@ class AgentGraph:
 
 
             if state.tool_invocations:
+
+                self._checkpoint_for_tools(state)
 
                 for inv in state.tool_invocations:
 
@@ -787,8 +815,7 @@ class AgentGraph:
                 break
 
 
-            state.total_turns += 1
-
+            # 同 run()：不在循环末尾重复计数
             self.checkpoints.save(state, f"post_turn_{state.total_turns}")
 
             # Mid-stream process turn
@@ -827,17 +854,21 @@ class AgentGraph:
 
     def _apply_approval_mode(self, approval_mode: str):
 
-        try:
+        """兼容保留：审批策略现随 state 传递，不再写进程级全局单例。
 
-            from backend.approval import approval_bridge, ApprovalPolicy
+        原实现调用 approval_bridge.manager.set_policy()，而该 manager 是进程级
+        单例 —— 并发会话各自 set_policy 会互相覆盖，A 会话的 never 可能盖掉
+        B 会话的 untrusted，即安全策略被静默降级。
 
-            policy = ApprovalPolicy(approval_mode or "never")
+        现改为：策略存到 state.approval_mode，由 _run_executor 注入 args
+        （arguments["_approval_policy"]），工具侧读取后自行判断；
+        approval_gate / shell_command 均优先使用该请求级值。
 
-            approval_bridge.manager.set_policy(policy)
+        全局单例的 policy 仅作为无会话上下文调用方（hooks_system 等）的
+        进程级默认值，保持 DEFAULT_APPROVAL_POLICY（on-request，偏严格）。
+        """
 
-        except Exception:
-
-            pass
+        return
 
 
     async def _run_planner(self, state: AgentState):
@@ -874,6 +905,15 @@ class AgentGraph:
 
                     args = dict(args); args["_workspace_boundary"] = True
 
+                    args["_approval_policy"] = state.approval_mode
+
+            # 审批策略随请求传递：approval_manager 是进程级单例，若由各会话
+            # 各自 set_policy，并发下会互相覆盖（A 的 never 可能盖掉 B 的 untrusted）。
+            # 这里把本会话的策略注入 args，由工具侧读取，不再依赖全局态。
+            if isinstance(args, dict) and "_approval_policy" not in args:
+
+                args = dict(args); args["_approval_policy"] = state.approval_mode
+
             return await self.tool_handler(name, args, ws)
 
         await executor_node(state, handler, state.workspace)
@@ -882,6 +922,28 @@ class AgentGraph:
     async def _run_observer(self, state: AgentState):
 
         await observer_node(state)
+
+
+    # 会改动工作区文件、需要可回滚的工具集合
+    _FILE_MUTATING_TOOLS = frozenset({"apply_patch", "file_rw"})
+
+    def _checkpoint_for_tools(self, state: AgentState) -> bool:
+        """若本轮将执行文件变更工具，先落一个工作区快照。
+
+        save_workspace_state 只记录轻量摘要（label + timestamp），不是全量文件快照，
+        因此每次文件写之前调用成本很低；缺失它则 undo 栈永远为空。
+        返回是否落了快照（供测试断言）。
+        """
+        if not any(inv.name in self._FILE_MUTATING_TOOLS for inv in state.tool_invocations):
+            return False
+        try:
+            self.checkpoints.save_workspace_state(
+                label=f"pre_tool_{state.session_id}_{state.total_turns}"
+            )
+            return True
+        except Exception:
+            logger.debug("workspace checkpoint failed", exc_info=True)
+            return False
 
 
     async def _run_synthesizer(self, state: AgentState):
@@ -921,6 +983,10 @@ class AgentGraph:
                 self._last_tracked_tokens = llm_tokens
             budget_result = {"exhausted": self.token_budget.usage_ratio() >= 1.0}
 
+            # B12：与 run()/run_with_stream() 一致，先尝试压缩再中止
+            from backend.agent.nodes import maybe_compact_context
+            await maybe_compact_context(state, self.llm, max_tokens=self.token_budget.limit())
+
             if budget_result["exhausted"]: break
 
 
@@ -928,11 +994,13 @@ class AgentGraph:
 
             try: await self._run_tool_select(state)
 
-            except Exception as e: logger.error(f"Tool select failed in resume: {e}", exc_info=True); state.empty_turns += 1; state.total_turns += 1; continue
+            except Exception as e: logger.error(f"Tool select failed in resume: {e}", exc_info=True); state.empty_turns += 1; continue
 
 
 
             if state.tool_invocations:
+
+                self._checkpoint_for_tools(state)
 
                 try: await self._run_executor(state)
 
@@ -948,7 +1016,7 @@ class AgentGraph:
 
                 break
 
-            state.total_turns += 1
+            # 同 run()：计数归 tool_select_node，这里不再补加
 
 
         await self._run_synthesizer(state)
@@ -960,8 +1028,10 @@ class AgentGraph:
 
     async def cancel(self, session_id: str):
 
+        # 只置取消标记，不清理检查点：用户取消后最想做的事就是 resume，
+        # 若在此处 clear_session，等于把可恢复的快照一并销毁。
+        # 需要清理时应走独立的显式接口，而不是在 cancel 里静默删除。
         self._cancelled_sessions.add(session_id)
-        self.checkpoints.clear_session(session_id)
 
 
     def stats(self) -> dict:

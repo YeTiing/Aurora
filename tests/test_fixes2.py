@@ -34,8 +34,16 @@ class TestShellWorkspaceBoundary:
     @pytest.mark.asyncio
     async def test_handler_passes_without_boundary(self):
         from tools.shell_command import shell_handler
-        # 无边界标志时不做逃逸拦截（白名单会拦 cd？cd 在白名单；这里验证不因标志报错）
-        result = await shell_handler({"command": "echo ok", "timeout": 5}, ".")
+        from backend.approval import approval_bridge, ApprovalPolicy
+        # 本用例验证「无 _workspace_boundary 标志时不因该标志报错」，与审批无关。
+        # 生产路径一定经 AgentGraph 注入 _approval_policy；裸调 handler 需显式给
+        # 策略，否则会落到默认 on-request 并阻塞 30s 后拒绝。
+        prev = approval_bridge.manager.policy
+        approval_bridge.manager.set_policy(ApprovalPolicy.NEVER)
+        try:
+            result = await shell_handler({"command": "echo ok", "timeout": 5}, ".")
+        finally:
+            approval_bridge.manager.set_policy(prev)
         assert result["success"] is True
         assert "ok" in result["stdout"]
 

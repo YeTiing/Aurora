@@ -55,20 +55,50 @@ class ApprovalManager:
         return False
 
     def assess_risk(self, tool_name: str, arguments: dict) -> RiskLevel:
-        if tool_name in ("code_search", "list_files", "view_image", "todo_write", "plan_update"):
+        if tool_name in ("code_search", "list_files", "view_image", "todo_write", "plan_update",
+                         "session_export_tool", "verify_plan", "web_search"):
             return RiskLevel.LOW
         if tool_name in ("file_rw", "apply_patch", "git_ops"):
-            cmd = str(arguments)
-            if "write" in cmd or "patch" in cmd or "commit" in cmd or "push" in cmd:
+            op = str(arguments.get("operation", "")) if isinstance(arguments, dict) else str(arguments)
+            # 删除/覆盖是高风险写操作
+            if "delete" in op or "rm" in op:
+                return RiskLevel.CRITICAL
+            if "write" in op or "patch" in op or "commit" in op or "push" in op:
                 return RiskLevel.MEDIUM
             return RiskLevel.LOW
-        if tool_name in ("web_fetch", "web_search", "send_message"):
+        if tool_name in ("web_fetch", "send_message"):
+            # POST 是网络写操作，提级；GET 读取保持 MEDIUM
+            if isinstance(arguments, dict) and str(arguments.get("method", "GET")).upper() == "POST":
+                return RiskLevel.HIGH
             return RiskLevel.MEDIUM
         if tool_name in ("shell_command", "code_exec", "computer_use"):
             cmd = str(arguments).lower()
-            if any(d in cmd for d in ("rm -rf", "format", "del /", "rd /", "drop", "shutdown")):
+            if any(d in cmd for d in ("rm -rf", "format", "del /", "rd /", "drop", "shutdown", "format ")):
                 return RiskLevel.CRITICAL
             return RiskLevel.HIGH
+        if tool_name in ("browser_use", "browser_relay", "mcp_proxy"):
+            # 浏览器导航/表单提交、MCP 工具调用（可能执行任意操作）
+            if isinstance(arguments, dict):
+                method = str(arguments.get("method", ""))
+                if tool_name == "browser_use" and method in ("click", "type", "submit", "evaluate", "press_key"):
+                    return RiskLevel.HIGH
+                if tool_name == "mcp_proxy":
+                    server = str(arguments.get("server", ""))
+                    tname = str(arguments.get("tool", ""))
+                    if any(k in (server + "/" + tname).lower() for k in ("shell", "exec", "delete", "write", "install", "push", "rm")):
+                        return RiskLevel.CRITICAL
+                    return RiskLevel.MEDIUM
+            return RiskLevel.MEDIUM
+        if tool_name in ("plugin_install", "install_plugin", "package_manager"):
+            return RiskLevel.CRITICAL
+        if tool_name in ("cron_tool", "skin_tool", "memory", "re_tool", "detective_tool", "lsp_tool"):
+            return RiskLevel.LOW
+        if tool_name == "connector_call":
+            # 写类 action（发送/创建/发布）高风险
+            action = str(arguments.get("action", "")) if isinstance(arguments, dict) else ""
+            if action in ("send_message", "create_file", "create_issue", "create_page", "post_message"):
+                return RiskLevel.HIGH
+            return RiskLevel.LOW
         return RiskLevel.MEDIUM
 
     def create_request(self, tool_name: str, cmd: str = "", file_path: str = "",

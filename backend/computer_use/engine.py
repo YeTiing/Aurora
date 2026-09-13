@@ -306,6 +306,78 @@ class ComputerUse:
             r = elems[idx]["rect"]
             pyautogui.click((r[0] + r[2]) // 2, (r[1] + r[3]) // 2)
 
+    def _get_control_at(self, hwnd, idx):
+        """按 accessibility tree 索引返回 UIA 控件对象（修复: 此前 stub 无法按索引定位）"""
+        try:
+            root = uia.ControlFromHandle(hwnd) if hwnd and user32.IsWindow(hwnd) else uia.GetForegroundControl()
+        except Exception:
+            return None
+        counter = [0]
+        found = [None]
+
+        def walk(ctrl):
+            if found[0] is not None:
+                return
+            try:
+                for child in ctrl.GetChildren():
+                    if found[0] is not None:
+                        return
+                    try:
+                        if counter[0] == idx:
+                            found[0] = child
+                            return
+                        counter[0] += 1
+                    except (OSError, AttributeError):
+                        pass
+                    walk(child)
+            except (OSError, AttributeError):
+                pass
+
+        try:
+            walk(root)
+        except Exception:
+            return None
+        return found[0]
+
+    def set_element_value(self, hwnd, idx, value):
+        """通过 UIA ValuePattern 设置输入框值（修复: set_value 原为 stub）"""
+        ctrl = self._get_control_at(hwnd, idx)
+        if ctrl is None:
+            return {"ok": False, "error": f"element #{idx} not found"}
+        try:
+            vp = ctrl.GetValuePattern()
+            vp.SetValue(str(value))
+            return {"ok": True}
+        except Exception as e:
+            # 降级：点击 + 全选 + 输入
+            try:
+                r = ctrl.BoundingRectangle
+                pyautogui.click((r.left + r.right) // 2, (r.top + r.bottom) // 2)
+                pyautogui.hotkey("ctrl", "a")
+                pyautogui.typewrite(str(value)[:500])
+                return {"ok": True, "method": "fallback"}
+            except Exception as e2:
+                return {"ok": False, "error": str(e)[:200]}
+
+    def secondary_action(self, hwnd, idx):
+        """对元素执行右键（修复: perform_secondary_action 原为 stub）"""
+        ctrl = self._get_control_at(hwnd, idx)
+        if ctrl is None:
+            return {"ok": False, "error": f"element #{idx} not found"}
+        try:
+            r = ctrl.BoundingRectangle
+            pyautogui.rightClick((r.left + r.right) // 2, (r.top + r.bottom) // 2)
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+    def close_window(self, hwnd):
+        """发送 WM_CLOSE 关闭窗口（修复: close 原为 stub）"""
+        if hwnd and user32.IsWindow(hwnd):
+            user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+            return {"ok": True}
+        return {"ok": False, "error": "invalid window handle"}
+
     def scroll(self, x, y, sx=0, sy=0):
         pyautogui.moveTo(x, y)
         if sy: pyautogui.scroll(sy)
@@ -488,12 +560,12 @@ def run_helper_loop():
         "drag": lambda p: cu.drag(p["from_x"], p["from_y"], p["to_x"], p["to_y"]),
         "press_key": lambda p: cu.press_key(p["key"]),
         "type_text": lambda p: cu.type_text(p["text"]),
-        "set_value": lambda p: None,  # stub
-        "perform_secondary_action": lambda p: None,  # stub
+        "set_value": lambda p: cu.set_element_value(p.get("window", {}).get("id", 0), p["element_index"], p.get("value", "")),
+        "perform_secondary_action": lambda p: cu.secondary_action(p.get("window", {}).get("id", 0), p["element_index"]),
         "launch_app": lambda p: os.startfile(p["app"]) if os.path.exists(p["app"]) else None,
         "activate_window": lambda p: user32.SetForegroundWindow(p.get("window", {}).get("id", 0)),
-        "close": lambda p: None,
-        "end_turn": lambda p: None,
+        "close_window": lambda p: cu.close_window(p.get("window", {}).get("id", 0)) if p.get("window", {}).get("id") else {"ok": True},
+        "end_turn": lambda p: {"end_turn": True},
     }
 
     for line in sys.stdin:

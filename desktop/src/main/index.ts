@@ -107,6 +107,7 @@ function createWindow() {
             preload: path.join(__dirname, "preload.js"),
             nodeIntegration: false,
             contextIsolation: true,
+            sandbox: true,
             // keep webSecurity on; wallpaper images stored as data: URLs via image:toDataUrl IPC
         },
     });
@@ -652,6 +653,75 @@ ipcMain.handle("terminal:kill", async (_event, { sessionId }) => {
     return { killed: true };
 });
 
+// ── File access root constraint ──────────────────────────────────
+// 渲染层曾可直接读写任意绝对路径（如 C:\Windows\System32\...），
+// 结合 browser_use 的 evaluate（任意页面执行任意 JS）构成
+// "打开恶意网页 -> 读写本机任意文件" 的链路。
+// 这里为 file:read/file:write/file:list/image:toDataUrl 加根目录约束。
+let allowedFileRoots: string[] = [];
+
+function initializeAllowedRoots(): void {
+    const candidates = [
+        process.env.AURORA_WORKSPACE,
+        process.cwd(),
+        path.resolve(__dirname, "..", "..", ".."), // 仓库根
+        app.getPath("home"),
+    ];
+    const seen = new Set<string>();
+    allowedFileRoots = [];
+    for (const c of candidates) {
+        if (!c) continue;
+        try {
+            const resolved = fs.realpathSync(path.resolve(c));
+            const key = resolved.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                allowedFileRoots.push(resolved);
+            }
+        } catch {
+            /* 候选目录不可用时跳过 */
+        }
+    }
+    console.log("[Aurora] allowed file roots:", allowedFileRoots);
+}
+
+// 系统敏感路径始终拒绝，即便位于允许根之下
+const DENIED_PATH_PATTERNS = [
+    /[\\/]\.ssh[\\/]/i,
+    /[\\/]\.aws[\\/]/i,
+    /[\\/]\.gnupg[\\/]/i,
+    /[\\/]AppData[\\/]Roaming[\\/]Microsoft[\\/]Crypto/i,
+];
+
+function checkFilePathAllowed(target: string, mode: "read" | "write"): string | null {
+    let resolved: string;
+    try {
+        // write 的目标可能尚不存在，用其父目录解析真实路径
+        const abs = path.resolve(target);
+        resolved = mode === "write" && !fs.existsSync(abs)
+            ? path.join(fs.realpathSync(path.dirname(abs)), path.basename(abs))
+            : fs.realpathSync(abs);
+    } catch (e: any) {
+        return `Cannot resolve path: ${e.message}`;
+    }
+
+    for (const pat of DENIED_PATH_PATTERNS) {
+        if (pat.test(resolved)) {
+            return "Access to credential/secret paths is denied";
+        }
+    }
+
+    const lower = resolved.toLowerCase();
+    const inside = allowedFileRoots.some((root) => {
+        const r = root.toLowerCase();
+        return lower === r || lower.startsWith(r.endsWith(path.sep) ? r : r + path.sep);
+    });
+    if (!inside) {
+        return "Path outside allowed roots (set AURORA_WORKSPACE to widen access)";
+    }
+    return null;
+}
+
 ipcMain.handle("dialog:openFolder", async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
         properties: ["openDirectory"],
@@ -671,6 +741,8 @@ ipcMain.handle("file:read", async (_event, filePath: string) => {
         if (!path.isAbsolute(filePath)) {
             return { error: "Only absolute paths are allowed for file read" };
         }
+        const denied = checkFilePathAllowed(filePath, "read");
+        if (denied) return { error: denied };
         return fs.readFileSync(filePath, "utf-8");
     } catch (e: any) {
         return { error: e.message };
@@ -683,6 +755,8 @@ ipcMain.handle("file:write", async (_event, { filePath, content }: { filePath: s
         if (!path.isAbsolute(filePath)) {
             return { error: "Only absolute paths are allowed for file write" };
         }
+        const denied = checkFilePathAllowed(filePath, "write");
+        if (denied) return { error: denied };
         fs.writeFileSync(filePath, content, "utf-8");
         return { success: true };
     } catch (e: any) {
@@ -692,6 +766,8 @@ ipcMain.handle("file:write", async (_event, { filePath, content }: { filePath: s
 
 ipcMain.handle("file:list", async (_event, dirPath: string) => {
     try {
+        const denied = checkFilePathAllowed(dirPath, "read");
+        if (denied) return { error: denied };
         const entries = fs.readdirSync(dirPath, { withFileTypes: true });
         return entries.map((e) => ({
             name: e.name,
@@ -704,7 +780,19 @@ ipcMain.handle("file:list", async (_event, dirPath: string) => {
 });
 
 ipcMain.handle("shell:openExternal", async (_event, url: string) => {
+    // 仅允许 http/https。否则渲染层可传入 file:// 或自定义协议，
+    // 在用户机器上拉起本地程序 / 打开本地文件。
+    try {
+        const parsed = new URL(String(url));
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+            console.warn("[Aurora] openExternal blocked, protocol:", parsed.protocol);
+            return { opened: false, error: "Only http/https URLs are allowed" };
+        }
+    } catch {
+        return { opened: false, error: "Invalid URL" };
+    }
     await shell.openExternal(url);
+    return { opened: true };
 });
 
 // Browser View handlers
@@ -770,6 +858,8 @@ ipcMain.handle("browser:getState", async () => {
 });
 ipcMain.handle("image:toDataUrl", async (_event, filePath: string) => {
     try {
+        const denied = checkFilePathAllowed(filePath, "read");
+        if (denied) return { error: denied };
         const data = fs.readFileSync(filePath);
         const ext = path.extname(filePath).toLowerCase();
         const mimeMap: Record<string, string> = {
@@ -788,6 +878,7 @@ ipcMain.handle("image:toDataUrl", async (_event, filePath: string) => {
 // App lifecycle
 app.whenReady().then(async () => {
 
+    initializeAllowedRoots();
     startBackend();
     await new Promise(r => setTimeout(r, 2500));
     createWindow();

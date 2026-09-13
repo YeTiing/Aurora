@@ -9,6 +9,12 @@
  
  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+ <!-- CSP：限制脚本/样式/字体来源，压缩 XSS 纵深。
+      script-src 需放行 jsdelivr（ChatPanel 动态加载 mermaid）。
+      frame-src 放行 blob:/data:（mermaid SVG 走 sandboxed iframe）。
+      脚本未开放 'unsafe-inline'。 -->
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' ws: wss: http://127.0.0.1:* http://localhost:*; frame-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'" />
+
  <title>Aurora - AI智能编程助手</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet" />

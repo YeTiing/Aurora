@@ -10,8 +10,13 @@ from backend.agent.sse_events import SSEEvent, SSEEventType, sse_bus
 class ApprovalPolicy(Enum):
     NEVER = "never"           # 自动执行，无需审批
     ON_FAILURE = "on-failure" # 仅在失败时提示
-    ON_REQUEST = "on-request" # 每次操作都请求确认
+    ON_REQUEST = "on-request" # 高风险操作请求确认
     UNTRUSTED = "untrusted"   # 严格模式，所有操作需确认
+
+
+# 默认策略。原为 NEVER，导致开箱状态下 Agent 可无确认执行 shell/写文件/删文件。
+# 现为 ON_REQUEST：只对 HIGH/CRITICAL 风险（shell、写文件、删文件、网络写）询问。
+DEFAULT_APPROVAL_POLICY = ApprovalPolicy.ON_REQUEST
 
 class RiskLevel(Enum):
     LOW = "low"         # 读操作、代码搜索
@@ -34,7 +39,7 @@ class ApprovalRequest:
 class ApprovalManager:
     """审批管理器 — 对齐 Codex require_escalated 模式"""
 
-    def __init__(self, policy: ApprovalPolicy = ApprovalPolicy.NEVER):
+    def __init__(self, policy: ApprovalPolicy = DEFAULT_APPROVAL_POLICY):
         self.policy = policy
         self._pending: dict[str, ApprovalRequest] = {}
         self._history: list[ApprovalRequest] = []

@@ -303,15 +303,20 @@ class SecurityHeaders:
 
     @staticmethod
     def _csp() -> str:
+        # 仅作用于后端自身响应（桌面端 UI 的 CSP 在 desktop/index.html）。
+        # 该后端不提供 HTML 页面，故 script-src 收紧到 'none'；
+        # style-src 保留 unsafe-inline 以兼容 /docs 的 Swagger UI。
         return "; ".join([
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
+            "script-src 'none'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: https:",
             "font-src 'self' data:",
-            "connect-src 'self' ws: wss: http://localhost:*",
+            "connect-src 'self' ws: wss:",
             "frame-ancestors 'none'",
             "form-action 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
         ])
 
     @classmethod

@@ -21,7 +21,9 @@ from .worktree import WorktreeManager, worktree_manager
 from .context.collapse import ContextCollapser, context_collapser
 from .skills import SkillManager, Skill, SkillResource, skill_manager
 from .plugins import PluginManager, PluginInstance, PluginManifest, PluginInterface, plugin_manager
-from .sandbox import DockerSandbox, SandboxConfig, sandbox
+# NOTE: backend/sandbox/ (DockerSandbox) 已移除。它恒失效（危险字符集合含空字符串，
+# '' in cmd 永远为真）且全项目零调用点，属于"有沙箱"的安全错觉。
+# shell_command 当前直接在宿主机执行，边界依赖 shell_command 的白名单+链式检查。
 from .redis_cache import RedisClient, SessionCache, RAGCache, RateLimiter, EventBus, redis_client
 from .prompt_templates import PromptTemplate, PromptManager, BUILTIN_TEMPLATES, prompt_manager
 from .mcp_hub import MCPHub, MCPServerConfig as MCPSrvCfg, MCPServerState, mcp_hub

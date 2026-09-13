@@ -521,7 +521,12 @@ async def interactive():
 
         try:
             print(f"  {C.cyan('Aurora')} {C.dim('thinking...')}", end="\r", flush=True)
-            state = await graph.run(user_input, session_id=sessions.active)
+            # CLI 是交互式终端，没有审批 UI。若落到 on-request 默认策略，
+            # 每次 shell/写文件都会阻塞 30s 后按超时拒绝 —— CLI 将完全跑不动。
+            # 故显式声明：默认 never（终端即用户自己的机器），
+            # 可用 AURORA_APPROVAL_MODE 覆盖为 on-request 等。
+            _cli_approval = os.environ.get("AURORA_APPROVAL_MODE", "never").strip() or "never"
+            state = await graph.run(user_input, session_id=sessions.active, approval_mode=_cli_approval)
             sessions.record_msg(sessions.active, tokens=30)
 
             print(" " * 40, end="\r")

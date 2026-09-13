@@ -29,6 +29,38 @@ import logging
 logger = logging.getLogger("aurora")
 
 
+# 沙箱模式别名归一化。
+# 项目里存在三套取值：graph.py 只认 read-only / workspace-only；
+# config.sandbox_mode 与 ThreadSettings 默认却是 "workspace-write"；
+# 而 "danger-full-access" 只在 system_prompt 出现。
+# 归一化前，"workspace-write" 无法匹配任何分支 -> 静默降级为无限制，
+# 即"配置了更严的沙箱，实际反而完全放开"。
+_SANDBOX_ALIASES = {
+    "read-only": "read-only",
+    "readonly": "read-only",
+    "workspace-write": "workspace-only",
+    "workspace-only": "workspace-only",
+    "workspacewrite": "workspace-only",
+    "full-access": "full-access",
+    "danger-full-access": "full-access",
+    "": "full-access",
+}
+
+
+def _normalize_sandbox_mode(mode: str) -> str:
+    return _SANDBOX_ALIASES.get((mode or "").strip().lower(), "full-access")
+
+
+def _configured_sandbox_mode() -> str:
+    """读取 config.sandbox_mode；失败时回落 full-access（保持原有行为）。"""
+    try:
+        from backend.config import config as _cfg
+        return _cfg.sandbox_mode or "full-access"
+    except Exception:
+        logger.debug("sandbox_mode config lookup failed", exc_info=True)
+        return "full-access"
+
+
 class AgentGraph:
 
     """基于 LangGraph StateGraph 的六步流水线"""
@@ -196,8 +228,9 @@ class AgentGraph:
         
 
         # Apply sandbox mode and model override
-
-        state.sandbox_mode = sandbox_mode
+        # 配置回退：请求未显式指定时用 config.sandbox_mode
+        # （此前该配置字段无任何读取点，用户配置被完全忽略）
+        state.sandbox_mode = _normalize_sandbox_mode(sandbox_mode or _configured_sandbox_mode())
 
         if model:
 
@@ -510,8 +543,9 @@ class AgentGraph:
         
 
         # Apply sandbox mode and model override
-
-        state.sandbox_mode = sandbox_mode
+        # 配置回退：请求未显式指定时用 config.sandbox_mode
+        # （此前该配置字段无任何读取点，用户配置被完全忽略）
+        state.sandbox_mode = _normalize_sandbox_mode(sandbox_mode or _configured_sandbox_mode())
 
         if model:
 
@@ -818,7 +852,7 @@ class AgentGraph:
 
     async def _run_executor(self, state: AgentState):
 
-        sandbox = getattr(state, "sandbox_mode", "full-access")
+        sandbox = _normalize_sandbox_mode(getattr(state, "sandbox_mode", "full-access"))
 
         # Restricted tools in non-full-access mode
 

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aurora"
+version = "0.2.0"
+description = "Aurora — AI 编程 Agent 引擎（FastAPI 后端 + Electron 桌面端）"
+# 实测支持 3.11+：lsp_tool.py 原有的 PEP 701 嵌套 f-string 已改写为兼容写法。
+requires-python = ">=3.11"
+
+# 依赖管理仍由 requirements.txt 负责（不在此处重复声明，避免两处漂移）。
+[project.optional-dependencies]
+dev = ["ruff>=0.6.0"]
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# 测试均以 @pytest.mark.asyncio 显式标注，strict 模式与现状一致。
+asyncio_mode = "strict"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+# 实测：全默认规则集在 backend/ 有 1378 处既存违规（含 736 处 F401 未用 import），
+# 分布在多个本轮不允许改动的文件中，作为 CI 门禁会永久失败。
+# 这里只保留「真实错误」类规则，当前通过（ruff check → All checks passed）。
+# F821（undefined-name，19 处）暂未纳入：含类型注解前向引用等误报，
+# 需在允许改动相应源码后逐条核实再开启。
+select = ["E9", "F63", "F7"]

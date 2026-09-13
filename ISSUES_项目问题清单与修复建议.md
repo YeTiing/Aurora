@@ -1,7 +1,8 @@
 # Aurora 项目问题清单与修复建议
 
 > **审查对象**：`D:\codex_Projects\Aurora`（v0.2.0）
-> **代码规模**：212 个 Python 文件 / 40,114 行；桌面端 36 个源文件
+> **代码规模**（2026-09-13 复测）：216 个 Python 文件 / 40,739 行；桌面端 `desktop/src` 38 个源文件
+> （Python 统计含本轮并发编辑产生的临时探针文件，故为动态值；其中 git 已跟踪者为 212 个文件 / 39,645 行）
 > **审查方法**：静态通读核心模块 + 全局调用链检索 + 运行时导入验证 + 服务启动冒烟 + 攻击用例构造 + 测试套件执行
 > **文档性质**：可勾选的整改清单，每条含「现象 / 位置 / 影响 / 修复建议」
 
@@ -12,14 +13,14 @@
 | 验证项 | 手段 | 结果 |
 |---|---|---|
 | 服务可启动 | `python run_server.py` + HTTP 探测 | `/health` 200、`/docs` 200 |
-| 路由完整性 | `import backend.api` 后统计 | 267 个路由对象 / 241 个 OpenAPI 路径 |
+| 路由完整性 | `import backend.api` 后统计 | 267 个路由对象 / 243 个 OpenAPI 路径（2026-09-13 复测修正） |
 | 工具注册 | 运行时调 `register_all_tools()` 枚举 | 29 个工具 / 20 个分类 |
-| 运行时依赖 | 检查 `sys.modules` | 924 个模块，**langgraph 0 个** |
-| 测试套件 | `pytest tests/` | 收集 446 个用例 |
+| 运行时依赖 | 检查 `sys.modules` | 921 个模块，**langgraph 0 个**（2026-09-13 复测修正） |
+| 测试套件 | `pytest tests/` | 收集 446 个用例（初查）；2026-09-13 复测为 **516** |
 | 路径越权修复 | 构造同级前缀目录攻击用例 | 修复生效（详见附录 A） |
 | 密钥检测 | 植入 6 个密钥实际扫描 | 命中 7 条，分级正确 |
 
-**关于测试失败的说明**：本次审查环境为受限沙箱，`pytest` 出现 `26 failed / 84 errors`，**逐条追查后确认全部为沙箱写入权限导致（写 `~/.aurora` 与系统临时目录），非项目代码缺陷**。353 个用例通过。
+**关于测试失败的说明**：本文档初次审查环境为受限沙箱，`pytest` 曾出现 `26 failed / 84 errors`，**逐条追查后确认全部为沙箱写入权限导致（写 `~/.aurora` 与系统临时目录），非项目代码缺陷**。当前仓库已加入根 `conftest.py` 隔离 `AURORA_HOME`，**2026-09-13 复测 `python -m pytest tests/ -q` 结果为 `516 passed in 23.80s`，零失败**（本轮并发修复期间曾出现 11 failed，为其他 agent 编辑到一半的瞬时状态，最终收敛为全绿）。
 
 ---
 
@@ -296,7 +297,8 @@
   ```
 
 - **影响**：无网络或处于 TLS 拦截代理后的机器上，**后端连导入都会失败**；CI 必须联网。
-- **修复建议**：改为惰性初始化 + 离线兜底：
+- **现状（2026-09-13 复测）**：**已修复**。`token_counter.py` 在未提交的工作区改动中已改为惰性解析编码器 + `_ENCODER_CACHE` + `_OFFLINE` 哨兵降级，`__init__` 不再联网。因此当前测试套件**可离线通过**（本次 `python -m pytest tests/ -q` 在无额外网络配置下全绿），新增的 CI 无需联网拉取 BPE 文件即可运行测试。
+- **修复建议**（原始）：改为惰性初始化 + 离线兜底：
 
   ```python
   def _get_encoder(model):
@@ -337,47 +339,66 @@
 
 ### B14. `langgraph_adapter.py` 是死代码，但文档声称使用了 LangGraph
 
-- **位置**：`backend/agent/langgraph_adapter.py`（88 行，含完整 `StateGraph` / `add_conditional_edges` / `MemorySaver` 实现）
-- **实测**：
-  - 全仓库 21 处 `langgraph` 字样，**无一处是调用点**（5 处 README、1 处 requirements、2 处 `graph.py` 注释、13 处该文件自身）
-  - 导入整个后端后 `sys.modules` 中 **langgraph 0 个**（共 924 个模块）
+- **位置**：`backend/agent/langgraph_adapter.py`（87 行，含完整 `StateGraph` / `add_conditional_edges` / `MemorySaver` 实现）
+- **实测（2026-09-13 复测）**：
+  - `langgraph` 字样共 27 处（`grep -rn "langgraph\|LangGraph" --include=*.py --include=*.md --include=*.txt`，排除 `node_modules`）：`langgraph_adapter.py` 自身 9 处、本文档 13 处（含本次更正说明）、`graph.py` 注释 2 处、`README.md` 2 处、`requirements.txt` 1 处。**除 `langgraph_adapter.py` 自身外无任何调用点**
+  - 导入整个后端后 `sys.modules` 中 **langgraph 0 个**（共 921 个模块）
+  - `importlib.util.find_spec("langgraph")` 返回 `None` → **langgraph 未安装**
   - `graph.py` 中 `StateGraph(` / `add_node` / `add_edge` / `add_conditional_edges` / `.compile(` / `Send(` **全部不存在**
-  - `langgraph` 当前**未安装**（`ModuleNotFoundError`）
-- **影响**：生产引擎是 `graph.py` 的自研状态机（`while not state.done`），但以下表述与现实不符：
-  - `README.md:12,20,46,86,162`——「基于 LangGraph StateGraph 构建」
-  - `backend/agent/graph.py:1`——「LangGraph StateGraph — 真实状态图 + … + Send 并行分发」
-  - `backend/agent/graph.py:34`——「基于 LangGraph StateGraph 的六步流水线」
+- **影响**：生产引擎是 `graph.py` 的自研状态机（`while not state.done`），但以下表述与现实不符（**已于 2026-09-13 全部修正**）：
+  - `README.md`（简介 / 项目结构 / 核心能力 / 技术栈）——原「基于 LangGraph StateGraph 构建」，已改为「自研手写状态机」
+  - `backend/agent/graph.py:1`——原「LangGraph StateGraph — 真实状态图 + … + Send 并行分发」，已改为自研状态机描述
+  - `backend/agent/graph.py:34`——原「基于 LangGraph StateGraph 的六步流水线」，已改为「自研六阶段状态机」
 - **修复建议**：统一改为「自研六阶段状态机」；`requirements.txt` 的 `langgraph` 若保留需注明「仅供 `langgraph_adapter.py` 可选实现使用，主链路不依赖」；`langgraph_adapter.py` 的 docstring 明确标注为原型期产物且未被引用。
+- **已完成的处置**：README 与 `graph.py` 两处注释的表述已修正；`requirements.txt` 已加尾部注释说明该依赖仅供未使用的可选适配器（**依赖行本身按约定保留**）；`langgraph_adapter.py` 文件按约定**未删除、未修改**。
 
 ---
 
 ## 5. 🔵 工程质量问题
 
-### Q1. 空行膨胀——源码被人为拉长
+### Q1. 空行膨胀——原表数据有误，已重新实测
 
-| 文件 | 总行数 | 空行 | 占比 |
-|---|---|---|---|
-| `backend/tools/apply_patch.py` | 885 | 510 | **58%** |
-| `backend/agent/state.py` | 394 | 216 | **55%** |
-| `backend/agent/checkpoint.py` | 370 | 202 | 55% |
-| `backend/plugin_marketplace.py` | 451 | 243 | 54% |
-| `backend/prompt_templates.py` | 443 | 233 | 53% |
-| `desktop/index.html` | 26 | 13 | 50% |
-| `backend/agent/graph.py` | 961 | 347 | 36% |
+> **更正说明（2026-09-13 复测）**：下表旧数据不可用，已全部作废并替换。
+> 旧表的行数/空行数两个维度都错得自相矛盾：例如 `state.py` 声称「总行数 394 / 空行 216」，
+> 但该文件实际只有 201 行，**216 个空行在物理上不可能**；`apply_patch.py` 与 `plugin_marketplace.py`
+> 的旧行数（885、451）也远大于实际（456、226）。
+> 旧数据的量级与形态（行数约为实际的 1.9～2.0 倍、空行占比集中在 50%～58%）
+> 更像是来自**另一个数据集或早期被整体复制粘贴拉长的中间版本**，而非本仓库当前源码。
+> 本次全部改用 Python 以二进制读取 + UTF-8 解码后再按 `\n` 切分统计
+> （`open(f,'rb').read().decode('utf-8')`，末尾空元素剔除），以规避 CRLF 换行导致 `grep -c '^$'` 少计空行的问题。
+> 空行定义：`line.strip() == ''`。
 
-- **影响**：严重损害可读性与 diff 质量；且这些文件的真实行号与常规工具显示不一致，审计时容易引错位置（`state.py` 实际 394 行，但按常规显示为 201 行）。
-- **修复建议**：统一格式化（`black` / `ruff format`）还原正常空行。
+| 文件 | 总行数 | 空行 | 占比 | 换行符 |
+|---|---|---|---|---|
+| `backend/tools/apply_patch.py` | 456 | 69 | 15.1% | CRLF |
+| `backend/agent/state.py` | 201 | 23 | 11.4% | CRLF |
+| `backend/agent/checkpoint.py` | 370 | 202 | **54.6%** | CRLF |
+| `backend/plugin_marketplace.py` | 226 | 18 | 8.0% | CRLF |
+| `backend/prompt_templates.py` | 443 | 234 | **52.8%** | CRLF |
+| `desktop/index.html` | 32 | 14 | 43.8% | CRLF |
+| `backend/agent/graph.py` | 995 | 351 | 35.3% | CRLF |
+
+- **复测结论（与旧表结论不同，据实修正）**：空行膨胀问题**远小于旧表所述**，且并非普遍现象。
+  7 个文件中只有 3 个真正偏高：`checkpoint.py`（54.6%）、`prompt_templates.py`（52.8%）、
+  `graph.py`（35.3%）；其余 4 个处于 8%～16% 的正常区间（`desktop/index.html` 因是短小 HTML，
+  43.8% 的占比对应绝对值仅 14 行，不具实际影响）。
+  因此**不支持旧表「7 个文件普遍被人为拉长到 50%+ 空行」的框架**——那是由错误的原始数据得出的。
+- **影响（按修正后数据评估）**：仅 `checkpoint.py` / `prompt_templates.py` / `graph.py` 三个文件
+  的空行值得整理，属可读性与 diff 噪声层面的中低优先级问题，**不构成「源码被人为拉长」的质量事故**。
+- **修复建议**：对上述 3 个文件执行 `ruff format` / `black` 还原正常空行；其余文件无需专门处理。
 
 ### Q2. 测试无隔离，直接读写真实用户目录
 
 - **位置**：`backend/auth.py:11` —— `DEFAULT_DATA_DIR = Path(os.environ.get("AURORA_HOME", Path.home() / ".aurora"))`，模块级求值
-- **叠加问题**：全仓库**没有 `conftest.py`，也没有 `pytest.ini` / `pyproject.toml` / `setup.cfg`**（25 个测试文件零共享夹具）
-- **影响**：测试会创建/删除开发者真实的 `~/.aurora/tokens.enc`；测试不可重入，且无法在受限沙箱或干净 CI 中运行（本次审查即因此出现 84 errors）。
-- **修复建议**：新增根 `conftest.py`，以 `monkeypatch.setenv("AURORA_HOME", tmp_path)` 隔离；引入 `pyproject.toml` 统一 pytest 配置。
+- **叠加问题**：本文档初次审查时全仓库**没有 `conftest.py`，也没有 `pytest.ini` / `pyproject.toml` / `setup.cfg`**（当时 25 个测试文件零共享夹具）
+- **现状（2026-09-13 复测）**：根 `conftest.py` 已存在并隔离 `AURORA_HOME`；`pyproject.toml` **仍缺失**（本次已按另一交付项补上）。
+- **影响**：测试会创建/删除开发者真实的 `~/.aurora/tokens.enc`；测试不可重入，且无法在受限沙箱或干净 CI 中运行（初次审查即因此出现 84 errors）。
+- **修复建议**：保留根 `conftest.py`（以 `monkeypatch.setenv("AURORA_HOME", tmp_path)` 隔离）；引入 `pyproject.toml` 统一 pytest 配置。
 
 ### Q3. 无 CI
 
 - **现象**：`.github/` 不存在，无任何流水线配置
+- **现状（2026-09-13）**：本次交付已新增 `.github/workflows/ci.yml`（Windows + Linux 矩阵，安装依赖 + `pytest` + `ruff check`）。
 - **修复建议**：加最小工作流（安装依赖 + `pytest` + `ruff check`）。
 
 ### Q4. 依赖声明问题
@@ -392,11 +413,11 @@
 
 ### Q5. README 数字与实际不符
 
-| README 声称 | 实测 |
+| README 声称 | 实测（2026-09-13 复测） |
 |---|---|
-| `436 passed`（徽章）/ `391 tests`（结构节同项两处不一致） | 收集 **446** 个用例 |
-| `100+ REST + WebSocket 端点` | **241** 个 OpenAPI 路径 / 267 个路由对象 |
-| 桌面端与后端同版本 `0.2.0` | `desktop/package.json` 为 `0.1.0` |
+| `436 passed`（徽章）/ `391 tests`（结构节同项两处不一致） | 收集 **516** 个用例（`516 passed in 23.80s`；本轮并发修复新增用例后从 446 增至 516） |
+| `100+ REST + WebSocket 端点` / `100 个 REST + WebSocket 端点` | **243** 个 OpenAPI 路径 / 267 个路由对象（114 GET、130 POST、3 PUT、14 DELETE、2 WebSocket） |
+| 桌面端与后端同版本 `0.2.0` | `desktop/package.json` 原为 `0.1.0`，**已对齐为 `0.2.0`** |
 | `15+ 工具` → 正文写「17+」 | **29** 个工具 / 20 个分类 |
 
 - **修复建议**：把测试数与端点数改为脚本自动统计写入，避免继续漂移。
@@ -415,12 +436,15 @@
 
 ### Q7. 桌面端构建产物过期
 
-- **实测**：`desktop/dist/main/index.js` 时间戳 `22:43:26`，而 `desktop/src/renderer/components/chat/ChatPanel.tsx` 修改于 `22:45:35` —— **dist 比源码旧**，当前构建产物不含最新改动。
-- **修复建议**：重新执行 `npm run build`。
+- **实测（2026-09-13 复测）**：`desktop/dist/main/index.js` 时间戳 `8月27日 22:43`，而 `desktop/src/renderer/components/chat/ChatPanel.tsx` 修改于 `22:45` —— **dist 确比源码旧**。
+- **重要澄清**：`desktop/dist/` 已被 `.gitignore` 排除（`git ls-files desktop/dist` 为空），**该产物从未进入版本控制**，因此不存在「提交了过期构建产物」的问题，只是本地磁盘上的产物陈旧。
+- **已处置**：已执行 `cd desktop && npm run build`（`tsc -p tsconfig.main.json && vite build`），**构建成功**（85 modules transformed，renderer 产物 324.79 kB / gzip 94.44 kB），`dist/main/index.js` 已刷新为最新，不再旧于源码。由于 dist 未跟踪，此项无版本控制层面的交付物。
+- **修复建议**：保持构建产物不入库；如需可复现构建，应在 CI 中构建而非提交 dist。
 
 ### Q8. 大量未提交的工作处于风险中
 
-- **实测**：`git status --porcelain` 显示 **45 个文件被修改**，另有 **2 个新文件未跟踪**（`backend/agent/roles_loader.py`、`backend/tools/approval_gate.py`）；而 `master` 与 `origin/master` 完全同步（0 ahead / 0 behind）
+- **实测（初查）**：`git status --porcelain` 显示 **45 个文件被修改**，另有 **2 个新文件未跟踪**（`backend/agent/roles_loader.py`、`backend/tools/approval_gate.py`）；而 `master` 与 `origin/master` 完全同步（0 ahead / 0 behind）
+- **复测（2026-09-13）**：`git status --porcelain` 为 **20 个已修改 + 6 个未跟踪**；`master...origin/master` 仍为 `0 ahead / 0 behind`。两批 P0 安全修复已提交（`74b1dd1`、`23012b8`），未提交量已从 45 降至 20。**仍有未提交改动处于风险中**
 - **影响**：`GAP_ANALYSIS_企业级差距分析.md` 中声称已完成的多项修复**只存在于工作区，未进入版本控制**，一次误操作即全部丢失。
 - **修复建议**：立即分批提交。
 
@@ -471,7 +495,7 @@
 | 4 | S5 超时分支补 `proc.kill()` | 3 行 |
 | 5 | S6 环境变量改为白名单传参 | ~10 行 |
 | 6 | S12 收紧 `_AUTH_FREE_PREFIXES` | 1 行 |
-| 7 | **Q8 提交 45 个未提交文件** | 一次 commit |
+| 7 | **Q8 提交未提交文件**（复测时 20 个已修改 + 6 个未跟踪） | 一次 commit |
 
 ### P1 — 正确性与并发（1–2 周）
 
@@ -493,14 +517,14 @@
 
 | # | 事项 |
 |---|---|
-| 19 | Q2 新增 `conftest.py`（`AURORA_HOME` 指向 tmp）+ `pyproject.toml` |
-| 20 | Q3 加最小 CI 工作流 |
-| 21 | Q1 清理 7 个文件的空行膨胀 |
+| 19 | ~~Q2 新增 `conftest.py` + `pyproject.toml`~~ **已完成**（`conftest.py` 已在；`pyproject.toml` 本次新增） |
+| 20 | ~~Q3 加最小 CI 工作流~~ **已完成**（`.github/workflows/ci.yml`，Windows + Linux） |
+| 21 | Q1 清理 3 个文件的空行膨胀（复测后仅 `checkpoint.py` / `prompt_templates.py` / `graph.py` 需要） |
 | 22 | Q6 消除 5 处重复实现 |
 | 23 | B12 把 `compact_async` 接进主循环（使「自动压缩」成立） |
 | 24 | B9 `VectorStore` 改 numpy + 落盘持久化 |
-| 25 | Q5 校正 README 数字；B14/Q5 统一 LangGraph 表述为「自研」 |
-| 26 | Q7 重新构建桌面端；Q9/Q10 处理 i18n 与 swarm 伪实现 |
+| 25 | ~~Q5 校正 README 数字；B14/Q5 统一 LangGraph 表述为「自研」~~ **已完成**（README 数字与 B14 表述、`graph.py` 两处注释均已修正） |
+| 26 | ~~Q7 重新构建桌面端~~ **已完成**（构建成功，dist 本地刷新）；Q9/Q10 处理 i18n 与 swarm 伪实现 |
 
 ---
 
@@ -544,21 +568,28 @@ is_relative_to = False   ← 新写法正确判定为「在外」，拦截
 
 ## 附录 B：关键数字速查
 
-| 项 | 数值 |
-|---|---|
-| Python 文件 / 行数 | 212 个 / 40,114 行 |
-| 路由对象 / OpenAPI 路径 | 267 / 241 |
-| 工具数 / 分类数 | 29 / 20 |
-| Provider 种类 / 原生协议实现 | 7 / 3 |
-| SSE 事件常量 / 发射方法 | 62 / 28 |
-| 测试用例（收集数） | 446 |
-| 工具输出截断阈值 | 65536 触发 → 16384（头尾保留）→ 8000（状态内） |
-| 滑动窗口 | 工具选择 20 条 / 合成 15 条 / 简单对话 8 条 |
-| 会话 Token 预算默认值 | 24000 |
-| 历史折叠触发条件 | 消息 > 60 条 或 工具结果 > 20 个 |
-| 密钥检测正则数 | 14 条 |
-| 风险等级 / 审批策略 | 4 级 / 4 档 |
-| 审批等待超时 | 30 秒（超时按拒绝） |
+> **更正说明（2026-09-13 复测）**：本表原有多行实际是 `llm_providers.py` 的**行号引用**，
+> 被误当作「数量」写入。经逐项复核，`Provider 种类 / 原生协议实现 = 7 / 3`、
+> `密钥检测正则数 = 14 条`、`风险等级 / 审批策略 = 4 / 4` 三行均为行号误植，其「数量」列无意义，已删除并替换为实测计数。
+> 其余保留项均已重新测量，测量方式见备注。
+
+| 项 | 数值 | 测量方式 / 备注 |
+|---|---|---|
+| Python 文件 / 行数 | 216 个 / 40,739 行 | Python `os.walk`（排除 `node_modules`、`__pycache__`）；含并发编辑产生的临时文件。git 已跟踪 = 212 个 / 39,645 行 |
+| 路由对象 / OpenAPI 路径 | 267 / 243 | 导入 `backend.api` 后遍历 `app.routes`；243 = 去重路径数（原「241」应为笔误） |
+| 工具数 / 分类数 | 29 / 20 | `tool_registry.list_tools()` 运行时枚举 |
+| Provider 种类（`ProviderKind` 枚举成员） | 7 | `llm_providers.py:12-19` 实枚举：OPENAI / CLAUDE / OLLAMA / OPENROUTER / AZURE / DEEPSEEK / CUSTOM。**此前的「7 / 3」中「3」是行号误植，已删** |
+| Provider 原生协议实现类 | 3 | `OpenAIProvider` / `ClaudeProvider` / `OllamaProvider`（其余 4 种 kind 复用 OpenAI 兼容实现） |
+| SSE 事件常量 / 发射方法 | 62 / 28 | `len(list(SSEEventType))` = 62；`SSEBus` 发射方法 = 28（原「28」正确） |
+| 测试用例（收集数） | 516 | `python -m pytest tests/ -q` → `516 passed`（2026-09-13 复测；并发修复新增用例后由 446 增至 516） |
+| 工具输出截断阈值 | 65536 触发 → 16384（头尾保留）→ 8000（状态内） | 同上，未复测细项 |
+| 滑动窗口 | 工具选择 20 条 / 合成 15 条 / 简单对话 8 条 | 未复测 |
+| 会话 Token 预算默认值 | 24000 | 未复测 |
+| 历史折叠触发条件 | 消息 > 60 条 或 工具结果 > 20 个 | 未复测 |
+| 密钥检测正则数 | **14 条** | `security_scanner.py:23-39` 的 `SECRET_PATTERNS` 长度，实数为 14。「14」本身正确，但原表将其与行号混排；已确认是计数 |
+| 风险等级数 | 4 级 | `RiskLevel` 枚举：LOW / MEDIUM / HIGH / CRITICAL，实测 4 级 |
+| 审批策略数 | 4 档 | `ApprovalPolicy` 枚举：NEVER / ON_FAILURE / ON_REQUEST / UNTRUSTED，实测 4 档。**原「4 级 / 4 档」两个数字恰好都对，但被标注为 `llm_providers.py` 行号，属误标** |
+| 审批等待超时 | 30 秒（超时按拒绝） | 未复测 |
 
 ---
 

@@ -1,7 +1,7 @@
 <div align="center">
 
 <img src="https://img.shields.io/badge/version-0.2.0-8b5cf6?style=flat-square">
-<img src="https://img.shields.io/badge/tests-436%2F436-brightgreen?style=flat-square">
+<img src="https://img.shields.io/badge/tests-516%2F516-brightgreen?style=flat-square">
 <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
 <img src="https://img.shields.io/badge/python-3.11%2B-3776ab?style=flat-square">
 
@@ -9,7 +9,7 @@
 
 ### AI 编程 Agent 引擎
 
-*FastAPI + LangGraph · Electron 桌面 · 六步流水线 · 多Agent并行*
+*FastAPI + 自研状态机 · Electron 桌面 · 六阶段流水线 · 多Agent并行*
 
 </div>
 
@@ -17,7 +17,7 @@
 
 ## 简介
 
-Aurora 是一个完整的 AI 编程助手引擎，含 Python 后端 + Electron 桌面端。基于 LangGraph StateGraph 构建六步 Agent 流水线：**规划 → 工具选择 → 执行 → 观察 → 循环 → 合成**。
+Aurora 是一个完整的 AI 编程助手引擎，含 Python 后端 + Electron 桌面端。引擎是 `backend/agent/graph.py` 中**自研的手写状态机**（`while not state.done` 主循环，无 LangGraph 依赖），驱动六阶段 Agent 流水线：**规划 → 工具选择 → 执行 → 观察 → 循环 → 合成**。
 
 支持 Skill/Plugin 扩展、多 Agent 并行编排、语义记忆、RAG 代码检索、模型发现等功能。
 
@@ -43,13 +43,13 @@ python run_server.py
 ```
 Aurora/
 ├── backend/                  # FastAPI 后端核心
-│   ├── agent/                # LangGraph 六步流水线
+│   ├── agent/                # 自研状态机六阶段流水线
 │   │   ├── graph.py          # AgentGraph 主循环 + SSE流
 │   │   ├── nodes.py          # Planner / Executor / Observer / Synthesizer
 │   │   ├── llm_client.py     # LLM 客户端（多Provider复用）
 │   │   ├── state.py          # AgentState 状态管理
 │   │   └── checkpoint.py     # 检查点回滚
-│   ├── tools/                # 17+ 工具实现
+│   ├── tools/                # 29 个工具实现（20 个分类）
 │   │   ├── shell_command.py  # 终端命令执行
 │   │   ├── apply_patch.py    # Diff/Patch 应用引擎
 │   │   ├── file_rw.py        # 文件读写
@@ -58,7 +58,7 @@ Aurora/
 │   │   ├── web_fetch.py      # 网页抓取
 │   │   ├── browser_use.py    # 浏览器控制
 │   │   └── mcp_proxy.py      # MCP 协议代理
-│   ├── api/                  # 100+ REST + WebSocket 端点
+│   ├── api/                  # 267 个路由对象 / 243 个 OpenAPI 路径
 │   ├── rag/                  # RAG 引擎 (AST分块 + BM25 + 向量)
 │   ├── memory/               # 语义记忆 (ChromaDB)
 │   ├── multi_agent/          # 多Agent并行编排器
@@ -74,7 +74,7 @@ Aurora/
 │   └── src/renderer/         # React 前端 (Chat / Diff / Terminal / FileTree)
 ├── plugins/                  # 内置插件 (auto-format)
 ├── skills/                   # 内置 Skill
-├── tests/                    # 391 个 pytest 测试
+├── tests/                    # 516 个 pytest 测试
 ├── aurora.json               # 项目配置
 └── run_server.py             # 启动入口
 ```
@@ -83,8 +83,8 @@ Aurora/
 
 | 模块 | 说明 |
 |------|------|
-| **Agent 流水线** | LangGraph 六步状态图：Plan → ToolSelect → Execute → Observe → Synthesize |
-| **工具生态** | 17+ 工具：Shell、Patch、Git、文件、搜索、浏览器、Web、MCP代理 |
+| **Agent 流水线** | 自研六阶段状态机（`graph.py` 手写 `while` 主循环）：Plan → ToolSelect → Execute → Observe → Synthesize |
+| **工具生态** | 29 个工具（20 个分类）：Shell、Patch、Git、文件、搜索、浏览器、Web、MCP代理 |
 | **RAG 检索** | AST 分块 + BM25 关键词 + 向量语义 + 重排序 |
 | **多Agent并行** | 支持最多 4 个 Agent 并行编排 |
 | **Skill/Plugin** | 热加载 Skill 和 Plugin 扩展 |
@@ -97,7 +97,7 @@ Aurora/
 
 ## API 概览
 
-100 个 REST + WebSocket 端点：
+267 个路由对象 / 243 个 OpenAPI 路径（114 GET、130 POST、3 PUT、14 DELETE、2 WebSocket）：
 
 | 分组 | 端点 |
 |------|------|
@@ -142,7 +142,7 @@ pytest tests/ -v
 ```
 
 ```
-436 passed in 24.71s ✅
+516 passed in 23.80s ✅
 ```
 
 ## 桌面端
@@ -159,7 +159,7 @@ npm run build    # 构建 Electron 应用
 | 层 | 技术 |
 |---|------|
 | 后端框架 | FastAPI + Uvicorn |
-| Agent 引擎 | LangGraph StateGraph |
+| Agent 引擎 | 自研手写状态机（`backend/agent/graph.py`，无 LangGraph 依赖） |
 | LLM | OpenAI / DeepSeek / Claude (多Provider) |
 | 向量检索 | FTS5 全文 + NumPy cosine（语义记忆可选 ChromaDB） |
 | 代码解析 | tree-sitter (Python / TypeScript) |

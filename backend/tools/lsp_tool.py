@@ -131,9 +131,13 @@ async def lsp_handler(arguments: dict, workspace: str = ".") -> dict:
 
             summary_lines = []
             for d in errors[:8]:
-                summary_lines.append(f"ERROR L{d.get("line",0)+1}: {d.get("message","")}")
+                _ln = d.get("line", 0) + 1
+                _msg = d.get("message", "")
+                summary_lines.append(f"ERROR L{_ln}: {_msg}")
             for d in warnings[:5]:
-                summary_lines.append(f"WARN L{d.get("line",0)+1}: {d.get("message","")}")
+                _ln = d.get("line", 0) + 1
+                _msg = d.get("message", "")
+                summary_lines.append(f"WARN L{_ln}: {_msg}")
 
             return {"success": True, "action": "diagnostics", "filepath": filepath,
                     "error_count": len(errors), "warning_count": len(warnings),

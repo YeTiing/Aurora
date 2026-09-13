@@ -448,14 +448,17 @@ async def get_hook_stats():
 
 @router.post("/hooks/register")
 async def register_hook(req: dict):
-    """Register a new hook (point + callback name)."""
+    """Register a new hook (point + callback name).
+
+    修复: 之前注册 no-op 占位；现在注册真实的 SSE 通知回调，
+    hook 触发时事件会广播到前端/WS。
+    """
     try:
-        from backend.hooks_system import get_hook_registry, HookPoint
+        from backend.hooks_system import get_hook_registry, HookPoint, builtin_sse_notify_hook
         registry = get_hook_registry()
         point = HookPoint(req.get("point", "post_model_output"))
-        # For now, register a no-op placeholder
-        hook_id = registry.register(point, lambda ctx: True)
-        return {"registered": hook_id, "point": point.value}
+        hook_id = registry.register(point, builtin_sse_notify_hook, async_cb=True)
+        return {"registered": hook_id, "point": point.value, "notify": "sse"}
     except ImportError:
         return {"error": "hooks not available"}
 

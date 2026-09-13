@@ -26,37 +26,19 @@ from backend.api.deps import (
     get_rag as _get_rag,
     get_skills as _get_skills,
     get_plugins as _get_plugins,
+    reset_deps,
+    cfg, plugins,
 )
 
 # Alias for backward compatibility with existing route code
 pass  # deps managed centrally; _rag = None; _skills = None; _plugins = None
 
-def ensure_all():
+def _init_cfg():
     global _cfg
     _cfg = _get_cfg()
 
 def ensure_all():
-    global _llm
-    _llm = _get_llm()
-
-def ensure_all():
-    global _graph
-    _graph = _get_graph()
-
-def _init_rag():
-    global _rag
-    _rag = _get_rag()
-
-def _init_skills():
-    global _skills
-    _skills = _get_skills()
-
-def ensure_all():
-    ensure_all()
-
-def ensure_all():
-    global _plugins
-    _plugins = _get_plugins()
+    _init_cfg()
 
 
 
@@ -156,15 +138,6 @@ async def update_settings(req: SettingsUpdate):
     import backend.api.deps as deps
     import backend.api.routes.chat as chat_routes
     deps.reset_deps()
-    pass  # deps managed centrally
-    
-    global _cfg, _llm, _graph
-    pass  # deps managed centrally
-    ensure_all()
-    try: ensure_all()
-    except Exception: logger.debug('llm_test failed', exc_info=True)
-    try: ensure_all()
-    except Exception: logger.debug('llm_test cleanup failed', exc_info=True)
     return {"ok": True, "updated": list(llm_updates.keys())}
 
 @router.get("/models")
@@ -174,8 +147,14 @@ async def list_models():
     base_url = cfg().get("llm.base_url", "https://api.openai.com/v1")
     api_key = cfg().get("llm.api_key", "")
     provider = cfg().get("llm.provider", "openai")
-    models = await md.list_models(base_url, api_key, provider)
-    return {"count":len(models),"models":[{"id":m.id,"max_tokens":m.max_tokens,"provider":m.provider} for m in models],"base_url":base_url}
+    if not api_key:
+        return {"count": 0, "models": [], "base_url": base_url, "hint": "No API key configured"}
+    try:
+        models = await md.list_models(base_url, api_key, provider)
+        return {"count":len(models),"models":[{"id":m.id,"max_tokens":m.max_tokens,"provider":m.provider} for m in models],"base_url":base_url}
+    except Exception as e:
+        import logging; logging.getLogger("aurora").warning(f"/models fetch failed: {e}")
+        return {"count": 0, "models": [], "base_url": base_url, "error": str(e)[:200]}
 
 @router.get("/models/context")
 async def model_context_info(model: str = ""):

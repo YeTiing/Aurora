@@ -186,6 +186,7 @@ class CronTask:
     model: str = ""
     reasoning_effort: str = ""
     run_count: int = 0
+    pending_fire: bool = False   # 到期但尚未被 agent 消费（持久化，重启不丢）
 
     def to_dict(self) -> dict:
         return {
@@ -200,12 +201,19 @@ class CronTask:
             "model": self.model,
             "reasoning_effort": self.reasoning_effort,
             "run_count": self.run_count,
+            "pending_fire": self.pending_fire,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "CronTask":
         valid_fields = set(CronTask.__dataclass_fields__.keys())
-        return cls(**{k: v for k, v in d.items() if k in valid_fields})
+        data = {k: v for k, v in d.items() if k in valid_fields}
+        # 修复: to_dict 用 "schedule" 键，但 dataclass 字段名是 schedule_text，
+        # 此前直接按字段名过滤导致 schedule_text 缺失 -> TypeError -> load 静默失败
+        # （cron 任务持久化实际上从未恢复过）
+        if "schedule" in d and "schedule_text" not in data:
+            data["schedule_text"] = d["schedule"]
+        return cls(**data)
 
 
 class CronScheduler:
@@ -227,6 +235,9 @@ class CronScheduler:
                 for d in data.get("tasks", []):
                     t = CronTask.from_dict(d)
                     self.tasks[t.name] = t
+                    # 重启恢复：上次到期未消费的任务重新入队
+                    if t.pending_fire and t.enabled:
+                        self._fire_queue.append(t)
             except Exception:
                 pass
 
@@ -308,6 +319,7 @@ class CronScheduler:
                         else:
                             task.next_run = now + 3600  # default fallback: 1 hour
                         task.run_count += 1
+                        task.pending_fire = True
                         self._fire_queue.append(task)
                 if self._fire_queue:
                     self.save()
@@ -318,6 +330,10 @@ class CronScheduler:
         with self._lock:
             fires = list(self._fire_queue)
             self._fire_queue.clear()
+            if fires:
+                for t in fires:
+                    t.pending_fire = False
+                self.save()
         return fires
 
     def stats(self) -> dict:

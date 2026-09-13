@@ -192,6 +192,37 @@ def builtin_metrics_hook(ctx: HookContext) -> HookResult:
     return HookResult(allow=True)
 
 
+def builtin_sse_notify_hook(ctx: HookContext) -> HookResult:
+    """Built-in: 把 hook 触发事件广播到 SSE 总线（/hooks/register 的默认回调）。
+
+    修复: 之前 /hooks/register 注册的是 `lambda ctx: True` no-op，
+    现在注册此回调——hook 触发时前端/WS 可观察到。
+    """
+    try:
+        from backend.agent.sse_events import SSEEvent, SSEEventType, sse_bus
+        data = {
+            "hook_point": ctx.hook_point.value,
+            "session_id": ctx.session_id,
+            "thread_id": ctx.thread_id,
+            "tool_name": ctx.tool_name,
+            "timestamp": ctx.timestamp,
+            "message": f"Hook '{ctx.hook_point.value}' triggered",
+        }
+        loop = None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        if loop:
+            loop.create_task(sse_bus.emit(SSEEvent(
+                type=SSEEventType.HOOK_TRIGGERED if hasattr(SSEEventType, "HOOK_TRIGGERED") else SSEEventType.BACKGROUND_EVENT,
+                data=data, session_id=ctx.session_id, thread_id=ctx.thread_id,
+            )))
+    except Exception:
+        pass
+    return HookResult(allow=True)
+
+
 _registry: Optional[HookRegistry] = None
 
 def get_hook_registry() -> HookRegistry:

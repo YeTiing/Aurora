@@ -31,6 +31,21 @@ from backend.necessity.eval.agents import AgentRunResult, AgentUnavailable, DEFA
 DEFAULT_AURORA_ROOT = Path(r"D:\codex_Projects\Aurora")
 DEFAULT_AURORA_PORT = 9876
 
+# 宿主的对话入口是**根路径** `/chat`（backend/api/routes/chat.py:58），
+# 不是 `/api/chat` —— 后者返回 404。此前写错会让每一次真实运行都变成
+# 「HTTP Error 404」，而错误信息看起来像网络问题。
+CHAT_PATH = "/chat"
+
+
+def _turns_from_events(events: list[dict]) -> int:
+    """从轨迹事件里数真实轮次（最大的 turn 编号）。
+
+    为什么需要：`AgentResponse` 里没有 turns 字段，硬读会恒得 0，
+    于是 §7.3 的早停判据永远不触发。轮次只能从事件里恢复。
+    """
+    turns = [int(e.get("turn") or 0) for e in (events or [])]
+    return max(turns) if turns else 0
+
 
 class AuroraAgent:
     """驱动 Aurora 跑一个任务的真实 Agent。"""
@@ -73,12 +88,22 @@ class AuroraAgent:
     def _base(self) -> str:
         return f"http://127.0.0.1:{self.port}"
 
+    # Aurora 的健康检查在根路径 `/health`（backend/api/routes/chat.py:53）。
+    # 此前这里写的是 `/api/health` —— 它返回 404，于是 _healthy() 永远为假，
+    # start() 每次都要等满 60 秒再抛 AgentUnavailable。这不是崩溃而是
+    # 「评测永远起不来」，且报错信息指向「服务未就绪」，与真因（路径写错）
+    # 完全无关。保留 `/api/health` 作为兜底以便宿主将来加别名。
+    _HEALTH_PATHS = ("/health", "/api/health")
+
     def _healthy(self) -> bool:
-        try:
-            with urllib.request.urlopen(self._base() + "/api/health", timeout=2) as r:
-                return r.status == 200
-        except Exception:
-            return False
+        for path in self._HEALTH_PATHS:
+            try:
+                with urllib.request.urlopen(self._base() + path, timeout=2) as r:
+                    if r.status == 200:
+                        return True
+            except Exception:
+                continue
+        return False
 
     def start(self) -> None:
         """启动宿主（已健康则复用 —— §7.3 的「缓存」精神）。"""
@@ -116,11 +141,16 @@ class AuroraAgent:
 
     def run(self, *, task_text: str, repo: Path, arm: str, run_index: int,
             session_id: str, hooks: object, turn_limit: int = DEFAULT_TURN_LIMIT) -> AgentRunResult:
-        from adapter.aurora import hooks as aurora_hooks
+        # ⚠️ 合并进 Aurora 后适配层仍在**一起跑的那个进程**里（评测通过 HTTP
+        # 驱动宿主，但本类是 in-process 调的）——不过真实场景下宿主是独立
+        # 子进程，set_hooks 只影响本进程，挂载必须由宿主的 run_server 按
+        # AURORA_NECESSITY 环境变量自己完成。这里保留调用是为了
+        # 「同进程直连」（AuroraAgent 直接调 graph）的路径仍然生效。
+        from backend.necessity import adapter as _adapter
 
         self.require_available()
         self.start()
-        aurora_hooks.set_hooks(hooks)     # 把本 arm 的能力挂进宿主
+        _adapter.set_hooks(hooks)         # 把本 arm 的能力挂进本进程
 
         body = json.dumps({
             "message": task_text, "session_id": session_id,
@@ -128,7 +158,7 @@ class AuroraAgent:
             "approval_mode": "never", "stream": False,
         }).encode("utf-8")
         req = urllib.request.Request(
-            self._base() + "/api/chat", data=body,
+            self._base() + CHAT_PATH, data=body,
             headers={"Content-Type": "application/json"}, method="POST")
 
         started = time.time()
@@ -145,15 +175,28 @@ class AuroraAgent:
         diff_text = "\n".join(str(d) for d in diffs) if isinstance(diffs, list) else str(diffs)
         events, note = self._collect_events(session_id)
 
-        raw_turns = int(data.get("turns") or 0)
-        status = "pass" if data.get("response") else "fail"
+        # ⚠️ `turns` **不在** AgentResponse 里（backend/api/models.py:20）——
+        # 它只有 session_id/response/plan/diffs/tokens。
+        # 这里此前 `int(data.get("turns") or 0)` 会恒为 0，于是 EVAL §7.3 的
+        # 早停判据（raw_turns > turn_limit）永远不会触发 —— 静默失效。
+        # 真实轮次只能从轨迹事件里数（每个 turn 编号去重）。
+        raw_turns = int(data.get("turns") or 0) or _turns_from_events(events)
+        # ⚠️ **这里不给 pass**。判定由 runner 跑验收测试得出（eval/verify.py）——
+        # 「LLM 回了文本」不是任务成功的证据：
+        #   - 它可能回复「我做不到」
+        #   - 它可能改了文件但改错
+        #   - 它可能什么都没改只解释了一通
+        # 此前这里写的是 `status = "pass" if data.get("response") else "fail"`，
+        # 结果是所有 arm 都会「通过」，主指标（破坏调用方次数）完全不可测。
+        # 这里只给一个保守的起点：有回复 = 至少没崩，等验收测试覆盖它。
+        status = "fail"
         error = ""
         if raw_turns > turn_limit:
             # 早停必须在这里判：宿主不会自己停，评测侧才是计 fail 的地方
             status, error = "timeout", f"超出轮次上限 {turn_limit}（实际 {raw_turns}）"
 
         meta = {"elapsed_sec": round(elapsed, 2), "trace_note": note,
-                "hook_stats": aurora_hooks.hook_stats()}
+                "hook_stats": _adapter.hook_stats()}
         if not events:
             # 没有轨迹就无法归因（§7.4）—— 显式标记，让 report 能把它排除
             meta["events_missing"] = True

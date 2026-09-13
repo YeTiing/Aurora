@@ -63,6 +63,7 @@ class EvalRunner:
                  turn_limit: int = DEFAULT_TURN_LIMIT,
                  dry_run: bool = False, retry_errors: bool = False,
                  check_baseline: bool = True, baseline_workers: int = 4,
+                 verify_timeout: int = 300, keep_failures: bool = False,
                  log=print):
         self.agent = agent
         self.out_path = Path(out_path)
@@ -70,6 +71,11 @@ class EvalRunner:
         self.turn_limit = turn_limit
         self.dry_run = dry_run
         self.retry_errors = retry_errors
+        # 验收测试的超时（秒）。长任务（跨文件重构）需要更久，可调。
+        self.verify_timeout = verify_timeout
+        # 失败时保留临时工作目录 —— 没有现场就无法归因（§7.4）。
+        # 默认关：168 次长跑若次次保留现场会堆满磁盘。
+        self.keep_failures = keep_failures
         # 反向前置检查（EVAL.md §1.2 第 5 步）默认开。只有「已在一轮里
         # 验过、只想续跑」的场景才该关掉；关掉时 caller 必须自己承担。
         self.check_baseline = check_baseline
@@ -144,27 +150,71 @@ class EvalRunner:
                 "elapsed": time.time() - t0, "dry_run": False}
 
     def run_one(self, task: Any, arm: str, run_index: int) -> Attempt:
-        """跑一次。**任何异常都变成一条 status=error 的记录**，不中断整批。"""
+        """跑一次。**任何异常都变成一条 status=error 的记录**，不中断整批。
+
+        流程（EVAL.md §3.2）：
+            1. 复制快照到临时目录（`snapshot.create`）—— 绝不就地改快照
+            2. 让 Agent 在该目录干活
+            3. **跑 tests/ 判定**（`verify.verify_workdir`）—— 不是看 LLM 回没回话
+            4. 取 diff、落盘、删临时目录（失败时保留现场）
+
+        ⚠️ 第 1 步与第 3 步此前都是缺失的：
+          - 缺 1：Agent 就地改仓库里的快照，第 1 次运行就把基线的永久污染
+          - 缺 3：`status` 只看 LLM 有没有回文本，主指标完全不可测
+        """
         from backend.necessity.eval.agents import AgentRunResult
+        from backend.necessity.eval import snapshot as _snap
+        from backend.necessity.eval import verify as _verify
 
         task_id = spec_of(task).task_id
         session_id = f"{task_id}-{arm}-{run_index}"
         started = time.time()
+        ws = None
+        result = AgentRunResult()
+        verify_res = None
+
         try:
+            ws = _snap.create(task)
+            workdir = ws.workdir
+
             hooks, _caps = load_arm_hooks(
-                arm, workspace=str(repo_of(task, task_id)), session_id=session_id)
+                arm, workspace=str(workdir), session_id=session_id)
             text = task.task_text() if hasattr(task, "task_text") else ""
             result = self.agent.run(
                 task_text=prompt_for_arm(arm, text),
-                repo=repo_of(task, task_id), arm=arm, run_index=run_index,
+                repo=workdir, arm=arm, run_index=run_index,
                 session_id=session_id, hooks=hooks, turn_limit=self.turn_limit,
             )
+
+            # 真实判定：跑验收测试（EVAL.md §Phase 3「不要用 LLM 当裁判」）
+            verify_res = _verify.verify_workdir(workdir, timeout=self.verify_timeout)
+            result.status = verify_res.status
+            if verify_res.status != "pass" and not result.error:
+                result.error = verify_res.diagnosis
+            result.meta = {**(result.meta or {}), "verify": verify_res.to_dict()}
+
+            # diff 必须从**工作目录**取，而不是快照
+            if not result.diff_text:
+                result.diff_text = _snap.diff_of(workdir)
         except AgentUnavailable:
+            if ws:
+                ws.cleanup()
             raise                     # 环境问题必须冒泡，不能被记成「任务失败」
         except Exception as e:
             result = AgentRunResult(status="error",
                                     error=f"{type(e).__name__}: {e}")
-        return measure(task, arm, run_index, result, started, time.time())
+        finally:
+            if ws:
+                if result.status == "error" and self.keep_failures:
+                    path = ws.keep()
+                    result.meta = {**(result.meta or {}), "workdir_kept": path}
+                else:
+                    ws.cleanup()
+
+        attempt = measure(task, arm, run_index, result, started, time.time())
+        if verify_res is not None:
+            attempt.meta = {**(attempt.meta or {}), "verify": verify_res.to_dict()}
+        return attempt
 
 
 # ── Gate 0 模式 ──────────────────────────────────────────────────

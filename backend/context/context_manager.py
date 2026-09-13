@@ -127,6 +127,18 @@ class ContextManager:
     def append(self, message: dict):
         self.messages.append(message)
 
+    def set_messages(self, messages: list[dict]):
+        """注入当前会话消息。
+
+        agent 主循环持有的是 AgentState.messages（list[Message]），
+        ContextManager 需要 list[dict] 才能调用 needs_compaction/compact_async。
+        调用方转换后 push 进来即可，无需改 graph.py。
+        """
+        self.messages = messages
+
+    # 语义化别名，便于主循环调用
+    update = set_messages
+
     def append_many(self, messages: list[dict]):
         self.messages.extend(messages)
 
@@ -135,14 +147,19 @@ class ContextManager:
         return self.token_counter.count_messages(self.messages)
 
     def needs_compaction(self) -> bool:
-        if self._compaction_mgr is None:
-            # Try to use ContextCollapser from cc-haha integration
-            try:
-                from backend.context.collapse import context_collapser
-                self._compaction_mgr = context_collapser
-            except ImportError:
-                self._compaction_mgr = CompactionManager(self.token_counter)
-        return self._compaction_mgr.should_compact(self.messages, self.max_tokens, self.compact_threshold)
+        """是否应触发压缩 —— 按 token 预算判断。
+
+        旧实现把 ContextCollapser 赋给 _compaction_mgr 后调用 should_compact，
+        但 ContextCollapser 只有 should_collapse（且按消息条数判断），
+        每次调用都会 AttributeError。LLM 压缩的目标是控制 token，因此这里
+        直接用 max_tokens*threshold 判断，不再依赖 collapse 的 API。
+        """
+        try:
+            estimated = self.token_counter.count_messages(self.messages)
+        except Exception:
+            # 计数器异常也不阻断主循环，退化为字符估计
+            estimated = sum(len(str(m.get("content", ""))) for m in self.messages) // 4
+        return estimated > self.max_tokens * self.compact_threshold
 
     def compact(self, summary_llm=None) -> int:
         """Sync compaction (for non-async contexts)"""
@@ -164,7 +181,8 @@ class ContextManager:
             return 0
         if self._compactor is None:
             self._compactor = LLMCompactor(llm_client, self.token_counter)
-        if llm_client and not self._compactor._llm:
+        # 显式传入的 llm 总是覆盖，保证能重新绑定到 AgentGraph.llm
+        if llm_client is not None:
             self._compactor.set_llm(llm_client)
         if not self._compactor._llm:
             return self.compact()

@@ -22,9 +22,9 @@ logger = logging.getLogger("aurora.security.scanner")
 
 SECRET_PATTERNS: list[tuple[str, str, str]] = [
     # (regex, name, severity)
-    (r'(?i)(?:api[_-]?key|apikey|api_secret|secret[_-]?key)\s*[:=]\s*["'"'"']([^"'"'"'\s]{16,})["'"'"']', "API Key in code", "critical"),
-    (r'(?i)(?:password|passwd|pwd)\s*[:=]\s*["'"'"']([^"'"'"'\s]{4,})["'"'"']', "Hardcoded password", "critical"),
-    (r'(?i)(?:token|access[_-]?token|auth[_-]?token)\s*[:=]\s*["'"'"']([^"'"'"'\s]{16,})["'"'"']', "Hardcoded token", "critical"),
+    (r"(?i)(?:api[_-]?key|apikey|api_secret|secret[_-]?key)\s*[:=]\s*[\"']([^\"'\s]{16,})[\"']", "API Key in code", "critical"),
+    (r"(?i)(?:password|passwd|pwd)\s*[:=]\s*[\"']([^\"'\s]{4,})[\"']", "Hardcoded password", "critical"),
+    (r"(?i)(?:token|access[_-]?token|auth[_-]?token)\s*[:=]\s*[\"']([^\"'\s]{16,})[\"']", "Hardcoded token", "critical"),
     (r'sk-[a-zA-Z0-9]{32,}', "OpenAI API key", "critical"),
     (r'sk-ant-[a-zA-Z0-9]{32,}', "Anthropic API key", "critical"),
     (r'ghp_[a-zA-Z0-9]{36}', "GitHub personal access token", "critical"),
@@ -33,8 +33,8 @@ SECRET_PATTERNS: list[tuple[str, str, str]] = [
     (r'(?i)-----BEGIN\s+(?:RSA|EC|DSA|OPENSSH)\s+PRIVATE\s+KEY', "Private key in code", "critical"),
     (r'(?:AKIA|ASIA)[A-Z0-9]{16}', "AWS Access Key", "critical"),
     (r'(?i)(?:mongodb|postgres|mysql|redis)://[^/\s]+@[^/\s]+', "Database connection string", "high"),
-    (r'(?i)JWT_SECRET\s*[:=]\s*["'"'"']([^"'"'"'\s]{8,})["'"'"']', "JWT secret", "high"),
-    (r'(?i)SECRET_KEY\s*[:=]\s*["'"'"']([^"'"'"'\s]{8,})["'"'"']', "Django/Flask secret key", "high"),
+    (r"(?i)JWT_SECRET\s*[:=]\s*[\"']([^\"'\s]{8,})[\"']", "JWT secret", "high"),
+    (r"(?i)SECRET_KEY\s*[:=]\s*[\"']([^\"'\s]{8,})[\"']", "Django/Flask secret key", "high"),
     (r'[0-9a-fA-F]{40}', "Potential hash/secret (40 hex)", "low"),
 ]
 
@@ -311,10 +311,37 @@ class SecurityScanner:
         return {"LOW": "low", "MEDIUM": "medium", "HIGH": "high"}.get(sev.upper(), "medium")
 
 
-_scanner: Optional[SecurityScanner] = None
+_scanners: dict[str, SecurityScanner] = {}
+_SCANNER_CACHE_MAX = 8
+
+
+def _scanner_key(workspace: str) -> str:
+    """把 workspace 归一化为可比较的缓存键。
+
+    Windows 上 Path.resolve() 会统一盘符大小写与分隔符，但用户仍可能传入
+    "C:\\Foo" / "c:/foo" 这类等价写法；再补一层 normcase 保证二者命中同一实例，
+    否则会为同一目录重复创建 scanner（并各自持有不同的 root）。
+    """
+    return os.path.normcase(str(Path(workspace).resolve()))
+
 
 def get_scanner(workspace: str = ".") -> SecurityScanner:
-    global _scanner
-    if _scanner is None:
-        _scanner = SecurityScanner(workspace)
-    return _scanner
+    """按 workspace 返回 scanner；同一目录复用同一实例，不同目录各自独立。
+
+    旧实现只缓存第一个 workspace，后续调用者会被静默忽略并扫描错误目录。
+    命中缓存时直接返回引用，保持 nodes.py 编辑后热路径的开销不变。
+    """
+    key = _scanner_key(workspace)
+    scanner = _scanners.get(key)
+    if scanner is None:
+        scanner = SecurityScanner(workspace)
+        _scanners[key] = scanner
+        # 有界缓存：workspace 是会话级参数，长期运行可能累积大量目录
+        if len(_scanners) > _SCANNER_CACHE_MAX:
+            _scanners.pop(next(iter(_scanners)))
+    return scanner
+
+
+def reset_scanners() -> None:
+    """清空 scanner 缓存（测试用，避免用例间相互污染）。"""
+    _scanners.clear()

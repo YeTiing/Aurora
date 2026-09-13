@@ -66,6 +66,13 @@ class ContextCollapser:
                 lines.append("Assistant: " + content[:100] + " [tools: " + str(names) + "]")
             elif role == "tool":
                 lines.append("Tool (" + str(m.get("name", "?")) + "): " + content[:100])
+            elif role == "system":
+                # 用户中途下发的约束/引导由 thread_follower 以 system 角色存储，
+                # 必须保留；否则「不要改数据库 schema」这类硬约束会在压缩时静默丢失。
+                lines.append("System: " + content)
+            else:
+                # 未知角色也不静默丢弃，压缩后仍可见
+                lines.append(str(role) + ": " + content)
         return "\n".join(lines[-30:])
 
     def estimate_savings(self, messages: list[dict]) -> dict:

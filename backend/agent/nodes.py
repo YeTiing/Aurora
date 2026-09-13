@@ -154,7 +154,13 @@ async def tool_select_node(
             goal_manager.track_tokens(resp.total_tokens)
 
         if tool_calls:
-            for tc in tool_calls:
+            # B1: 并行工具调用只能产生「一条」assistant 消息，由它携带全部
+            # tool_calls，后接 N 条 tool 结果。此前 add_message 在循环体内，N 个
+            # 调用会写入 N 条完全相同的 assistant 消息（每条都带全部 tool_calls），
+            # 随后的 tool 结果无法与之一一配对，下一次 LLM 调用会收到非法历史
+            # （重复 tool_call_id / 未配对消息）。
+            batch = []
+            for idx, tc in enumerate(tool_calls):
                 function_call = tc.get("function") or {}
                 name = function_call.get("name") or tc.get("name") or "unknown"
                 raw_arguments = function_call.get("arguments", tc.get("arguments", "{}"))
@@ -162,16 +168,20 @@ async def tool_select_node(
                     arguments = json.loads(raw_arguments or "{}")
                 else:
                     arguments = raw_arguments or {}
+                # 缺 id 时用 turn+序号保证唯一；旧回退 call_{turn} 会让同一轮 N 个
+                # 调用共用同一个 id，导致重复 tool_call_id。
+                call_id = tc.get("id") or f"call_{state.total_turns}_{idx}"
                 inv = ToolInvocation(
-                    id=tc.get("id", f"call_{state.total_turns}"),
+                    id=call_id,
                     name=name,
                     arguments=arguments
                 )
                 state.tool_invocations.append(inv)
-                state.add_message(Message.assistant(
-                    content=content or f"Calling {inv.name}",
-                    tool_calls=tool_calls,
-                ))
+                batch.append(inv)
+            state.add_message(Message.assistant(
+                content=content or "Calling " + ", ".join(i.name for i in batch),
+                tool_calls=tool_calls,
+            ))
             state.empty_turns = 0
         elif content and content.strip():
             state.empty_turns = 0
@@ -189,84 +199,139 @@ async def tool_select_node(
 
 
 # ══ Node 3: Executor — 执行工具 ══
+# 只读工具白名单：无副作用、彼此独立，可安全并发执行。
+READ_ONLY_TOOLS = frozenset({
+    "code_search", "list_files", "web_fetch", "web_search",
+    "view_image", "detective", "lsp", "re",
+})
+
+# file_rw 读写合一，只有下列操作才算只读；write/delete/move/copy 会改盘，
+# 且可能命中同一文件，必须串行。
+_READ_ONLY_FILE_OPS = frozenset({"read", "list", "exists", "info"})
+
+# 并发上限：限制同时打开的 I/O / 网络连接数，避免句柄耗尽。
+_MAX_CONCURRENT_TOOLS = 4
+
+
+def _is_read_only_invocation(inv) -> bool:
+    """单个调用是否可无副作用地并发执行。"""
+    if inv.name in READ_ONLY_TOOLS:
+        return True
+    if inv.name == "file_rw":
+        return str(inv.arguments.get("operation", "read")) in _READ_ONLY_FILE_OPS
+    return False
+
+
+async def _execute_one(inv, tool_handler: Callable, ws) -> ToolResult:
+    """执行单个工具调用（含 metrics 埋点）；异常一律转成失败结果而不抛出。"""
+    start = time.time()
+    try:
+        from backend.tools.tool_metrics import get_metrics
+        get_metrics().record_start(inv.name, inv.arguments)
+    except ImportError:
+        pass
+    try:
+        result = await tool_handler(inv.name, inv.arguments, ws)
+        duration = (time.time() - start) * 1000
+        try:
+            from backend.tools.tool_metrics import get_metrics
+            get_metrics().record_end(inv.name, result.get("success", False), result.get("error", ""), len(str(result.get("output", ""))))
+        except ImportError:
+            pass
+        output = str(result.get("output", ""))
+        return ToolResult(
+            invocation_id=inv.id,
+            name=inv.name,
+            output=output[:8000],
+            success=result.get("success", False),
+            error=result.get("error"),
+            duration_ms=duration,
+            truncated=len(output) > 8000,
+        )
+    except Exception as e:
+        duration = (time.time() - start) * 1000
+        return ToolResult(
+            invocation_id=inv.id,
+            name=inv.name,
+            output="",
+            success=False,
+            error=f"{type(e).__name__}: {str(e)[:500]}",
+            duration_ms=duration,
+        )
+
+
+async def _execute_concurrent(invocations, tool_handler: Callable, ws) -> list[ToolResult]:
+    """只读调用并发执行。asyncio.gather 按传入顺序返回结果，天然保持与
+    state.tool_invocations 一致，消息配对顺序不变。"""
+    sem = asyncio.Semaphore(_MAX_CONCURRENT_TOOLS)
+
+    async def _guarded(inv):
+        async with sem:
+            return await _execute_one(inv, tool_handler, ws)
+
+    return list(await asyncio.gather(*(_guarded(inv) for inv in invocations)))
+
+
+async def _post_edit_notes(inv, tr: ToolResult, msg: Message) -> None:
+    """后处理：LSP 诊断注入 + 安全扫描，对每个成功结果都执行。"""
+    if not (tr.success and inv.name in ("apply_patch", "file_rw")):
+        return
+    try:
+        lsp_note = await post_file_edit_hook(inv.name, inv.arguments, {"success": True, "output": tr.output})
+        if lsp_note:
+            tr.output += lsp_note
+            msg.content += lsp_note
+    except Exception:
+        pass
+    try:
+        sec_note = await post_edit_security_hook(
+            inv.arguments.get("file_path") or inv.arguments.get("path") or ""
+        )
+        if sec_note:
+            tr.output += sec_note
+            msg.content += sec_note
+    except Exception:
+        pass
+
+
 async def executor_node(
     state: AgentState,
     tool_handler: Callable,
     ws=None,
 ) -> dict:
     """Node 3: 执行工具调用并收集结果"""
-    results = []
-    for inv in state.tool_invocations:
-        if any(r.invocation_id == inv.id for r in state.tool_results):
-            continue
+    # 跳过已执行过的调用（resume 重放时 state.tool_results 已存在）
+    pending = [
+        inv for inv in state.tool_invocations
+        if not any(r.invocation_id == inv.id for r in state.tool_results)
+    ]
+    if not pending:
+        return {"tool_results": []}
 
-        start = time.time()
-        # Tool metrics: record start
-        try:
-            from backend.tools.tool_metrics import get_metrics
-            get_metrics().record_start(inv.name, inv.arguments)
-        except ImportError:
-            pass
-        try:
-            result = await tool_handler(inv.name, inv.arguments, ws)
-            duration = (time.time() - start) * 1000
-            # Record metrics
-            try:
-                from backend.tools.tool_metrics import get_metrics
-                get_metrics().record_end(inv.name, result.get("success", False), result.get("error", ""), len(str(result.get("output", ""))))
-            except ImportError:
-                pass
-            tr = ToolResult(
-                invocation_id=inv.id,
-                name=inv.name,
-                output=str(result.get("output", ""))[:8000],
-                success=result.get("success", False),
-                error=result.get("error"),
-                duration_ms=duration,
-                truncated=len(str(result.get("output", ""))) > 8000,
-            )
-        except Exception as e:
-            duration = (time.time() - start) * 1000
-            tr = ToolResult(
-                invocation_id=inv.id,
-                name=inv.name,
-                output="",
-                success=False,
-                error=f"{type(e).__name__}: {str(e)[:500]}",
-                duration_ms=duration,
-            )
+    # 安全性：只有「整批都是只读」才并发。apply_patch / git_ops / shell_command /
+    # code_exec / file_rw 写操作等可能改同一文件或依赖先后顺序，整批退回串行，
+    # 避免竞态和不确定性。
+    if len(pending) > 1 and all(_is_read_only_invocation(inv) for inv in pending):
+        results = await _execute_concurrent(pending, tool_handler, ws)
+    else:
+        results = []
+        for inv in pending:
+            results.append(await _execute_one(inv, tool_handler, ws))
 
+    # 与原实现一致：返回快照不含后处理追加的诊断/安全内容
+    result_dicts = [asdict(tr) for tr in results]
+
+    for inv, tr in zip(pending, results):
         state.tool_results.append(tr)
-        state.add_message(Message.tool(
+        msg = Message.tool(
             content=tr.output or tr.error or "(empty)",
             tool_call_id=inv.id,
             name=inv.name,
-        ))
-        results.append(asdict(tr))
+        )
+        state.add_message(msg)
+        await _post_edit_notes(inv, tr, msg)
 
-        # Post-edit LSP diagnostic injection
-        if tr.success and inv.name in ("apply_patch", "file_rw"):
-            try:
-                lsp_note = await post_file_edit_hook(inv.name, inv.arguments, {"success": True, "output": tr.output})
-                if lsp_note:
-                    tr.output += lsp_note
-                    state.messages[-1].content += lsp_note
-            except Exception:
-                pass
-
-        # Post-edit security scan
-        if tr.success and inv.name in ("apply_patch", "file_rw"):
-            try:
-                sec_note = await post_edit_security_hook(
-                    inv.arguments.get("file_path") or inv.arguments.get("path") or ""
-                )
-                if sec_note:
-                    tr.output += sec_note
-                    state.messages[-1].content += sec_note
-            except Exception:
-                pass
-
-    return {"tool_results": results}
+    return {"tool_results": result_dicts}
 
 
 # ══ Node 4: Observer — 观察 + 状态判断 ══
@@ -355,6 +420,65 @@ async def synthesizer_node(state: AgentState, llm: LLMClient) -> dict:
         logging.getLogger("aurora").warning(f"post_session_hook spawn failed: {e}")
 
     return {"done": True, "final_response": state.final_response}
+
+
+# ══ 上下文压缩入口 (B12) ══
+# LLM 压缩器此前完全未被主循环调用：命中预算时直接 abort，实际只有
+# Collapser 的规则截断在跑，"自动摘要压缩"名存实亡。此函数是主循环的
+# 单一接线点，graph.py 只需一行：
+#     await maybe_compact_context(state, self.llm)
+async def maybe_compact_context(
+    state: AgentState,
+    llm,
+    max_tokens: int = 24000,
+    threshold: float = 0.85,
+) -> bool:
+    """上下文超预算时用 LLM 摘要旧消息，并原地替换 state.messages。
+
+    返回是否发生了压缩。压缩器实例挂在 state 上按会话复用，
+    避免每轮重建、也保留 compaction 计数。
+    """
+    try:
+        from backend.context.context_manager import ContextManager
+    except Exception:
+        return False
+
+    cm = getattr(state, "_ctx_manager", None)
+    if cm is None:
+        cm = ContextManager()
+        try:
+            state._ctx_manager = cm
+        except Exception:
+            pass
+    cm.set_max_tokens(max_tokens, threshold)
+    cm.set_messages([m.to_openai() for m in state.messages])
+    if not cm.needs_compaction():
+        return False
+
+    try:
+        removed = await cm.compact_async(llm)
+    except Exception:
+        # 压缩失败不应打断主循环
+        return False
+    if removed <= 0:
+        return False
+
+    # 压缩后的 dict 重建为 Message，保留 tool_calls / tool_call_id / name
+    # 等配对字段，否则后续 LLM 调用会收到非法历史。
+    rebuilt: list[Message] = []
+    for m in cm.messages:
+        try:
+            rebuilt.append(Message(
+                role=m.get("role", "user"),
+                content=m.get("content", "") or "",
+                tool_calls=m.get("tool_calls"),
+                tool_call_id=m.get("tool_call_id"),
+                name=m.get("name"),
+            ))
+        except Exception:
+            continue
+    state.messages = rebuilt
+    return True
 
 
 # ══ 工具 ══

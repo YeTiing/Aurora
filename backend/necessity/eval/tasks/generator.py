@@ -43,12 +43,17 @@ class {Cls}:
     def __init__(self, value: int = 0):
         self.value = value
 
-    def save(self) -> str:
-        """保存当前对象。"""
+    def {method}(self) -> str:
+        """当前实现：返回值带对象前缀。
+
+        ⚠️ 前缀是刻意的 —— 任务的目标就是「去掉前缀」，这样
+        「基线带前缀 → 测试期望裸值 → 基线必然失败」三者自洽。
+        """
         return PREFIX + ":" + str(self.value)
 
-    def reload(self) -> int:
-        return self.value
+    def describe(self) -> str:
+        """与本次改动无关 —— 用来验 Agent 没有顺手改别的。"""
+        return "value=" + str(self.value)
 '''
 
 DECOY_NOTE = '''"""干扰模块：与 {target_module} 里有**同名方法**，但语义完全不同。
@@ -64,10 +69,25 @@ from __future__ import annotations
 class {DecoyCls}:
     """同名的 {method}，但属于完全不同的领域。"""
 
-    def save(self, *, dry_run: bool = False) -> dict:
-        """与 {TargetCls}.save 同名，签名与返回值都不同。"""
+    def {method}(self, *, dry_run: bool = False) -> dict:
+        """与 {TargetCls}.{method} 同名，签名与返回值都不同。"""
         return {{"decoy": True, "dry_run": dry_run}}
 '''
+
+
+def _dotted(module_path: str) -> str:
+    """`models/user.py` -> `models.user`（生成 import 语句用）。
+
+    ⚠️ 此前这个转换是**缺失**的：模板里把 `models.user` 写死，于是
+    自定义 target_module 的任务（如 B-02 用 models/order.py）最终
+    import 了一个不存在的模块，基线直接 collection error。
+    """
+    p = module_path.replace("\\\\", "/")
+    if p.endswith(".py"):
+        p = p[:-3]
+    if p.endswith("/__init__"):
+        p = p[: -len("/__init__")]
+    return p.strip("/").replace("/", ".")
 
 
 @dataclass
@@ -108,6 +128,9 @@ def make_same_name_task(
     method: str = "save",
     target_module: str = "models/user.py",
     decoy_module: str = "config/settings.py",
+    cls: str = "User",
+    cls_lower: str = "user",
+    doc: str = "用户。",
 ) -> GeneratedTask:
     """生成「同名方法混淆」任务 —— INDEX.md Phase 3 的 B 类核心场景。
 
@@ -115,27 +138,37 @@ def make_same_name_task(
     grep 会把两个都找出来（必然误伤），graph 靠 LSP 符号绑定能精确区分。
 
     这是文档点名的**主指标来源**，所以生成器把它做成可批量复用的。
+
+    `cls` / `cls_lower` / `doc` 控制**目标类**：不同 B 类任务用不同的类名与
+    领域，避免整批任务都在改 `User` —— 那样它们实际上是同一个任务，
+    重复计入会让 B 类的样本量与主指标一起虚高。
     """
     root = base / task_id
     repo = root / "repo"
     notes: list[str] = []
 
+    # 从模块路径推导出必须写进 import 语句的包路径 —— 见 _dotted 的说明。
+    tgt_mod, decoy_mod = _dotted(target_module), _dotted(decoy_module)
+
     # 目标模块 + 干扰模块
+    # ⚠️ {method} 必须传进 BENIGN_MODULE：它在类体里定义目标方法本身。
+    #    漏传会让 .format() 抛 KeyError（string.Formatter 不接受未替换字段），
+    #    而 .format 抛异常是**静默失效**的典型温床 —— 这里靠实跑基线才发现。
     _write(repo / target_module, BENIGN_MODULE.format(
-        name="用户模型", Cls="User", cls_lower="user", doc="用户。"))
+        name=doc or "业务模型", Cls=cls, cls_lower=cls_lower, doc=doc, method=method))
     _write(repo / decoy_module, DECOY_NOTE.format(
         target_module=target_module, method=method,
-        DecoyCls="Settings", TargetCls="User"))
+        DecoyCls="Settings", TargetCls=cls))
 
     # 调用方：两处，分别调用两个同名方法 —— 改错一个测试就红
     _write(repo / "app.py", textwrap.dedent(f'''\
         """调用入口 —— 同时使用两个同名方法。"""
-        from models.user import User
-        from config.settings import Settings
+        from {tgt_mod} import {cls}
+        from {decoy_mod} import Settings
 
 
         def run() -> str:
-            u = User(1)
+            u = {cls}(1)
             s = Settings()
             a = u.{method}()
             b = s.{method}(dry_run=True)
@@ -146,37 +179,37 @@ def make_same_name_task(
     _write(root / "tests" / f"test_{task_id}.py", textwrap.dedent(f'''\
         """验收测试。
 
-        ⚠️ 同时断言 User.{method} 与 Settings.{method} ——
+        ⚠️ 同时断言 {cls}.{method} 与 Settings.{method} ——
         只改其中一个会让另一个的断言失败，这正是分辨
         「grep 误伤」与「符号级精确改动」的地方。
         """
-        from models.user import User
-        from config.settings import Settings
+        from {tgt_mod} import {cls}
+        from {decoy_mod} import Settings
 
 
-        def test_user_{method}_behavior():
+        def test_target_{method}_behavior():
             """断言**期望**行为 —— 当前实现带前缀，所以基线必须失败。
 
             ⚠️ 这里如果写成断言当前行为，任务就失去区分度
             （EVAL.md §1.2 第 5 步的反向前置检查会失败）。
             """
-            assert User(1).{method}() == "1"
+            assert {cls}(1).{method}() == "1"
 
 
-        def test_settings_{method}_untouched():
+        def test_decoy_{method}_untouched():
             """干扰符号的行为**必须不变** —— 改错了这里会红。"""
             assert Settings().{method}(dry_run=True) == {{"decoy": True, "dry_run": True}}
     '''))
 
     _write(root / "task.md", textwrap.dedent(f'''\
-        # 任务：调整 {target_module} 里 User.{method} 的行为
+        # 任务：调整 {target_module} 里 {cls}.{method} 的行为
 
-        现在 `User.{method}()` 返回的字符串带对象前缀。
-        改为只返回值本身（即 `"1"` 而不是 `"user:1"`），
+        现在 `{cls}.{method}()` 返回的字符串带对象前缀。
+        改为只返回值本身（即 `"1"` 而不是 `"{cls_lower}:1"`），
         并保持其他一切行为不变。
 
         > TODO(人工): 请人工润色本段，去掉任何暗示实现的内容。
-        > 注意本仓库里存在**同名的其他方法**，任务只针对 User 的这一个。
+        > 注意本仓库里存在**同名的其他方法**，任务只针对 {cls} 的这一个。
     '''))
 
     _write(root / "meta.json", json.dumps({
@@ -187,7 +220,7 @@ def make_same_name_task(
         "decoy_symbols": [f"Settings.{method}"],
         "min_turns": 0, "min_lines_changed": 1, "min_files": 1,
         "source": "C-generated",
-        "meta": {"target": f"User.{method}"},
+        "meta": {"target": f"{cls}.{method}"},
     }, ensure_ascii=False, indent=2), )
 
     _git_init(repo)
@@ -197,13 +230,17 @@ def make_same_name_task(
 
 # C 类的两种陷阱任务已拆到 traps.py
 from .traps import make_redundancy_trap_task, make_scope_trap_task  # noqa: E402,F401
+# A 类基线任务已拆到 baseline_class.py（三类的寿命与修改理由各不相同）
+from .baseline_class import make_param_task, make_rename_task  # noqa: E402,F401
 
 
 # ── 批量生成 ─────────────────────────────────────────────────────
 
 # 文档要求 B 类占一半以上（INDEX.md Phase 3：「B 类占一半以上」）。
-# 这里给的是**示例配比**（A2/B6/C3），完整 22 个由人补足真实 commit 任务。
+# 这里给的是**示例配比**（A2/B2/C2），完整 22 个由人补足真实 commit 任务。
 _DEFAULT_PLAN: tuple[tuple[str, str], ...] = (
+    ("A", "01-rename"),
+    ("A", "02-add-param"),
     ("B", "01-same-name-save"),
     ("B", "02-same-name-reload"),
     ("C", "03-scope-trap"),
@@ -212,13 +249,17 @@ _DEFAULT_PLAN: tuple[tuple[str, str], ...] = (
 
 
 def generate_starter_set(base: str | Path, clean: bool = False) -> list[GeneratedTask]:
-    """生成入门任务集（4 个：2 B + 2 C）。
+    """生成入门任务集（6 个：2 A + 2 B + 2 C）。
+
+    三类**都必须有**：缺 A 类就无法验「graph 不比 grep 差」这条反向验收标准，
+    缺 B 类就没有主指标，缺 C 类就测不出越界与冗余。
 
     用途：先造少量跑通全流程，再批量扩（EVAL.md §8 风险表：
     「先用 3 个任务跑通全流程，再批量造」）。
     **这不是完整的 22 个任务** —— 完整集的主体应从真实 commit 反向构造（来源 A）。
     """
     base = Path(base)
+    base.mkdir(parents=True, exist_ok=True)   # clean 分支要 iterdir，目录得先存在
     if clean:
         import shutil
         for d in base.iterdir():
@@ -226,10 +267,24 @@ def generate_starter_set(base: str | Path, clean: bool = False) -> list[Generate
                 shutil.rmtree(d, ignore_errors=True)
 
     out: list[GeneratedTask] = []
+    # A 类：grep 也能做对 —— 用来验「不倒退」（INDEX.md Phase 3 验收标准第 2 条）
+    out.append(make_rename_task(base, "A-01-rename-func"))
+    out.append(make_param_task(base, "A-02-add-param"))
+    # B 类：同名干扰符号 —— 主指标的真正来源
     out.append(make_same_name_task(base, "B-01-same-name-save", method="save"))
     out.append(make_same_name_task(base, "B-02-same-name-reload", method="reload",
                                    target_module="models/order.py",
-                                   decoy_module="cache/store.py"))
+                                   decoy_module="cache/store.py",
+                                   cls="Order", cls_lower="order", doc="订单。"))
+    out.append(make_same_name_task(base, "B-03-same-name-describe", method="describe",
+                                   target_module="models/account.py",
+                                   decoy_module="config/registry.py",
+                                   cls="Account", cls_lower="account", doc="账户。"))
+    out.append(make_same_name_task(base, "B-04-same-name-flush", method="flush",
+                                   target_module="models/session.py",
+                                   decoy_module="cache/buffer.py",
+                                   cls="Session", cls_lower="session", doc="会话。"))
+    # C 类：诱导越界 / 高冗余陷阱
     out.append(make_scope_trap_task(base, "C-03-scope-trap"))
     out.append(make_redundancy_trap_task(base, "C-04-redundancy-trap"))
     return out

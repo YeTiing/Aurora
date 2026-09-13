@@ -8,7 +8,7 @@ from models.user import User
 from config.settings import Settings
 
 
-def test_user_save_behavior():
+def test_target_save_behavior():
     """断言**期望**行为 —— 当前实现带前缀，所以基线必须失败。
 
     ⚠️ 这里如果写成断言当前行为，任务就失去区分度
@@ -17,6 +17,6 @@ def test_user_save_behavior():
     assert User(1).save() == "1"
 
 
-def test_settings_save_untouched():
+def test_decoy_save_untouched():
     """干扰符号的行为**必须不变** —— 改错了这里会红。"""
     assert Settings().save(dry_run=True) == {"decoy": True, "dry_run": True}

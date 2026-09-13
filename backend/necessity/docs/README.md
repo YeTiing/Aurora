@@ -94,6 +94,54 @@
 `python -m backend.necessity.cli.main eval gate0` 会明确提示缺哪些环境变量，
 不会伪造数字。
 
+### 任务集现状（8 个：A2 / B4 / C2）
+
+| 类别 | 数量 | 任务 |
+|---|---|---|
+| A 基线（grep 也能做对） | 2 | `A-01-rename-func`、`A-02-add-param` |
+| B 区分性（同名干扰符号） | 4 | `B-01`~`B-04`（save / reload / describe / flush） |
+| C 压力（越界 / 高冗余） | 2 | `C-03-scope-trap`、`C-04-redundancy-trap` |
+
+距离 INDEX.md Phase 3 的 A5/B12/C5 = 22 个仍有差距：**B 类缺 5 个、A 类缺 3 个**。
+完整集的主体应从真实 commit 反向构造（`source: "A"`），自造任务只是骨架；
+`check_distribution()` 会如实报出这个差距，不假装一致。
+
+**反向前置检查已强制在跑分路径上**（EVAL.md §1.2 第 5 步）：
+`EvalRunner.load_tasks()` 默认调用 `tasks/baseline.py`，逐个任务在临时副本里
+跑验收测试，**基线必须失败**，否则抛 `TasksetInvalid` 中止整批。
+用 `--skip-baseline-check` 可显式跳过（仅供续跑场景）。
+
+> 这条检查一上线就抓出两个真缺陷：`B-02` 声明的干扰符号 `Settings.reload`
+> 在仓库里并不存在（干扰不成立 → 任务退化成 A 类），以及两个 A 类任务
+> 的基线其实全绿（等于测「Agent 什么都不做」）。两者都不报错，
+> 只会让数字虚高 —— 正是它存在的理由。
+
+### 任务快照的 git 元数据不入库（`tasks/repo_git.py`）
+
+任务快照的 `repo/` 是嵌套 git 仓库（Diff Reducer 的 `git worktree` 需要它），
+但 git 会把**任何**嵌套仓库记成 gitlink（`mode 160000`）——
+只存一个 SHA，克隆出来的 `repo/` 是**空目录，且不报错**。
+
+实测过四种修法，只有一种有效：
+
+| 做法 | 结果 |
+|---|---|
+| `git add -A` | ❌ 160000 |
+| `git add -f`（强加内层文件） | ❌ 160000 |
+| 外层 `.gitignore` 排除 `repo/.git/` | ❌ 160000 |
+| **内层 `.git` 不入库，克隆后重建** | ✅ 100644，源码入库 |
+
+所以 `repo/.git` 由 `tasks/.gitignore` 排除，`load_all()` 默认调用
+`repo_git.ensure_all()` 按需重建初始 commit。重建的代价（新 SHA 而非原 SHA）
+写在 `repo_git.py` 的文件头。
+
+> 同一个判据还修掉一个**既有**缺陷：`Sandbox._is_git()` 原先用
+> `rev-parse --is-inside-work-tree`，而它对**任何**子目录都返回 true。
+> 任务快照恰好嵌在 Aurora 仓库里 —— 于是 worktree 建出来的是
+> **Aurora 自己的**（内容里有 Aurora 的顶层文件），Diff Reducer 在分析
+> 错对象。改用「`--show-toplevel` 必须等于自己」，并在
+> `tests/test_necessity_task_git.py` 里把「为什么不能用旧判据」写成可执行证据。
+
 ---
 
 ## 与 Aurora 的关系

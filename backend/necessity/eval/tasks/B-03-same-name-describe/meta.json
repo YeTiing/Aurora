@@ -1,0 +1,18 @@
+{
+  "task_id": "B-03-same-name-describe",
+  "category": "B",
+  "difficulty": "easy",
+  "title": "同名方法混淆：describe",
+  "files_touched": 2,
+  "expected_callers": 1,
+  "decoy_symbols": [
+    "Settings.describe"
+  ],
+  "min_turns": 0,
+  "min_lines_changed": 1,
+  "min_files": 1,
+  "source": "C-generated",
+  "meta": {
+    "target": "Account.describe"
+  }
+}

@@ -93,7 +93,8 @@ def test_leak_detector_allows_goal_only_description():
 
 def test_generate_starter_set_creates_required_structure(generated):
     tasks = load_all(generated)
-    assert len(tasks) == 4
+    # 入门集 = 2 A + 4 B + 2 C（三类都必须有；B 占一半）
+    assert len(tasks) == 8
     for t in tasks:
         assert t.repo.is_dir()
         assert t.tests.is_dir()
@@ -192,19 +193,40 @@ def test_b_category_decoy_test_still_passes_at_baseline(generated, tmp_path):
     )
     out = (r.stdout or "") + (r.stderr or "")
     # 目标测试失败、干扰测试通过 —— 两者必须同时成立
-    assert "test_user_save_behavior" in out
-    assert "test_settings_save_untouched" in out
+    assert "test_target_save_behavior" in out
+    assert "test_decoy_save_untouched" in out
     assert "1 failed, 1 passed" in out, "预期 1失败1通过"
     assert "PASSED" in out and "FAILED" in out, "缺 PASSED/FAILED 明细"
 
 
 # ── 配比校验 ─────────────────────────────────────────────────────
 
-def test_distribution_flags_b_under_half(generated):
+def test_starter_set_distribution_is_valid(generated):
+    """入门集本身必须配比达标 —— 它是「跑通全流程」的样本，
+    配比不对就等于用一个不合法的样本验证管线。"""
+    problems = check_distribution(load_all(generated))
+    assert problems == [], f"入门集配比不达标: {problems}"
+
+
+def test_distribution_flags_b_under_half(tmp_path):
     """B 类不足一半应被报出来（文档要求 B 占一半以上）。"""
-    tasks = load_all(generated)
-    problems = check_distribution(tasks)
-    # 入门集是 2B+2C（B 恰好一半），A 类缺失应被报
+    # 造一个 B 占 1/3 的集合：1B + 2A
+    generate_starter_set(tmp_path, clean=True)
+    import shutil
+    for d in ("B-02-same-name-reload", "B-03-same-name-describe",
+              "B-04-same-name-flush", "C-03-scope-trap", "C-04-redundancy-trap"):
+        shutil.rmtree(tmp_path / d, ignore_errors=True)
+    problems = check_distribution(load_all(tmp_path))
+    assert any("B 类" in p for p in problems), f"应报 B 类不足: {problems}"
+
+
+def test_distribution_flags_missing_category(tmp_path):
+    """缺任一类别都必须报 —— A 类缺失会让「不倒退」这条验收标准无法验。"""
+    generate_starter_set(tmp_path, clean=True)
+    import shutil
+    for d in ("A-01-rename-func", "A-02-add-param"):
+        shutil.rmtree(tmp_path / d, ignore_errors=True)
+    problems = check_distribution(load_all(tmp_path))
     assert any("A 类" in p for p in problems), f"应报缺 A 类: {problems}"
 
 
@@ -214,10 +236,10 @@ def test_distribution_flags_empty_set():
 
 def test_summarize_shape(generated):
     s = summarize(load_all(generated))
-    assert s["total"] == 4
-    assert s["by_category"] == {"B": 2, "C": 2}
-    assert s["with_decoy"] == 2
-    assert s["with_constraints"] >= 1
+    assert s["total"] == 8
+    assert s["by_category"] == {"A": 2, "B": 4, "C": 2}
+    assert s["with_decoy"] == 4          # 只有 B 类声明干扰符号
+    assert s["with_constraints"] >= 1    # C 类诱导越界
     assert s["invalid"] == []
 
 

@@ -1,17 +1,17 @@
-"""业务模块：订单。。"""
+"""业务模块：账户。。"""
 from __future__ import annotations
 
 
-PREFIX = "order"
+PREFIX = "account"
 
 
-class Order:
-    """订单。"""
+class Account:
+    """账户。"""
 
     def __init__(self, value: int = 0):
         self.value = value
 
-    def reload(self) -> str:
+    def describe(self) -> str:
         """当前实现：返回值带对象前缀。
 
         ⚠️ 前缀是刻意的 —— 任务的目标就是「去掉前缀」，这样

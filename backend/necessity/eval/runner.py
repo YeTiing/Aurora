@@ -58,10 +58,11 @@ __all__ = [
 class EvalRunner:
     """按矩阵跑，按 JSONL 续跑。"""
 
-    def __init__(self, agent: AgentRunner, out_path: str | Path,
+    def __init__(self, agent: AgentRunner | None, out_path: str | Path,
                  *, tasks: Sequence[Any] | None = None,
                  turn_limit: int = DEFAULT_TURN_LIMIT,
                  dry_run: bool = False, retry_errors: bool = False,
+                 check_baseline: bool = True, baseline_workers: int = 4,
                  log=print):
         self.agent = agent
         self.out_path = Path(out_path)
@@ -69,12 +70,29 @@ class EvalRunner:
         self.turn_limit = turn_limit
         self.dry_run = dry_run
         self.retry_errors = retry_errors
+        # 反向前置检查（EVAL.md §1.2 第 5 步）默认开。只有「已在一轮里
+        # 验过、只想续跑」的场景才该关掉；关掉时 caller 必须自己承担。
+        self.check_baseline = check_baseline
+        self.baseline_workers = baseline_workers
         self.log = log
 
     def load_tasks(self, tasks_dir: str | Path) -> list[Any]:
+        """加载任务集并**在开跑前**验掉「基线必须失败」这条不变量。
+
+        为什么放在这里而不是 run() 里：这是**配置**问题，不是运行问题。
+        放 run() 里会与「agent 能不能用」的检查混在一起，而两者必须分开 ——
+        任务集坏了在无 LLM key 的机器上也该被查出来。
+        """
         from backend.necessity.eval.tasks.loader import load_all
 
         self.tasks = load_all(tasks_dir)
+        if self.check_baseline and self.tasks:
+            from backend.necessity.eval.tasks.baseline import assert_discriminates
+
+            self.log(f"反向前置检查（§1.2 第 5 步）：{len(self.tasks)} 个任务 ...")
+            assert_discriminates(self.tasks, workers=self.baseline_workers,
+                                 log=self.log)
+            self.log("  ✓ 全部任务在基线状态下测试失败（有区分度）")
         return self.tasks
 
     def _is_done(self, key: tuple[str, str, int], done: set,
@@ -92,6 +110,8 @@ class EvalRunner:
             return {"ran": 0, "skipped": plan.total, "failed": 0,
                     "elapsed": 0.0, "dry_run": True}
 
+        if self.agent is None:
+            raise AgentUnavailable("未提供 Agent")
         ok, why = self.agent.available()
         if not ok:
             # 缺 key / 缺宿主：整批中止，给出可执行指引，绝不产出假数字
@@ -197,6 +217,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--gate0", action="store_true", help="只跑 Gate 0（A 组 × 1 次）")
     p.add_argument("--turn-limit", type=int, default=DEFAULT_TURN_LIMIT)
     p.add_argument("--retry-errors", action="store_true", help="重跑上次 status=error 的")
+    p.add_argument("--skip-baseline-check", action="store_true",
+                   help="跳过「基线必须失败」的反向前置检查（默认**不跳过**）")
     p.add_argument("--dry-run", action="store_true", help="只打印预检，不执行")
     p.add_argument("--aurora-root", default=None)
     p.add_argument("--port", type=int, default=9876)
@@ -225,11 +247,13 @@ def main(argv: list[str] | None = None) -> int:
 
     runner = EvalRunner(agent, args.out, turn_limit=args.turn_limit,
                         dry_run=args.dry_run, retry_errors=args.retry_errors,
-                        log=print)
+                        check_baseline=not args.skip_baseline_check, log=print)
     try:
         tasks = runner.load_tasks(args.tasks)
     except Exception as e:
-        print(f"任务集加载失败: {type(e).__name__}: {e}", file=sys.stderr)
+        # 任务集坏了（含反向前置检查不通过）—— 退出码 2 与「环境缺 key」
+        # （退出码 3）区分开，便于 CI / 脚本判断该修什么。
+        print(f"\n任务集不可用，已中止：\n{type(e).__name__}: {e}", file=sys.stderr)
         return 2
 
     try:

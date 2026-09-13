@@ -11,6 +11,6 @@ from __future__ import annotations
 class Settings:
     """同名的 reload，但属于完全不同的领域。"""
 
-    def save(self, *, dry_run: bool = False) -> dict:
-        """与 User.save 同名，签名与返回值都不同。"""
+    def reload(self, *, dry_run: bool = False) -> dict:
+        """与 Order.reload 同名，签名与返回值都不同。"""
         return {"decoy": True, "dry_run": dry_run}

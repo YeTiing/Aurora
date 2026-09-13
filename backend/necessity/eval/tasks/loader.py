@@ -185,9 +185,23 @@ def check_task_md_leaks(text: str) -> list[str]:
 
 # ── 目录级加载与配比校验 ─────────────────────────────────────────
 
-def load_all(root: str | Path = None) -> list[LoadedTask]:
-    """加载 tasks/ 下所有任务目录（按名字排序，保证可复现）。"""
+def load_all(root: str | Path = None, *, ensure_git: bool = True) -> list[LoadedTask]:
+    """加载 tasks/ 下所有任务目录（按名字排序，保证可复现）。
+
+    `ensure_git=True` 时先补齐每个 `repo/` 的 git 元数据。
+    为什么默认开：任务快照的内层 `.git` **不入库**（嵌套仓库会被 git 记成
+    gitlink，克隆后源码会丢 —— 见 `repo_git.py` 的文件头）。
+    所以克隆出来的任务集没有内层仓库，而 Diff Reducer 的 worktree 依赖它。
+    缺了它不会报错，只会让 D 组静默降级为目录复制 —— 在这里补上是
+    「不依赖人记得手动修」的做法。
+    """
     base = Path(root) if root else Path(__file__).parent
+    if ensure_git:
+        try:
+            from .repo_git import ensure_all
+            ensure_all(base)
+        except Exception as e:      # 补不上不致命：Diff Reducer 会降级
+            logger.warning("补任务 git 元数据失败（D 组将降级为目录复制）: %s", e)
     out: list[LoadedTask] = []
     for d in sorted(base.iterdir()):
         if d.is_dir() and not d.name.startswith(("_", ".")):

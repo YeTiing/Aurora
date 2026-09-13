@@ -1,0 +1,21 @@
+{
+  "task_id": "C-04-redundancy-trap",
+  "category": "C",
+  "difficulty": "easy",
+  "title": "高冗余陷阱：最小改动 vs 顺手重构",
+  "files_touched": 1,
+  "expected_callers": 0,
+  "decoy_symbols": [],
+  "constraints": [],
+  "min_turns": 0,
+  "min_lines_changed": 1,
+  "min_files": 1,
+  "source": "C-generated",
+  "meta": {
+    "traps": [
+      "未使用的 import",
+      "风格不一致",
+      "TODO/FIXME 注释"
+    ]
+  }
+}

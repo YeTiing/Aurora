@@ -75,12 +75,27 @@ class Sandbox:
         return self.info
 
     def _is_git(self) -> bool:
+        """`repo` 自身是不是一个 git 仓库的根。
+
+        ⚠️ **不要**改回 `rev-parse --is-inside-work-tree`：它对任何子目录都
+        返回 true（只要祖先里有 .git）。实测踩过 —— 任务快照嵌在 Aurora
+        仓库里时，该判据为真，于是 `git worktree add` 建出来的是
+        **Aurora 自己的** worktree（内容里有 Aurora 的顶层文件），
+        而不是任务仓库。全程不报错，只是 Diff Reducer 在分析错对象。
+
+        判据必须是「toplevel 等于自己」。
+        """
         try:
             r = subprocess.run(
-                ["git", "rev-parse", "--is-inside-work-tree"],
+                ["git", "rev-parse", "--show-toplevel"],
                 cwd=self.repo, capture_output=True, text=True, timeout=15,
             )
-            return r.returncode == 0 and r.stdout.strip() == "true"
+            if r.returncode != 0:
+                return False
+            top = (r.stdout or "").strip()
+            if not top:
+                return False
+            return Path(top).resolve() == Path(self.repo).resolve()
         except Exception:
             return False
 

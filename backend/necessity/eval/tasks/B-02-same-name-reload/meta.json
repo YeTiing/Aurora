@@ -1,0 +1,18 @@
+{
+  "task_id": "B-02-same-name-reload",
+  "category": "B",
+  "difficulty": "easy",
+  "title": "同名方法混淆：reload",
+  "files_touched": 2,
+  "expected_callers": 1,
+  "decoy_symbols": [
+    "Settings.reload"
+  ],
+  "min_turns": 0,
+  "min_lines_changed": 1,
+  "min_files": 1,
+  "source": "C-generated",
+  "meta": {
+    "target": "Order.reload"
+  }
+}

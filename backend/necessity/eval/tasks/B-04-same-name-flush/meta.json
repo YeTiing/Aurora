@@ -1,0 +1,18 @@
+{
+  "task_id": "B-04-same-name-flush",
+  "category": "B",
+  "difficulty": "easy",
+  "title": "同名方法混淆：flush",
+  "files_touched": 2,
+  "expected_callers": 1,
+  "decoy_symbols": [
+    "Settings.flush"
+  ],
+  "min_turns": 0,
+  "min_lines_changed": 1,
+  "min_files": 1,
+  "source": "C-generated",
+  "meta": {
+    "target": "Session.flush"
+  }
+}

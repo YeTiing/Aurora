@@ -1,10 +1,10 @@
 """调用入口 —— 同时使用两个同名方法。"""
-from models.user import User
-from config.settings import Settings
+from models.order import Order
+from cache.store import Settings
 
 
 def run() -> str:
-    u = User(1)
+    u = Order(1)
     s = Settings()
     a = u.reload()
     b = s.reload(dry_run=True)

@@ -1,0 +1,18 @@
+{
+  "task_id": "A-02-add-param",
+  "category": "A",
+  "difficulty": "easy",
+  "title": "简单参数增加（可选参数）",
+  "files_touched": 1,
+  "expected_callers": 2,
+  "decoy_symbols": [],
+  "constraints": [],
+  "min_turns": 0,
+  "min_lines_changed": 2,
+  "min_files": 1,
+  "source": "C-generated",
+  "meta": {
+    "target": "src.textkit.format.truncate",
+    "new_param": "suffix"
+  }
+}

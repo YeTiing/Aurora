@@ -29,24 +29,19 @@ import logging
 logger = logging.getLogger("aurora")
 
 # ── Necessity 钩子（可选，默认关闭）─────────────────────────────
-# 通过环境变量 AURORA_NECESSITY_PATH 指向 necessity 项目的根目录来启用。
-# 不硬编码路径：本仓库是公开的，把本地绝对路径写进版本历史既不可移植
-# 也会泄漏目录结构；而且 necessity 未发布，对其他人没有意义。
-# 未设置该变量时 _nsk_hooks 为 None，所有挂载点直接跳过 ——
-# 宿主行为与未挂载时逐字节一致（I1 空操作挂载的验收判据）。
+# Necessity 已合并进本仓库（backend/necessity，见其 __init__ 的说明），
+# 所以这里是**本地导入**，不再需要外部路径。
+#
+# 默认关闭：未设 AURORA_NECESSITY=1 时 _nsk_hooks 为 None，
+# 所有挂载点直接跳过，宿主行为与未挂载时逐字节一致
+# （这是 I1「空操作挂载」的验收判据 —— 先证明钩子层不影响行为）。
 _nsk_hooks = None
-_nsk_path = os.environ.get("AURORA_NECESSITY_PATH", "").strip()
-if _nsk_path:
+if os.environ.get("AURORA_NECESSITY", "").strip() in ("1", "true", "yes", "on"):
     try:
-        import sys as _nsk_sys
-        if _nsk_path not in _nsk_sys.path:
-            _nsk_sys.path.insert(0, _nsk_path)
-        from adapter.aurora import hooks as _nsk_hooks
+        from backend.necessity import adapter as _nsk_hooks
     except Exception as e:
-        logger.debug("necessity hooks not loaded: %s", e)
+        logger.warning("necessity hooks not loaded: %s", e)
         _nsk_hooks = None
-
-
 
 # 沙箱模式别名归一化。
 # 项目里存在三套取值：graph.py 只认 read-only / workspace-only；

@@ -151,8 +151,11 @@ def record(kind: str, turn: int = 0, **payload) -> None:
         pass
 
 
-# 当前会话 id：on_task_start 时设置，供 record() 归属
+# 当前会话 id / 轮次：on_task_start / on_turn_end 时更新，供 record() 归属。
+# ⚠️ 轮次必须真实：Gate 0 的「同一轮内重复读」判定依赖它 ——
+# 全部硬编码 turn=0 会让该规则永远误判为「同轮重读」或永远不触发。
 _session_id = ""
+_current_turn = 0
 
 
 def flush_trace() -> int:
@@ -171,11 +174,15 @@ def on_task_start(task: dict) -> None:
     """任务开始：编译约束、准备 trace、重置会话状态。"""
     global _session_id
     _session_id = str((task or {}).get("session_id") or "")
+    global _current_turn
+    _current_turn = 0
     _call("on_task_start", lambda: _hooks.on_task_start(task), None)
 
 
 def on_turn_end(turn: int) -> None:
     """每轮结束：Guard 后检、状态更新。**Guard 的越界检测靠它。**"""
+    global _current_turn
+    _current_turn = int(turn or 0)
     _call("on_turn_end", lambda: _hooks.on_turn_end(turn), None)
 
 
@@ -234,7 +241,7 @@ def read_file(path: str, opts: dict | None = None):
     try:
         from pathlib import Path as _P
         content = _P(path)
-        record("file_read", 0, path=str(path),
+        record("file_read", _current_turn, path=str(path),
                lines=(content.stat().st_size if content.is_file() else 0),
                cache_hit=out is not None)
     except Exception:
@@ -251,13 +258,13 @@ def after_write(path: str, writer: str) -> None:
     _call("after_write", lambda: _hooks.after_write(path, writer), None)
     # 记事实：谁写的（agent / other）。这个区分是「合法重读」与「浪费重读」
     # 的分界 —— 没有它 R/R_waste 无法分开测量。
-    record("file_write", 0, path=str(path), writer=str(writer))
+    record("file_write", _current_turn, path=str(path), writer=str(writer))
 
 
 def before_compaction(messages: list) -> None:
     """压缩前：快照状态表版本（不得被压缩影响）。"""
     _call("before_compaction", lambda: _hooks.before_compaction(messages), None)
-    record("compaction", 0, message_count=len(messages or []))
+    record("compaction", _current_turn, message_count=len(messages or []))
 
 
 def after_compaction(summary: str) -> str:

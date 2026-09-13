@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """Phase 0 probe: drive pyright-langserver over stdio and dump raw JSON.
 
+EXEMPT from the 300-line module limit: this is a one-off Phase 0 探明脚本
+（INDEX.md §Phase 0 明确要求「写一个一次性探测脚本，不要放进正式模块结构」），
+不是产品代码。保留它是因为它的输出（同目录的 12 份 JSON + FINDINGS.md）
+是采点规则的唯一实证依据。
+
 Throwaway-quality. NOT a production module.
 
 Key point (per INDEX.md 2.2):

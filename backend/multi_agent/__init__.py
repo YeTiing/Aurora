@@ -81,7 +81,10 @@ class MultiAgentOrchestrator:
             agent.finished_at = time.time()
             async with self._lock:
                 self._running.discard(aid)
-            await self._drain_queue()
+            try:
+                await self._drain_queue()
+            except (RuntimeError, Exception):
+                pass  # loop 可能已关闭（任务被取消/进程退出），pending 保留给下次调度
 
     async def start(self, agent_id: str, executor: Callable[[AgentNode], Coroutine]):
         agent = self.agents.get(agent_id)
@@ -100,6 +103,13 @@ class MultiAgentOrchestrator:
         self._task_registry[agent_id] = task
 
     async def _drain_queue(self):
+        # 守卫：可能从 _wrap_run 的 finally 触发（任务被取消/loop 关闭时），
+        # 此时 asyncio.create_task 会抛 "no running event loop"。
+        # 无 loop 时保留 pending 状态，下次调度（start/close）再拉起。
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
         async with self._lock:
             if not self._pending or len(self._running) >= self.max_parallel:
                 return
@@ -115,7 +125,7 @@ class MultiAgentOrchestrator:
                     agent.started_at = time.time()
                     executor = self._executor_registry.pop(aid, None)
                     if executor:
-                        task = asyncio.create_task(self._wrap_run(agent, executor))
+                        task = loop.create_task(self._wrap_run(agent, executor))
                         self._task_registry[aid] = task
 
     async def send(self, target_id: str, message: str, interrupt: bool = False) -> bool:

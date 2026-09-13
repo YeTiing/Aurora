@@ -126,24 +126,44 @@ class TerminalBackend(SwarmBackend):
         title = self.config.window_title or f"Aurora: {ctx.name}"
         cwd = self.config.cwd or os.getcwd()
         ctx_data = {"agent_id": ctx.agent_id, "name": ctx.name, "task": ctx.task,
-                    "parent_id": ctx.parent_id, "priority": ctx.priority}
+                    "parent_id": ctx.parent_id, "priority": ctx.priority,
+                    "cwd": cwd, "role": ctx.metadata.get("role", "") if ctx.metadata else ""}
         # 把上下文写到临时 JSON 文件传给子进程，避免把 task/name 拼进 shell 命令字符串造成注入
         import tempfile
         ctx_fd, ctx_path = tempfile.mkstemp(prefix="aurora_ctx_", suffix=".json")
         with os.fdopen(ctx_fd, "w", encoding="utf-8") as fh:
             json.dump(ctx_data, fh, ensure_ascii=False)
         self._tmpfiles[ctx.agent_id] = [ctx_path]
-        # 把 agent 引导脚本写到临时 .py 文件，子进程直接运行该文件，全程不经过 shell
+        # agent 引导脚本：真实执行 AgentGraph（修复：之前只 sleep 假跑）
+        aurora_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         boot_lines = [
-            "import sys, json, os, time",
+            "import sys, json, os, asyncio",
+            f"sys.path.insert(0, {json.dumps(aurora_root)})",
             f"ctx_path = {json.dumps(ctx_path)}",
-            "with open(ctx_path, encoding='utf-8') as _f: ctx_data = json.load(_f)",
-            "print(f'Aurora Agent: {ctx_data[chr(34)+chr(110)+chr(97)+chr(109)+chr(101)+chr(34)]}')",
-            "print('Task: ' + str(ctx_data.get('task',''))[:120])",
-            "print('Press Ctrl+C to stop')",
+            "with open(ctx_path, encoding='utf-8') as _f: ctx = json.load(_f)",
+            "print(f'Aurora Agent: {ctx[\"name\"]} ({ctx[\"agent_id\"]})')",
+            "print('Task: ' + str(ctx.get('task',''))[:200])",
+            "async def _run():",
+            "    from backend.api import deps",
+            "    from backend.agent.graph import AgentGraph",
+            "    from backend.tools import tool_registry",
+            "    llm = deps.get_llm()",
+            "    async def handler(name, args, ws=None):",
+            "        result = await tool_registry.execute(name, args, ws)",
+            "        return {'success': result.success, 'output': result.output, 'error': result.error}",
+            "    g = AgentGraph(llm=llm, tool_handler=handler, tools_schema=tool_registry.list_tools_openai(), max_turns=10, workspace=ctx.get('cwd','.'))",
+            "    state = await g.run(ctx.get('task',''), session_id=ctx.get('agent_id',''), workspace=ctx.get('cwd','.'), agent_role=ctx.get('role',''))",
+            "    print('=== AGENT RESULT ===')",
+            "    print((state.final_response or '(no final response)')[:4000])",
+            "    return state.final_response",
+            "try:",
+            "    asyncio.run(_run())",
+            "except Exception as e:",
+            "    import traceback; traceback.print_exc()",
+            "print('\\nPress Ctrl+C to close this window')",
             "try:",
             "    while True: time.sleep(3600)",
-            "except KeyboardInterrupt: print('Stopped')",
+            "except KeyboardInterrupt: pass",
         ]
         boot_fd, boot_path = tempfile.mkstemp(prefix="aurora_agent_", suffix=".py")
         with os.fdopen(boot_fd, "w", encoding="utf-8") as fh:

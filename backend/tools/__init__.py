@@ -25,6 +25,13 @@ from .detective_tool import DETECTIVE_SPEC, detective_handler
 from .lsp_tool import LSP_TOOL_SPEC, lsp_handler
 from .verify_plan import VERIFY_TOOL_SPEC, verify_plan_handler
 from .tool_metrics import get_metrics
+from .multi_agent_tools import (
+    SPAWN_AGENT_SPEC, spawn_agent_handler,
+    SEND_AGENT_MESSAGE_SPEC, send_agent_message_handler,
+    WAIT_AGENTS_SPEC, wait_agents_handler,
+    CLOSE_AGENT_SPEC, close_agent_handler,
+)
+from .connector_tools import CONNECTOR_CALL_SPEC, connector_call_handler
 
 
 def register_all_tools():
@@ -52,6 +59,11 @@ def register_all_tools():
     tool_registry.register(SESSION_EXPORT_SPEC, session_export_handler)
     tool_registry.register(LSP_TOOL_SPEC, lsp_handler)
     tool_registry.register(VERIFY_TOOL_SPEC, verify_plan_handler)
+    tool_registry.register(SPAWN_AGENT_SPEC, spawn_agent_handler)
+    tool_registry.register(SEND_AGENT_MESSAGE_SPEC, send_agent_message_handler)
+    tool_registry.register(WAIT_AGENTS_SPEC, wait_agents_handler)
+    tool_registry.register(CLOSE_AGENT_SPEC, close_agent_handler)
+    tool_registry.register(CONNECTOR_CALL_SPEC, connector_call_handler)
 
 
 register_all_tools()
@@ -85,5 +97,10 @@ __all__ = [
     "SESSION_EXPORT_SPEC", "session_export_handler",
     "LSP_TOOL_SPEC", "lsp_handler",
     "VERIFY_TOOL_SPEC", "verify_plan_handler",
+    "SPAWN_AGENT_SPEC", "spawn_agent_handler",
+    "SEND_AGENT_MESSAGE_SPEC", "send_agent_message_handler",
+    "WAIT_AGENTS_SPEC", "wait_agents_handler",
+    "CLOSE_AGENT_SPEC", "close_agent_handler",
+    "CONNECTOR_CALL_SPEC", "connector_call_handler",
     "get_metrics",
 ]

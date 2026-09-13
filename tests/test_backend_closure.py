@@ -106,7 +106,7 @@ async def test_chat_route_passes_model_and_sandbox_to_graph(monkeypatch):
     captured = {}
 
     class FakeGraph:
-        async def run(self, user_input, session_id="", workspace=".", sandbox_mode="full-access", approval_mode="never", model="", history=None):
+        async def run(self, user_input, session_id="", workspace=".", sandbox_mode="full-access", approval_mode="never", model="", history=None, agent_role="", reasoning_effort="medium"):
             captured.update({
                 "user_input": user_input,
                 "session_id": session_id,
@@ -115,6 +115,8 @@ async def test_chat_route_passes_model_and_sandbox_to_graph(monkeypatch):
                 "approval_mode": approval_mode,
                 "model": model,
                 "history": history,
+                "agent_role": agent_role,
+                "reasoning_effort": reasoning_effort,
             })
             state = AgentState(session_id=session_id, workspace=workspace)
             state.final_response = "ok"
@@ -134,9 +136,9 @@ async def test_chat_route_passes_model_and_sandbox_to_graph(monkeypatch):
 
         vector_store = Store()
 
-    monkeypatch.setattr(chat_routes, "_get_graph", lambda: FakeGraph())
-    monkeypatch.setattr(chat_routes, "_get_skills", lambda: FakeSkills())
-    monkeypatch.setattr(chat_routes, "_get_rag", lambda: FakeRag())
+    deps._graph = FakeGraph()
+    deps._skills = FakeSkills()
+    deps._rag = FakeRag()
 
     req = ChatRequest(
         message="hello",
@@ -162,7 +164,7 @@ async def test_chat_stream_injects_skills_and_rag_and_passes_options(monkeypatch
     captured = {}
 
     class FakeGraph:
-        async def run_with_stream(self, user_input, session_id="", workspace=".", sandbox_mode="full-access", approval_mode="never", model="", history=None):
+        async def run_with_stream(self, user_input, session_id="", workspace=".", sandbox_mode="full-access", approval_mode="never", model="", history=None, agent_role="", reasoning_effort="medium"):
             captured.update({
                 "user_input": user_input,
                 "session_id": session_id,
@@ -171,6 +173,8 @@ async def test_chat_stream_injects_skills_and_rag_and_passes_options(monkeypatch
                 "approval_mode": approval_mode,
                 "model": model,
                 "history": history,
+                "agent_role": agent_role,
+                "reasoning_effort": reasoning_effort,
             })
             yield {"type": "done", "response": "ok"}
 
@@ -194,10 +198,10 @@ async def test_chat_stream_injects_skills_and_rag_and_passes_options(monkeypatch
         def format_context(self, chunks):
             return "RAG_CTX\n"
 
-    monkeypatch.setattr(chat_routes, "_get_graph", lambda: FakeGraph())
-    monkeypatch.setattr(chat_routes, "_get_skills", lambda: FakeSkills())
-    monkeypatch.setattr(chat_routes, "_get_rag", lambda: FakeRag())
-    monkeypatch.setattr(chat_routes, "_llm", None)
+    deps._graph = FakeGraph()
+    deps._skills = FakeSkills()
+    deps._rag = FakeRag()
+    deps._llm = None
 
     req = ChatRequest(
         message="hello",

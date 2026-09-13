@@ -17,12 +17,12 @@ async def test_settings_update_resets_chat_route_cached_dependencies(monkeypatch
     monkeypatch.setattr(settings_routes.Path, "home", lambda: home)
     monkeypatch.chdir(tmp_path)
 
-    chat_routes._cfg = object()
-    chat_routes._llm = object()
-    chat_routes._graph = object()
-    chat_routes._rag = object()
-    chat_routes._skills = object()
-    chat_routes._plugins = object()
+    deps._cfg = object()
+    deps._llm = object()
+    deps._graph = object()
+    deps._rag = object()
+    deps._skills = object()
+    deps._plugins = object()
 
     class FakeConfig:
         def get(self, key, default=None):
@@ -33,14 +33,13 @@ async def test_settings_update_resets_chat_route_cached_dependencies(monkeypatch
             return 128000
 
     monkeypatch.setattr(settings_routes, "_get_cfg", lambda: FakeConfig())
-    monkeypatch.setattr(deps, "reset_deps", lambda: None)
 
     response = await settings_routes.update_settings(SettingsUpdate(provider="deepseek", model="deepseek-chat"))
 
     assert response["ok"] is True
-    assert chat_routes._cfg is None
-    assert chat_routes._llm is None
-    assert chat_routes._graph is None
-    assert chat_routes._rag is None
-    assert chat_routes._skills is None
-    assert chat_routes._plugins is None
+    assert deps._cfg is None
+    assert deps._llm is None
+    assert deps._graph is None
+    assert deps._rag is None
+    assert deps._skills is None
+    assert deps._plugins is None

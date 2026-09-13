@@ -37,6 +37,7 @@ export function MemoryDashboard() {
   const api = async (path: string) => {
     try {
       const r = await fetch(`http://127.0.0.1:9876${path}`);
+      if (!r.ok) return null;
       return await r.json();
     } catch { return null; }
   };
@@ -99,15 +100,15 @@ export function MemoryDashboard() {
             {/* Agent Memory */}
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Agent Memory</div>
-              <div>{stats.agent_memory.entries} entries · {stats.agent_memory.chars}/{2200} chars</div>
-              {bar(stats.agent_memory.usage_pct, "#8b5cf6")}
+              <div>{(stats?.agent_memory?.entries ?? 0)} entries · {(stats?.agent_memory?.chars ?? 0)}/{2200} chars</div>
+              {bar((stats?.agent_memory?.usage_pct ?? 0), "#8b5cf6")}
             </div>
 
             {/* User Profile */}
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>User Profile</div>
-              <div>{stats.user_profile.entries} entries · {stats.user_profile.chars}/{1375} chars</div>
-              {bar(stats.user_profile.usage_pct, "#06b6d4")}
+              <div>{(stats?.user_profile?.entries ?? 0)} entries · {(stats?.user_profile?.chars ?? 0)}/{1375} chars</div>
+              {bar((stats?.user_profile?.usage_pct ?? 0), "#06b6d4")}
             </div>
 
             {/* Honcho */}

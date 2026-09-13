@@ -42,14 +42,29 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
         } catch {}
     };
 
-    const saveImage = (key: string, value: string) => {
-        localStorage.setItem(key, value);
+    const saveImage = async (key: string, value: string) => {
+        if (value && /^[a-zA-Z]:[\\/]/.test(value)) {
+            const dataUrl = await (window as any).aurora.image.toDataUrl(value);
+            if (typeof dataUrl === "string" && dataUrl.startsWith("data:")) {
+                localStorage.setItem(key, dataUrl);
+            } else {
+                localStorage.setItem(key, value);
+            }
+        } else {
+            localStorage.setItem(key, value);
+        }
         applySkinBackgrounds();
     };
 
     const clearImage = (key: string) => {
         localStorage.removeItem(key);
         applySkinBackgrounds();
+    };
+;
+
+    const handlePathBlur = (key: string, e: any) => {
+        const value = (e?.target?.value ?? "").trim();
+        if (value) saveImage(key, value);
     };
 
     const pickImage = (key: string) => {
@@ -138,7 +153,7 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                             style={{ flex: 1, padding: '4px 8px', background: 'var(--dark-bg)', border: '1px solid var(--dark-border)', color: 'var(--dark-text)', borderRadius: '6px' }}
                             defaultValue={localStorage.getItem('aurora_anime_bg') || ""}
                             onChange={(e) => { saveImage('aurora_anime_bg', e.target.value); }}
-                            onBlur={() => { applySkinBackgrounds(); }}/>
+                            onBlur={(e: any) => { handlePathBlur('aurora_anime_bg', e); }}/>
                             <button className="toolbar-btn" style={{ background: '#7f1d1d', color: '#fff', padding: '0 12px' }}
                             onClick={() => { clearImage('aurora_anime_bg'); }}>✕ 清除</button>
                         </div>
@@ -191,7 +206,7 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                             style={{ flex: 1, padding: '4px 8px', background: 'var(--dark-bg)', border: '1px solid var(--dark-border)', color: 'var(--dark-text)', borderRadius: '6px' }}
                             defaultValue={localStorage.getItem('aurora_bg_L') || ""}
                             onChange={(e) => { saveImage('aurora_bg_L', e.target.value); }}
-                            onBlur={() => { applySkinBackgrounds(); }}/>
+                            onBlur={(e: any) => { handlePathBlur('aurora_anime_bg', e); }}/>
                             <button className="toolbar-btn" style={{ background: '#7f1d1d', color: '#fff', padding: '0 12px' }}
                             onClick={() => { clearImage('aurora_bg_L'); }}>✕ 重置</button>
                         </div>
@@ -239,7 +254,7 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                             style={{ flex: 1, padding: '4px 8px', background: 'var(--dark-bg)', border: '1px solid var(--dark-border)', color: 'var(--dark-text)', borderRadius: '6px' }}
                             defaultValue={localStorage.getItem('aurora_bg_C') || ""}
                             onChange={(e) => { saveImage('aurora_bg_C', e.target.value); }}
-                            onBlur={() => { applySkinBackgrounds(); }}/>
+                            onBlur={(e: any) => { handlePathBlur('aurora_anime_bg', e); }}/>
                             <button className="toolbar-btn" style={{ background: '#7f1d1d', color: '#fff', padding: '0 12px' }}
                             onClick={() => { clearImage('aurora_bg_C'); }}>✕ 重置</button>
                         </div>
@@ -286,7 +301,7 @@ export function SkinBrowser({ onClose }: SkinBrowserProps) {
                             style={{ flex: 1, padding: '4px 8px', background: 'var(--dark-bg)', border: '1px solid var(--dark-border)', color: 'var(--dark-text)', borderRadius: '6px' }}
                             defaultValue={localStorage.getItem('aurora_bg_R') || ""}
                             onChange={(e) => { saveImage('aurora_bg_R', e.target.value); }}
-                            onBlur={() => { applySkinBackgrounds(); }}/>
+                            onBlur={(e: any) => { handlePathBlur('aurora_anime_bg', e); }}/>
                             <button className="toolbar-btn" style={{ background: '#7f1d1d', color: '#fff', padding: '0 12px' }}
                             onClick={() => { clearImage('aurora_bg_R'); }}>✕ 重置</button>
                         </div>

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("aurora", {
     // Agent
-    chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; model?: string; history?: {role:string;content:string}[] }) =>
+    chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; reasoningEffort?: string; model?: string; history?: {role:string;content:string}[] }) =>
         ipcRenderer.invoke("agent:chat", data),
     cancel: (sessionId: string) =>
         ipcRenderer.invoke("agent:cancel", { sessionId }),
@@ -48,6 +48,11 @@ contextBridge.exposeInMainWorld("aurora", {
     dialog: {
         openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
         openFile: () => ipcRenderer.invoke("dialog:openFile"),
+    },
+
+    // Image
+    image: {
+        toDataUrl: (filePath: string) => ipcRenderer.invoke("image:toDataUrl", filePath),
     },
 
     // File ops

@@ -102,8 +102,12 @@ interface AuroraState {
 
     // Sandbox
     sandboxMode: "full-access" | "workspace-only" | "read-only";
-    setSandboxMode: (mode: "full-access" | "workspace-only" | "read-only") => void;}
+    setSandboxMode: (mode: "full-access" | "workspace-only" | "read-only") => void;
 
+    // Reasoning effort
+    reasoningEffort: "low" | "medium" | "high" | "xhigh";
+    setReasoningEffort: (effort: "low" | "medium" | "high" | "xhigh") => void;
+}
 // 会话自动保存（防抖）
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedSave(sessions: Session[]) {
@@ -385,6 +389,9 @@ export const useStore = create<AuroraState>((set, get) => ({
 
     sandboxMode: "full-access",
     setSandboxMode(mode) { set({ sandboxMode: mode }); },
+
+    reasoningEffort: "medium",
+    setReasoningEffort(effort) { set({ reasoningEffort: effort }); },
 
   // ── Slash Commands ──
   getSlashCommands: (): {cmd: string; desc: string}[] => ([

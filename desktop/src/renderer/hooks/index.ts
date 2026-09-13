@@ -6,7 +6,7 @@ import type { BackendMessage, SSEEvent, SharedObjectSnapshot } from "../../share
 declare global {
     interface Window {
         aurora: {
-            chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; model?: string; history?: {role:string;content:string}[] }) => Promise<any>;
+            chat: (data: { message: string; workspace: string; sessionId: string; sandboxMode?: string; reasoningEffort?: string; model?: string; history?: {role:string;content:string}[] }) => Promise<any>;
             cancel: (sessionId: string) => Promise<any>;
             threadControl: (data: any) => Promise<any>;
             approvalDecision: (data: { requestId: string; action: "approve" | "deny"; sessionId?: string; threadId?: string }) => Promise<any>;
@@ -266,7 +266,7 @@ export function useAgent() {
             .map((m: any) => ({ role: m.role, content: m.content }));
         addMessage(sessionId, { role: "user", content: message });
         setStreaming(true);
-        await window.aurora?.chat({ message, workspace: state.workspace, sessionId, sandboxMode: state.sandboxMode, model: state.llmModel, history });
+        await window.aurora?.chat({ message, workspace: state.workspace, sessionId, sandboxMode: state.sandboxMode, reasoningEffort: state.reasoningEffort, model: state.llmModel, history });
     }, [addMessage, setStreaming]);
 
     const controlThread = useCallback(async (action: string, payload: Record<string, any> = {}) => {

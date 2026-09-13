@@ -107,7 +107,7 @@ function createWindow() {
             preload: path.join(__dirname, "preload.js"),
             nodeIntegration: false,
             contextIsolation: true,
-            // keep webSecurity on; local wallpaper images allowed via CSP img-src file: data:
+            // keep webSecurity on; wallpaper images stored as data: URLs via image:toDataUrl IPC
         },
     });
 
@@ -575,8 +575,8 @@ ipcMain.handle("search:inFiles", async (_event, params: { query: string; workspa
     return results;
 });
 
-ipcMain.handle("agent:chat", async (_event, { message, workspace, sessionId, sandboxMode, model, history }) => {
-    sendToBackend({ type: "chat", message, workspace, sessionId, sandboxMode, model, history });
+ipcMain.handle("agent:chat", async (_event, { message, workspace, sessionId, sandboxMode, reasoningEffort, model, history }) => {
+    sendToBackend({ type: "chat", message, workspace, sessionId, sandboxMode, reasoningEffort, model, history });
     return { sent: true };
 });
 
@@ -768,9 +768,26 @@ ipcMain.handle("browser:getState", async () => {
     const url = bv ? bv.webContents.getURL() : "";
     return { visible: browserViewVisible, url };
 });
+ipcMain.handle("image:toDataUrl", async (_event, filePath: string) => {
+    try {
+        const data = fs.readFileSync(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeMap: Record<string, string> = {
+            ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+            ".svg": "image/svg+xml", ".ico": "image/x-icon",
+        };
+        const mime = mimeMap[ext] || "image/png";
+        return "data:" + mime + ";base64," + data.toString("base64");
+    } catch (e: any) {
+        return { error: e.message };
+    }
+});
+
 
 // App lifecycle
 app.whenReady().then(async () => {
+
     startBackend();
     await new Promise(r => setTimeout(r, 2500));
     createWindow();

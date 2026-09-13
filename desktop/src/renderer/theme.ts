@@ -139,10 +139,8 @@ function toCssImage(value: string | null): string {
     const raw = (value || "").trim();
     if (!raw) return "none";
     if (raw.startsWith("url(")) return raw;
-    if (/^(https?:|data:|blob:|file:)/i.test(raw)) return `url("${raw.replace(/"/g, "\\\"")}")`;
-    const normalized = raw.replace(/\\/g, "/");
-    const fileUrl = /^[a-zA-Z]:\//.test(normalized) ? `file:///${normalized}` : normalized;
-    return `url("${fileUrl.replace(/"/g, "\\\"")}")`;
+    // data:, https:, blob: — already valid CSS url() values
+    return "url(" + raw.replace(/"/g, "\\\"") + ")";
 }
 
 export function applySkinBackgrounds(): void {
@@ -204,3 +202,4 @@ export function useInitializeTheme(): void {
         useStore.setState({ themeColors: { ...theme.colors, bgSecondary: theme.colors.surface, accentHover: theme.colors.accent } as any });
     }, []);
 }
+

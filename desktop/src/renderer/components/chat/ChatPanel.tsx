@@ -106,12 +106,17 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
   const setLLMModel = useStore((s) => s.setLLMModel);
   const sandboxMode = useStore((s) => s.sandboxMode);
   const setSandboxMode = useStore((s) => s.setSandboxMode);
+  const reasoningEffort = useStore((s) => s.reasoningEffort);
+  const setReasoningEffort = useStore((s) => s.setReasoningEffort);
+  const approvals = useStore((s) => s.approvals);
+  const updateApprovalStatus = useStore((s) => s.updateApprovalStatus);
 
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [sandboxMenuOpen, setSandboxMenuOpen] = useState(false);
+  const [reasoningMenuOpen, setReasoningMenuOpen] = useState(false);
 
   const [availableModels, setAvailableModels] = useState<{id:string;label:string;provider:string}[]>([]);
 
@@ -138,6 +143,13 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
     { id: "full-access" as const, label: "完全访问", icon: "🌐" },
     { id: "workspace-only" as const, label: "仅工作区", icon: "📁" },
     { id: "read-only" as const, label: "只读", icon: "🔒" },
+  ];
+
+  const REASONING_OPTIONS = [
+    { id: "low" as const, label: "低强度", icon: "⚡" },
+    { id: "medium" as const, label: "中强度", icon: "🧠" },
+    { id: "high" as const, label: "高强度", icon: "🔥" },
+    { id: "xhigh" as const, label: "极高", icon: "💎" },
   ];
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -352,6 +364,53 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
     });
   };
 
+  /* ── Pending approvals ──────────────────────────────────────────────── */
+  const decideApproval = (requestId: string, action: "approve" | "deny") => {
+    updateApprovalStatus(requestId, action === "approve" ? "approved" : "denied");
+    window.aurora?.approvalDecision({ requestId, action }).catch(() => {});
+  };
+
+  const pendingApprovals = approvals.filter((a: any) => a.status === "pending");
+
+  const renderApprovals = () => {
+    if (pendingApprovals.length === 0) return null;
+    return (
+      <div className="approval-list" style={{ padding: "8px 16px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
+        {pendingApprovals.map((a: any) => (
+          <div key={a.id} className="approval-card" style={{
+            background: "var(--dark-border, #1e2530)",
+            border: "1px solid var(--aurora-accent, #8b5cf6)",
+            borderRadius: "10px", padding: "10px 12px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--aurora-accent, #8b5cf6)" }}>
+                {a.type === "file" ? "📄 文件操作审批" : "⌨️ 命令审批"}
+              </span>
+              <span style={{ fontSize: 11, padding: "1px 8px", borderRadius: 8, background: a.risk === "critical" ? "#7f1d1d" : a.risk === "high" ? "#78350f" : "#1e3a5f", color: "#fff" }}>
+                {a.risk}
+              </span>
+            </div>
+            <pre style={{ fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-all", margin: "0 0 8px", color: "var(--aurora-text, #e5e7eb)", background: "rgba(0,0,0,0.25)", padding: 8, borderRadius: 6 }}>
+              {a.command || a.filePath || a.description}
+            </pre>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                className="btn btn-accent"
+                style={{ flex: 1, fontSize: 12, padding: "5px 0" }}
+                onClick={() => decideApproval(a.id, "approve")}
+              >✓ 允许</button>
+              <button
+                className="btn"
+                style={{ flex: 1, fontSize: 12, padding: "5px 0", background: "#7f1d1d", color: "#fff", border: "none", borderRadius: 8 }}
+                onClick={() => decideApproval(a.id, "deny")}
+              >✕ 拒绝</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   /* ── Main render ────────────────────────────────────────────────────── */
   return (
     <div className="chat-panel">
@@ -390,6 +449,9 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
 
             {/* Tool logs */}
             {renderToolLogs()}
+
+            {/* Pending approvals */}
+            {renderApprovals()}
 
             {/* Messages */}
             {messages.map(renderMessage)}
@@ -548,6 +610,37 @@ export function ChatPanel({ onSend, onCancel }: ChatPanelProps) {
                           <span className="sandbox-menu-icon">{opt.icon}</span>
                           <span className="sandbox-menu-name">{opt.label}</span>
                           {sandboxMode === opt.id && <span className="sandbox-menu-check">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Reasoning effort dropdown */}
+              <div className="sandbox-selector-wrapper">
+                <button
+                  className="sandbox-selector-btn"
+                  onClick={() => setReasoningMenuOpen(!reasoningMenuOpen)}
+                  title="推理强度"
+                >
+                  <span className="sandbox-selector-icon">{REASONING_OPTIONS.find(o => o.id === reasoningEffort)?.icon || "🧠"}</span>
+                  <span className="sandbox-selector-label">{REASONING_OPTIONS.find(o => o.id === reasoningEffort)?.label || "中强度"}</span>
+                  <span className="sandbox-selector-arrow">▾</span>
+                </button>
+                {reasoningMenuOpen && (
+                  <>
+                    <div className="sandbox-menu-backdrop" onClick={() => setReasoningMenuOpen(false)} />
+                    <div className="sandbox-menu">
+                      {REASONING_OPTIONS.map(opt => (
+                        <button
+                          key={opt.id}
+                          className={`sandbox-menu-item${reasoningEffort === opt.id ? " active" : ""}`}
+                          onClick={() => { setReasoningEffort(opt.id); setReasoningMenuOpen(false); }}
+                        >
+                          <span className="sandbox-menu-icon">{opt.icon}</span>
+                          <span className="sandbox-menu-name">{opt.label}</span>
+                          {reasoningEffort === opt.id && <span className="sandbox-menu-check">✓</span>}
                         </button>
                       ))}
                     </div>

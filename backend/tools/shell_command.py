@@ -52,6 +52,25 @@ def _is_whitelisted(command: str) -> bool:
     return base_cmd in COMMAND_WHITELIST
 
 
+def _find_chaining(command: str) -> str | None:
+    """检测 shell 链式/替换元字符，返回命中的片段。
+
+    白名单只校验第一个 token，`git status; <任意命令>` 与 `ls && <任意命令>`
+    的首 token 仍在白名单内 —— 这正是绕过点。含链式元字符的命令一律拒绝，
+    解释器直执行（`python -c` / `node -e`）同样视为代码执行并拒绝。
+    """
+    import re
+    # 链式与命令替换
+    m = re.search(r"(&&|\|\||[;|`]|\$\()", command)
+    if m:
+        return m.group(0)
+    # 解释器直执行：等价于任意代码执行，白名单对其无意义
+    m = re.search(r"\b(?:python3?|node|npx|deno|bun)\b[^\n]*?(?:\s-c\s|\s-e\s|\s--eval\s)", command)
+    if m:
+        return m.group(0).strip()
+    return None
+
+
 def _violates_workspace(command: str) -> str | None:
     """workspace-only 模式下的轻量逃逸检查（启发式，返回违规描述或 None）。
 
@@ -92,6 +111,11 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
     if not _is_whitelisted(command):
         return {"success": False, "stdout": "", "stderr": f"Command not whitelisted: {command.split()[0] if command.strip() else command}", "exit_code": -1}
 
+    # 安全校验: 拒绝链式元字符 / 解释器直执行（白名单可被 `git ...; x` 绕过）
+    chaining = _find_chaining(command)
+    if chaining:
+        return {"success": False, "stdout": "", "stderr": f"Command rejected: shell chaining/execution construct '{chaining}' is not allowed", "exit_code": -1}
+
     # Approval check
     try:
         from backend.approval import approval_bridge
@@ -128,13 +152,27 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
 
     timeout = arguments.get("timeout", 30)
 
+    # 子进程环境：白名单透传，避免把 AURORA_LLM_API_KEY / AURORA_VISION_API_KEY
+    # 等凭据注入每一个被执行的子进程（含第三方项目代码）。
+    _PASSTHROUGH_ENV = (
+        "PATH", "HOME", "LANG", "LC_ALL", "TZ", "TMPDIR", "TEMP", "TMP",
+        "USERPROFILE", "SYSTEMROOT", "SystemDrive", "COMSPEC", "PATHEXT",
+        "APPDATA", "LOCALAPPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)",
+        "PROGRAMDATA", "WINDIR", "HOMEDRIVE", "HOMEPATH", "OS",
+        "PYTHONPATH", "VIRTUAL_ENV", "CONDA_PREFIX", "NODE_PATH",
+    )
+    child_env = {k: v for k, v in os.environ.items() if k in _PASSTHROUGH_ENV}
+    child_env["PYTHONUNBUFFERED"] = "1"
+    child_env["NODE_OPTIONS"] = "--max-old-space-size=512"
+
+    proc = None
     try:
         proc = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=workspace,
-            env={**os.environ, "PYTHONUNBUFFERED": "1", "NODE_OPTIONS": "--max-old-space-size=512"},
+            env=child_env,
         )
         stdout_bytes, stderr_bytes = await asyncio.wait_for(
             proc.communicate(), timeout=timeout
@@ -146,6 +184,13 @@ async def shell_handler(arguments: dict, workspace: str = ".") -> dict:
             "exit_code": proc.returncode,
         }
     except asyncio.TimeoutError:
+        # 超时必须真正杀死子进程，否则它会继续在后台运行并持续堆积。
+        if proc is not None:
+            try:
+                proc.kill()
+                await asyncio.wait_for(proc.wait(), timeout=5)
+            except (ProcessLookupError, asyncio.TimeoutError, Exception):
+                pass
         return {"success": False, "stdout": "", "stderr": f"Command timed out after {timeout}s", "exit_code": -1}
     except FileNotFoundError:
         return {"success": False, "stdout": "", "stderr": f"Command not found: {command.split()[0]}", "exit_code": -1}

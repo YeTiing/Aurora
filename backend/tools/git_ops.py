@@ -101,11 +101,41 @@ async def _handle_write_op(op: str, args: str, message: str, files: list, worksp
 
     return f"Unknown write operation: {op}"
 
+# 破坏性操作：可能丢弃已提交或未提交的工作，必须走审批
+DESTRUCTIVE_OPS = {"reset", "checkout", "stash"}
+
+
 async def git_ops_handler_safe(arguments: dict, workspace: str = ".") -> str:
-    """安全包装：写操作前检查是否有未提交更改"""
+    """安全包装：破坏性 git 操作走审批门。
+
+    此前该函数只查了 `git status --porcelain` 然后 `pass`，
+    等于什么都没校验——reset --hard / checkout / stash 都能直接丢弃工作区改动。
+    """
     op = arguments.get("operation", "status")
-    if op in WRITE_OPS:
-        code, stdout, _ = await _run_git(workspace, "status", "--porcelain")
-        if stdout.strip():
-            pass  # 正常允许
+    if op not in WRITE_OPS:
+        return await git_ops_handler(arguments, workspace)
+
+    # 有未提交改动时，破坏性操作风险显著上升
+    _, porcelain, _ = await _run_git(workspace, "status", "--porcelain")
+    dirty = bool(porcelain.strip())
+
+    if op in DESTRUCTIVE_OPS:
+        from .approval_gate import maybe_request_approval
+        extra = " (工作区有未提交改动，将丢失)" if dirty else ""
+        decision = await maybe_request_approval(
+            "git_ops", arguments,
+            description=f"git {op} {arguments.get('args', '')}{extra}".strip(),
+        )
+        if decision is not None and decision != "approved":
+            return f"git {op} {decision}"
+    elif dirty and op == "add" and arguments.get("files"):
+        # 提交类操作在有改动时也提示一次，避免误提交
+        from .approval_gate import maybe_request_approval
+        decision = await maybe_request_approval(
+            "git_ops", arguments,
+            description=f"git add {arguments.get('files')}",
+        )
+        if decision is not None and decision != "approved":
+            return f"git add {decision}"
+
     return await git_ops_handler(arguments, workspace)

@@ -2,6 +2,10 @@
 # 修复: 之前只有 shell_command 接了审批，file_delete/network/mcp_tool/computer_use/code_exec 均可绕过。
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger("aurora.approval")
+
 
 async def maybe_request_approval(
     tool_name: str,
@@ -17,7 +21,10 @@ async def maybe_request_approval(
       - "approved"     — 已批准
       - 其他字符串      — 拒绝/超时原因，调用方应中止执行
 
-    任何导入/配置异常都放行（不因审批系统故障阻塞任务）。
+    失败策略：**fail-closed**。审批系统整体缺失（ImportError）时可容忍放行，
+    因为此时全链路都没有审批能力；但审批链路一旦抛异常（SSE 广播失败、
+    assess_risk 出错、wait_for_decision 异常），一律按拒绝处理并记录日志。
+    安全组件绝不能因自身故障而静默放行。
     """
     try:
         from backend.approval import approval_bridge
@@ -36,5 +43,9 @@ async def maybe_request_approval(
         return decision if decision == "approved" else f"denied ({decision})"
     except ImportError:
         return None
-    except Exception:
-        return None
+    except Exception as e:
+        logger.error(
+            f"approval gate failed for {tool_name}, denying by default: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
+        return f"denied (approval-error: {type(e).__name__})"

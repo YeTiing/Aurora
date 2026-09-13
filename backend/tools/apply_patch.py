@@ -334,6 +334,19 @@ async def apply_patch_handler(arguments: dict, workspace: str = ".") -> str:
     if not files:
         return "Error: Could not parse any file changes from the patch."
 
+    # 审批门：apply_patch 能写入任意文件内容，此前是唯一未接审批的写操作工具。
+    # dry_run 不落盘，无需审批。
+    if not dry_run:
+        from .approval_gate import maybe_request_approval
+        _changed = [fp.new_path or fp.old_path for fp in files]
+        _summary = ", ".join(str(c) for c in _changed[:3]) + (" ..." if len(_changed) > 3 else "")
+        _decision = await maybe_request_approval(
+            "apply_patch", arguments,
+            description=f"apply_patch {len(files)} file(s): {_summary}",
+        )
+        if _decision is not None and _decision != "approved":
+            return f"Patch {_decision}"
+
     session = PatchSession()
     results: list[str] = []
     total_added = 0

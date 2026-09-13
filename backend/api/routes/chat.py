@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from backend.thread_follower import ThreadFollower, ThreadSettings
 
+from backend.api import deps as _deps
 from backend.api.deps import cfg, llm, graph, rag, skills, plugins, ensure_all
 
 router = APIRouter()
@@ -38,14 +39,13 @@ async def health():
 @router.post("/chat")
 async def chat(req: ChatRequest):
     sid = req.session_id or f"session_{uuid.uuid4().hex[:8]}"
-    ensure_all(); ensure_all()
+    ensure_all()
     skills_ctx = ""; rag_ctx = ""
-    if _skills:
+    if _deps._skills:
         triggered = skills().match(req.message)
         skills_ctx = skills().inject(triggered)
-    ensure_all()
-    if _rag and rag().vector_store.count() > 0:
-        chunks = rag().search(req.message, top_k=5, llm_client=_llm)
+    if _deps._rag and rag().vector_store.count() > 0:
+        chunks = rag().search(req.message, top_k=5, llm_client=_deps._llm)
         if chunks: rag_ctx = rag().format_context(chunks)
     full = f"{skills_ctx}\
 {rag_ctx}\
@@ -53,19 +53,19 @@ User: {req.message}" if (skills_ctx or rag_ctx) else req.message
     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
     from backend.session_registry import track
     track(sid, req.workspace)
-    state = await graph().run(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history)
+    state = await graph().run(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history, agent_role=req.agent_role, reasoning_effort=req.reasoning_effort)
     return AgentResponse(session_id=sid, response=state.final_response, plan=[p.to_dict() for p in state.plan], diffs=state.diffs)
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest):
     sid = req.session_id or f"session_{uuid.uuid4().hex[:8]}"
-    ensure_all(); ensure_all(); ensure_all()
+    ensure_all()
     skills_ctx = ""; rag_ctx = ""
-    if _skills:
+    if _deps._skills:
         triggered = skills().match(req.message)
         skills_ctx = skills().inject(triggered)
-    if _rag and rag().vector_store.count() > 0:
-        chunks = rag().search(req.message, top_k=5, llm_client=_llm)
+    if _deps._rag and rag().vector_store.count() > 0:
+        chunks = rag().search(req.message, top_k=5, llm_client=_deps._llm)
         if chunks: rag_ctx = rag().format_context(chunks)
     full = f"{skills_ctx}\
 {rag_ctx}\
@@ -74,7 +74,7 @@ User: {req.message}" if (skills_ctx or rag_ctx) else req.message
     from backend.session_registry import track
     track(sid, req.workspace)
     async def gen():
-        async for chunk in graph().run_with_stream(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history2):
+        async for chunk in graph().run_with_stream(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history2, agent_role=req.agent_role, reasoning_effort=req.reasoning_effort):
             yield f"data: {json.dumps(chunk, ensure_ascii=False)}\
 \
 "
@@ -128,7 +128,7 @@ async def desktop_websocket(ws: WebSocket):
                 }, ensure_ascii=False))
                 
                 try:
-                    ensure_all(); graph = _graph
+                    ensure_all(); graph = _deps._graph
                     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (msg.get("history") or [])]
                     await thread_follower.start_turn(
                         thread_id=session_id,
@@ -149,6 +149,8 @@ async def desktop_websocket(ws: WebSocket):
                         approval_mode=msg.get("approvalMode", "on-request"),
                         model=model,
                         history=history,
+                        agent_role=msg.get("agentRole", ""),
+                        reasoning_effort=msg.get("reasoningEffort", "medium"),
                     )
                     if state.final_response:
                         await ws.send_text(json.dumps({

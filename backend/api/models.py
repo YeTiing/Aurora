@@ -13,6 +13,8 @@ class ChatRequest(BaseModel):
     approval_mode: str = "never"
     model: str = ""
     history: list[dict] | None = None
+    agent_role: str = ""
+    reasoning_effort: str = "medium"  # low/medium/high/xhigh
 
 
 class AgentResponse(BaseModel):

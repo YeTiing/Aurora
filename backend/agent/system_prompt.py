@@ -219,8 +219,12 @@ def RU(
     sandbox_mode: str = "danger-full-access",
     network_access: str = "enabled",
     custom_overrides: dict | None = None,
+    agent_role: str = "",
 ) -> str:
-    """Root Assembler — assemble complete System Prompt (Codex RU() equivalent)"""
+    """Root Assembler — assemble complete System Prompt (Codex RU() equivalent)
+
+    agent_role: 角色 key（见 backend/agent/roles/*.toml），注入角色 system prompt。
+    """
 
     components = [CORE_IDENTITY]
 
@@ -270,7 +274,14 @@ def RU(
         if isinstance(value, str) and value.strip():
             components.append(value.strip())
 
-    return BU(*components)
+    result = BU(*components)
+
+    # 角色注入（覆盖身份，放在最前）
+    if agent_role:
+        from backend.agent.roles_loader import inject_role
+        result = inject_role(agent_role, result)
+
+    return result
 
 
 # ═══ Preset Templates ═══
@@ -295,14 +306,14 @@ def _get_memory_context() -> str:
     except Exception:
         return ""
 
-def get_cli_prompt() -> str:
+def get_cli_prompt(agent_role: str = "") -> str:
     """CLI mode System Prompt"""
     soul = _load_soul()
-    core = RU(desktop=False, include_permissions=True, chinese=True)
+    core = RU(desktop=False, include_permissions=True, chinese=True, agent_role=agent_role)
     return f"{soul}\n\n---\n\n{core}"
 
 
-def get_desktop_prompt() -> str:
+def get_desktop_prompt(agent_role: str = "") -> str:
     """Desktop mode System Prompt — full components (matches Codex desktop)"""
     return RU(
         desktop=True,
@@ -313,21 +324,27 @@ def get_desktop_prompt() -> str:
         include_heartbeats=True,
         include_permissions=True,
         chinese=True,
+        agent_role=agent_role,
     )
 
 
-def get_minimal_prompt() -> str:
+def get_minimal_prompt(agent_role: str = "") -> str:
     """Minimal System Prompt — save tokens"""
-    return BU(CORE_IDENTITY, TOOL_GUIDELINES)
+    result = BU(CORE_IDENTITY, TOOL_GUIDELINES)
+    if agent_role:
+        from backend.agent.roles_loader import inject_role
+        result = inject_role(agent_role, result)
+    return result
 
 
-def get_coding_agent_prompt() -> str:
+def get_coding_agent_prompt(agent_role: str = "") -> str:
     """Coding-focused agent prompt"""
     return RU(
         desktop=True,
         workspace_deps=True,
         include_inline_comments=True,
         chinese=True,
+        agent_role=agent_role,
     )
 
 

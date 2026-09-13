@@ -130,6 +130,7 @@ class AgentState:
     workspace: str = "."
     sandbox_mode: str = "full-access"
     reasoning_effort: str = "medium"  # low/medium/high/xhigh
+    agent_role: str = ""              # 角色 key（roles/*.toml），注入 system prompt
 
     def to_dict(self) -> AgentStateDict:
         return {
@@ -148,6 +149,9 @@ class AgentState:
             "checkpoint_id": self.checkpoint_id,
             "session_id": self.session_id,
             "workspace": self.workspace,
+            "sandbox_mode": self.sandbox_mode,
+            "reasoning_effort": self.reasoning_effort,
+            "agent_role": self.agent_role,
         }
 
     @classmethod
@@ -170,6 +174,9 @@ class AgentState:
             checkpoint_id=d.get("checkpoint_id", ""),
             session_id=d.get("session_id", ""),
             workspace=d.get("workspace", "."),
+            sandbox_mode=d.get("sandbox_mode", "full-access"),
+            reasoning_effort=d.get("reasoning_effort", "medium"),
+            agent_role=d.get("agent_role", ""),
         )
 
     def messages_as_openai(self) -> list[dict]:

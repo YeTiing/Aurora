@@ -14,6 +14,13 @@ from backend.agent.integration_hooks import post_file_edit_hook, post_session_ho
 SYSTEM_PROMPT = get_desktop_prompt()
 
 
+def _system_prompt_for(state: AgentState) -> str:
+    """按会话角色装配 system prompt；无角色时用默认（避免每次重复装配）。"""
+    if getattr(state, "agent_role", ""):
+        return get_desktop_prompt(agent_role=state.agent_role)
+    return SYSTEM_PROMPT
+
+
 # ══ Node 1: Planner — 任务拆解 ══
 PLANNER_PROMPT = """Analyze the following user request and break it down into a step-by-step execution plan.
 
@@ -37,12 +44,12 @@ async def planner_node(state: AgentState, llm: LLMClient) -> dict:
         return {}
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": _system_prompt_for(state)},
         {"role": "user", "content": PLANNER_PROMPT.format(user_input=user_input[:4000])}
     ]
 
     try:
-        resp = await llm.chat(messages, max_tokens=2000)
+        resp = await llm.chat(messages, max_tokens=2000, reasoning_effort=state.reasoning_effort)
         content = resp.content
         if hasattr(resp, 'total_tokens'):
             goal_manager.track_tokens(resp.total_tokens)
@@ -133,13 +140,13 @@ async def tool_select_node(
     )
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": _system_prompt_for(state)},
         *[m.to_openai() for m in state.messages[-20:]],
         {"role": "user", "content": tool_prompt},
     ]
 
     try:
-        resp = await llm.chat(messages, tools=tools_schema, max_tokens=4000)
+        resp = await llm.chat(messages, tools=tools_schema, max_tokens=4000, reasoning_effort=state.reasoning_effort)
         content = resp.content
         tool_calls = resp.tool_calls
 
@@ -317,7 +324,7 @@ async def synthesizer_node(state: AgentState, llm: LLMClient) -> dict:
     results_summary = json.dumps(results, ensure_ascii=False, indent=2)
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": _system_prompt_for(state)},
         *[m.to_openai() for m in state.messages[-15:]],
         {"role": "user", "content": SYNTHESIZER_PROMPT.format(
             user_input=user_input,
@@ -327,7 +334,7 @@ async def synthesizer_node(state: AgentState, llm: LLMClient) -> dict:
     ]
 
     try:
-        resp = await llm.chat(messages, max_tokens=3000)
+        resp = await llm.chat(messages, max_tokens=3000, reasoning_effort=state.reasoning_effort)
         content = resp.content
         if hasattr(resp, 'total_tokens'):
             goal_manager.track_tokens(resp.total_tokens)

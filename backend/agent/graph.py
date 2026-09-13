@@ -172,13 +172,12 @@ class AgentGraph:
                 _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]{1,20}", user_input)
                 if _m:
                     return True, "https://" + _m.group(0) + ".com"
-                    break
         return False, ""
 
 
     # ══ 核心执行循环 ══
 
-    async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", approval_mode: str = "never", model: str = "", history: list[dict] | None = None) -> AgentState:
+    async def run(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", approval_mode: str = "never", model: str = "", history: list[dict] | None = None, agent_role: str = "", reasoning_effort: str = "medium") -> AgentState:
 
         self._apply_approval_mode(approval_mode)
 
@@ -192,7 +191,7 @@ class AgentGraph:
                 pass
         self._pending_tasks.clear()
 
-        state = AgentState(session_id=session_id, workspace=ws)
+        state = AgentState(session_id=session_id, workspace=ws, agent_role=agent_role, reasoning_effort=reasoning_effort)
 
         
 
@@ -490,7 +489,7 @@ class AgentGraph:
         return state
 
 
-    async def run_with_stream(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", approval_mode: str = "never", model: str = "", history: list[dict] | None = None):
+    async def run_with_stream(self, user_input: str, session_id: str = "", workspace: str = ".", sandbox_mode: str = "full-access", approval_mode: str = "never", model: str = "", history: list[dict] | None = None, agent_role: str = "", reasoning_effort: str = "medium"):
 
         """流式执行 — 每步 yield SSE 进度更新"""
 
@@ -506,7 +505,7 @@ class AgentGraph:
                 pass
         self._pending_tasks.clear()
 
-        state = AgentState(session_id=session_id, workspace=ws)
+        state = AgentState(session_id=session_id, workspace=ws, agent_role=agent_role, reasoning_effort=reasoning_effort)
 
         
 
@@ -834,9 +833,12 @@ class AgentGraph:
 
             if sandbox == "workspace-only" and name in RESTRICTED_TOOLS:
 
-                # Allow only within workspace boundary
+                # 文件类工具由各自 handler 内的 safe_resolve_path 强制工作区边界；
+                # shell 注入边界标志，由 shell_command 做轻量逃逸检查。
 
-                pass  # Full workspace-only enforcement done in tool itself
+                if name == "shell_command" and isinstance(args, dict):
+
+                    args = dict(args); args["_workspace_boundary"] = True
 
             return await self.tool_handler(name, args, ws)
 

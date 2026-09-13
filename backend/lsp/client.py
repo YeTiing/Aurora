@@ -15,6 +15,8 @@ import uuid
 from asyncio import StreamReader, StreamWriter
 from asyncio.subprocess import Process
 from dataclasses import dataclass, field
+
+from .process_cleanup import ProcessCleanup, kill_process_tree
 from typing import Any, Awaitable, Callable, Optional
 
 logger = logging.getLogger("aurora.lsp.client")
@@ -64,12 +66,29 @@ class LSPClient:
         # Queue handlers registered before connection ready
         self._pending_notif_handlers: dict[str, list[Callable]] = {}
         self._pending_req_handlers: dict[str, Callable] = {}
+        # 每个 client 持有自己的清理器：主进程被硬杀时由 atexit/signal
+        # 兜底回收子进程，否则 server 会变孤儿进程堆积（原缺陷③）。
+        # ProcessCleanup 是 per-instance（name + get_pid），不是单例 ——
+        # 单例会让多个 client 互相覆盖注册。
+        self._cleanup = ProcessCleanup(server_name, lambda: self.pid)
 
     # ── Properties ─────────────────────────────────────────────
 
     @property
     def capabilities(self) -> dict:
         return self._capabilities
+
+    @property
+    def pid(self) -> int | None:
+        """子进程 pid；未启动/已退出时 None。
+
+        供清理逻辑与测试验证「进程是否真的死了」—— 没有它就只能
+        假装 kill 成功（原 Necessity 有，合并时补回）。
+        """
+        try:
+            return self._process.pid if self._process else None
+        except Exception:
+            return None
 
     @property
     def is_initialized(self) -> bool:
@@ -100,6 +119,13 @@ class LSPClient:
 
             self._reader = self._process.stdout
             self._writer = self._process.stdin
+
+            # 登记到清理器：主进程被硬杀时由 atexit/signal 兜底回收，
+            # 否则 server 会变孤儿进程堆积（缺陷③）
+            try:
+                self._cleanup.register()
+            except Exception:
+                pass
 
             # Start stderr reader
             asyncio.create_task(self._read_stderr())
@@ -138,6 +164,11 @@ class LSPClient:
         if self._reader_task:
             self._reader_task.cancel()
             self._reader_task = None
+
+        try:
+            self._cleanup.unregister()
+        except Exception:
+            pass
 
         if self._process and self._process.returncode is None:
             try:

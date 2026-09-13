@@ -91,6 +91,48 @@ class LSPServerInstance:
 
     # ── Lifecycle ───────────────────────────────────────────────
 
+    def _build_init_params(self, repo_root: Path | None) -> dict:
+        """构造 `initialize` 参数 —— 3 个真实缺陷的修复点，单独可测。
+
+        为什么抽成独立方法：这段参数承载了 rootUri / workspaceFolders /
+        processId 三处修复，是回归风险最高的地方。内联在 `start()` 里就
+        必须启真实子进程才能断言，成本高到没人会写测试。
+
+        `repo_root` 为 None 时 rootUri/workspaceFolders 退化为空 ——
+        调用方应避免这种情况（会让跨文件解析静默退化，start() 会打 warning）。
+        """
+        root_uri = repo_root.as_uri() if repo_root else None
+        return {
+            "processId": os.getpid(),  # 让 server 感知父进程死亡
+            "clientInfo": {"name": "aurora", "version": "0.2.0"},
+            "rootUri": root_uri,
+            "rootPath": str(repo_root) if repo_root else None,
+            "capabilities": {
+                "textDocument": {
+                    "diagnostic": {"dynamicRegistration": True},
+                    "publishDiagnostics": {"relatedInformation": True},
+                    "hover": {"dynamicRegistration": True, "contentFormat": ["markdown", "plaintext"]},
+                    "definition": {"dynamicRegistration": True},
+                    "references": {"dynamicRegistration": True},
+                    "completion": {"dynamicRegistration": True},
+                    # 采符号必需：不声明则 documentSymbol 可能返回扁平结构
+                    "documentSymbol": {
+                        "dynamicRegistration": True,
+                        "hierarchicalDocumentSymbolSupport": True,
+                    },
+                },
+                "workspace": {
+                    "configuration": True,
+                    "workspaceFolders": True,
+                    "didChangeConfiguration": {"dynamicRegistration": True},
+                },
+            },
+            "initializationOptions": self.config.initialization_options or {},
+            "workspaceFolders": (
+                [{"uri": root_uri, "name": repo_root.name}] if repo_root else []
+            ),
+        }
+
     async def start(self, root_path: str | os.PathLike | None = None) -> None:
         """Start the LSP server and send initialize.
 
@@ -140,36 +182,7 @@ class LSPServerInstance:
 
             # Build initialize params —— rootUri/workspaceFolders 必须有值
             root_uri = repo_root.as_uri() if repo_root else None
-            init_params = {
-                "processId": os.getpid(),  # 让 server 感知父进程死亡
-                "clientInfo": {"name": "aurora", "version": "0.2.0"},
-                "rootUri": root_uri,
-                "rootPath": str(repo_root) if repo_root else None,
-                "capabilities": {
-                    "textDocument": {
-                        "diagnostic": {"dynamicRegistration": True},
-                        "publishDiagnostics": {"relatedInformation": True},
-                        "hover": {"dynamicRegistration": True, "contentFormat": ["markdown", "plaintext"]},
-                        "definition": {"dynamicRegistration": True},
-                        "references": {"dynamicRegistration": True},
-                        "completion": {"dynamicRegistration": True},
-                        # 采符号必需：不声明则 documentSymbol 可能返回扁平结构
-                        "documentSymbol": {
-                            "dynamicRegistration": True,
-                            "hierarchicalDocumentSymbolSupport": True,
-                        },
-                    },
-                    "workspace": {
-                        "configuration": True,
-                        "workspaceFolders": True,
-                        "didChangeConfiguration": {"dynamicRegistration": True},
-                    },
-                },
-                "initializationOptions": self.config.initialization_options or {},
-                "workspaceFolders": (
-                    [{"uri": root_uri, "name": repo_root.name}] if repo_root else []
-                ),
-            }
+            init_params = self._build_init_params(repo_root)
 
             result = await self._client.initialize(init_params)
             self._state = LspServerState.RUNNING

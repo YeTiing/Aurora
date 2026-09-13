@@ -52,9 +52,21 @@ async def file_rw_handler(arguments: dict, workspace: str = ".") -> str:
 
     try:
         if op == "read":
+            # Necessity Context Paging: 命中状态表时返回索引/片段，避免重复读盘。
+            # ⚠️ 返回 None 表示「本层不管」—— 必须保持原有读取逻辑。
+            # 不接这里，Context Paging 等于没装（它靠这个挂载点生效）。
+            try:
+                from backend.necessity import mount as _nsk
+                _hit = _nsk.read_file(str(file_path), {"operation": "read"})
+                if _hit is not None and getattr(_hit, "content", ""):
+                    return _hit.content
+            except Exception:
+                pass
             return _handle_read(file_path, encoding)
         elif op == "write":
-            return _handle_write(file_path, content, encoding)
+            _r = _handle_write(file_path, content, encoding)
+            _notify_write(file_path)
+            return _r
         elif op == "list":
             return _handle_list(file_path, recursive)
         elif op == "delete":
@@ -72,10 +84,12 @@ async def file_rw_handler(arguments: dict, workspace: str = ".") -> str:
                 shutil.copy2(file_path, dest_path)
             else:
                 shutil.copytree(file_path, dest_path, dirs_exist_ok=True)
+            _notify_write(dest_path)
             return f"Copied {path_str} -> {dest}"
         elif op == "move":
             dest_path = safe_resolve_path(dest, workspace)
             shutil.move(str(file_path), str(dest_path))
+            _notify_write(dest_path)
             return f"Moved {path_str} -> {dest}"
         else:
             return f"Unknown operation: {op}"
@@ -85,6 +99,23 @@ async def file_rw_handler(arguments: dict, workspace: str = ".") -> str:
         return f"File not found: {e}"
     except Exception as e:
         return f"Error ({type(e).__name__}): {str(e)[:500]}"
+
+def _notify_write(path) -> None:
+    """通知 Necessity：**Agent** 写了这个文件 -> 标记 dirty。
+
+    writer 取值决定失效判定：
+      "agent" -> dirty（自己的改动，不必重读验证）
+      "other" -> stale（外部改动，必须重读）
+    这个区分是「合法重读」与「浪费重读」的分界，也是 R/R_waste
+    两个指标能被分开测量的唯一依据。
+    异常一律吞掉 —— 这是质量组件，不该影响文件操作本身。
+    """
+    try:
+        from backend.necessity import mount as _nsk
+        _nsk.after_write(str(path), "agent")
+    except Exception:
+        pass
+
 
 def _handle_read(path: Path, encoding: str) -> str:
     if not path.exists():
@@ -149,6 +180,7 @@ def _handle_delete(path: Path, recursive: bool) -> str:
             path.rmdir()
     else:
         path.unlink()
+    _notify_write(path)
     return f"Deleted: {path.name}"
 
 def _handle_info(path: Path) -> str:

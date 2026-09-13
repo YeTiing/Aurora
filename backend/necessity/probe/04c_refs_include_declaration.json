@@ -1,0 +1,370 @@
+{
+  "_probe_meta": {
+    "position_used": {
+      "line": 45,
+      "character": 4
+    },
+    "includeDeclaration": true,
+    "count": 26,
+    "delta_vs_false": 1,
+    "declaration_entry_present_at_selectionRange_start": 1,
+    "same_file_refs": [
+      {
+        "line": 45,
+        "character": 4
+      }
+    ],
+    "files": [
+      "__init__.py",
+      "apply_patch.py",
+      "base.py",
+      "code_search.py",
+      "file_rw.py",
+      "list_files.py",
+      "shell_command.py",
+      "test_fixes.py",
+      "test_tools.py",
+      "view_image.py"
+    ]
+  },
+  "raw_result": [
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/base.py",
+      "range": {
+        "start": {
+          "line": 45,
+          "character": 4
+        },
+        "end": {
+          "line": 45,
+          "character": 21
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/__init__.py",
+      "range": {
+        "start": {
+          "line": 1,
+          "character": 90
+        },
+        "end": {
+          "line": 1,
+          "character": 107
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/__init__.py",
+      "range": {
+        "start": {
+          "line": 72,
+          "character": 5
+        },
+        "end": {
+          "line": 72,
+          "character": 22
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/apply_patch.py",
+      "range": {
+        "start": {
+          "line": 18,
+          "character": 28
+        },
+        "end": {
+          "line": 18,
+          "character": 45
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/apply_patch.py",
+      "range": {
+        "start": {
+          "line": 723,
+          "character": 24
+        },
+        "end": {
+          "line": 723,
+          "character": 41
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/code_search.py",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 28
+        },
+        "end": {
+          "line": 5,
+          "character": 45
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/file_rw.py",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 28
+        },
+        "end": {
+          "line": 5,
+          "character": 45
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/file_rw.py",
+      "range": {
+        "start": {
+          "line": 38,
+          "character": 20
+        },
+        "end": {
+          "line": 38,
+          "character": 37
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/file_rw.py",
+      "range": {
+        "start": {
+          "line": 69,
+          "character": 24
+        },
+        "end": {
+          "line": 69,
+          "character": 41
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/file_rw.py",
+      "range": {
+        "start": {
+          "line": 76,
+          "character": 24
+        },
+        "end": {
+          "line": 76,
+          "character": 41
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/list_files.py",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 44
+        },
+        "end": {
+          "line": 4,
+          "character": 61
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/list_files.py",
+      "range": {
+        "start": {
+          "line": 49,
+          "character": 17
+        },
+        "end": {
+          "line": 49,
+          "character": 34
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/shell_command.py",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 28
+        },
+        "end": {
+          "line": 5,
+          "character": 45
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/view_image.py",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 44
+        },
+        "end": {
+          "line": 4,
+          "character": 61
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/view_image.py",
+      "range": {
+        "start": {
+          "line": 48,
+          "character": 20
+        },
+        "end": {
+          "line": 48,
+          "character": 37
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+      "range": {
+        "start": {
+          "line": 10,
+          "character": 39
+        },
+        "end": {
+          "line": 10,
+          "character": 56
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+      "range": {
+        "start": {
+          "line": 14,
+          "character": 19
+        },
+        "end": {
+          "line": 14,
+          "character": 36
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+      "range": {
+        "start": {
+          "line": 18,
+          "character": 39
+        },
+        "end": {
+          "line": 18,
+          "character": 56
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+      "range": {
+        "start": {
+          "line": 21,
+          "character": 15
+        },
+        "end": {
+          "line": 21,
+          "character": 32
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+      "range": {
+        "start": {
+          "line": 25,
+          "character": 39
+        },
+        "end": {
+          "line": 25,
+          "character": 56
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+      "range": {
+        "start": {
+          "line": 32,
+          "character": 12
+        },
+        "end": {
+          "line": 32,
+          "character": 29
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+      "range": {
+        "start": {
+          "line": 35,
+          "character": 39
+        },
+        "end": {
+          "line": 35,
+          "character": 56
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+      "range": {
+        "start": {
+          "line": 39,
+          "character": 12
+        },
+        "end": {
+          "line": 39,
+          "character": 29
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_tools.py",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 55
+        },
+        "end": {
+          "line": 4,
+          "character": 72
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_tools.py",
+      "range": {
+        "start": {
+          "line": 70,
+          "character": 17
+        },
+        "end": {
+          "line": 70,
+          "character": 34
+        }
+      }
+    },
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_tools.py",
+      "range": {
+        "start": {
+          "line": 76,
+          "character": 12
+        },
+        "end": {
+          "line": 76,
+          "character": 29
+        }
+      }
+    }
+  ]
+}

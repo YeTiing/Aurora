@@ -1,0 +1,14 @@
+{
+  "_probe_meta": {
+    "fileUri": "file:///D:/codex_Projects/Aurora/backend/tools/base.py",
+    "publishDiagnostics_notifications_received": 1,
+    "diagnostics_for_target": []
+  },
+  "raw_notifications": [
+    {
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/base.py",
+      "version": 1,
+      "diagnostics": []
+    }
+  ]
+}

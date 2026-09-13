@@ -199,12 +199,22 @@ class ReduceHooks:
                 _runner = test_runner
 
             result = minimize_necessary(groups.groups, _runner, budget)
-            return build_report(
+
+            # DIFF_REDUCER.md §8.4：保真度 = 最小化后仍能通过。
+            # 这是「冗余率能不能用」的前提 —— 算法越激进地删，冗余率越好看，
+            # 但若删掉了必要的改动，功能已坏，那个数字毫无意义。
+            # 零成本（复用同一个 _runner，口径一致）。
+            from .fidelity import attach_to_report, check_fidelity
+            fid = check_fidelity(_runner, result.hunks, baseline_result=baseline)
+
+            rep = build_report(
                 hunks, result,
                 task_id=cap.task_id,
                 baseline_test=baseline,
-                final_test=("pass" if result.hunks else "n/a"),
+                final_test=("pass" if fid.preserved else "fail"),
                 sandbox_mode=info.mode,
                 sandbox_degraded=info.degraded,
                 test_scope_narrowed=False,
             )
+            attach_to_report(rep, fid)
+            return rep

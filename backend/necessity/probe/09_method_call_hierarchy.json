@@ -1,0 +1,141 @@
+{
+  "_probe_meta": {
+    "target": "BaseProvider.chat_stream",
+    "prepare_count": 1,
+    "incoming_count": 2,
+    "incoming_from": [
+      "chat_stream",
+      "chat_stream"
+    ]
+  },
+  "prepare_raw": [
+    {
+      "name": "chat_stream",
+      "kind": 6,
+      "detail": "class BaseProvider (llm_providers.py)",
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/agent/llm_providers.py",
+      "range": {
+        "start": {
+          "line": 207,
+          "character": 14
+        },
+        "end": {
+          "line": 207,
+          "character": 25
+        }
+      },
+      "selectionRange": {
+        "start": {
+          "line": 207,
+          "character": 14
+        },
+        "end": {
+          "line": 207,
+          "character": 25
+        }
+      }
+    }
+  ],
+  "incoming_raw": [
+    {
+      "from": {
+        "name": "chat_stream",
+        "kind": 12,
+        "detail": "class LLMClient (llm_client.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/backend/agent/llm_client.py",
+        "range": {
+          "start": {
+            "line": 190,
+            "character": 14
+          },
+          "end": {
+            "line": 190,
+            "character": 25
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 190,
+            "character": 14
+          },
+          "end": {
+            "line": 190,
+            "character": 25
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 201,
+            "character": 101
+          },
+          "end": {
+            "line": 201,
+            "character": 112
+          }
+        },
+        {
+          "start": {
+            "line": 201,
+            "character": 101
+          },
+          "end": {
+            "line": 201,
+            "character": 112
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "chat_stream",
+        "kind": 12,
+        "detail": "class ProviderPool (llm_providers.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/backend/agent/llm_providers.py",
+        "range": {
+          "start": {
+            "line": 911,
+            "character": 14
+          },
+          "end": {
+            "line": 911,
+            "character": 25
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 911,
+            "character": 14
+          },
+          "end": {
+            "line": 911,
+            "character": 25
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 922,
+            "character": 47
+          },
+          "end": {
+            "line": 922,
+            "character": 58
+          }
+        },
+        {
+          "start": {
+            "line": 922,
+            "character": 47
+          },
+          "end": {
+            "line": 922,
+            "character": 58
+          }
+        }
+      ]
+    }
+  ]
+}

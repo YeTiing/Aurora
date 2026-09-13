@@ -1,0 +1,88 @@
+{
+  "_probe_meta": {
+    "rootUri_sent": "file:///D:/codex_Projects/Aurora",
+    "workspaceFolders_sent": [
+      {
+        "uri": "file:///D:/codex_Projects/Aurora",
+        "name": "Aurora"
+      }
+    ],
+    "processId_sent": 172812,
+    "callHierarchyProvider_truthy": true,
+    "callHierarchyProvider_raw": true,
+    "positionEncoding": null,
+    "serverInfo": null
+  },
+  "raw_initialize_result": {
+    "capabilities": {
+      "textDocumentSync": 2,
+      "definitionProvider": {
+        "workDoneProgress": true
+      },
+      "declarationProvider": {
+        "workDoneProgress": true
+      },
+      "typeDefinitionProvider": {
+        "workDoneProgress": true
+      },
+      "referencesProvider": {
+        "workDoneProgress": true
+      },
+      "documentSymbolProvider": {
+        "workDoneProgress": true
+      },
+      "workspaceSymbolProvider": {
+        "workDoneProgress": true
+      },
+      "hoverProvider": {
+        "workDoneProgress": true
+      },
+      "documentHighlightProvider": {
+        "workDoneProgress": true
+      },
+      "renameProvider": {
+        "prepareProvider": true,
+        "workDoneProgress": true
+      },
+      "completionProvider": {
+        "triggerCharacters": [
+          ".",
+          "[",
+          "\"",
+          "'"
+        ],
+        "resolveProvider": true,
+        "workDoneProgress": true,
+        "completionItem": {
+          "labelDetailsSupport": true
+        }
+      },
+      "signatureHelpProvider": {
+        "triggerCharacters": [
+          "(",
+          ",",
+          ")"
+        ],
+        "workDoneProgress": true
+      },
+      "codeActionProvider": {
+        "codeActionKinds": [
+          "quickfix",
+          "source.organizeImports"
+        ],
+        "workDoneProgress": true
+      },
+      "executeCommandProvider": {
+        "commands": [],
+        "workDoneProgress": true
+      },
+      "callHierarchyProvider": true,
+      "workspace": {
+        "workspaceFolders": {
+          "supported": true,
+          "changeNotifications": true
+        }
+      }
+    }
+  }
+}

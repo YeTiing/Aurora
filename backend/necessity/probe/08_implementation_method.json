@@ -1,0 +1,37 @@
+{
+  "_probe_meta": {
+    "target": "backend/agent/llm_providers.py::BaseProvider.chat_stream (abstract method)",
+    "method_found": true,
+    "position_used": {
+      "line": 207,
+      "character": 14
+    },
+    "selectionRange_of_method": {
+      "start": {
+        "line": 207,
+        "character": 14
+      },
+      "end": {
+        "line": 207,
+        "character": 25
+      }
+    },
+    "range_of_method": {
+      "start": {
+        "line": 206,
+        "character": 4
+      },
+      "end": {
+        "line": 208,
+        "character": 11
+      }
+    },
+    "server_error": {
+      "method": "textDocument/implementation",
+      "detail": "{'code': -32601, 'message': 'Unhandled method textDocument/implementation'}"
+    },
+    "result_type": "NoneType",
+    "count": null
+  },
+  "raw_result": null
+}

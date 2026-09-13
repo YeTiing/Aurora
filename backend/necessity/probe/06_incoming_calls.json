@@ -1,0 +1,453 @@
+{
+  "_probe_meta": {
+    "count": 10,
+    "caller_names": [
+      "apply_patch_handler",
+      "file_rw_handler",
+      "list_files_handler",
+      "view_image_handler",
+      "test_normal_path_allowed",
+      "test_workspace_itself_allowed",
+      "test_sibling_prefix_traversal_blocked",
+      "test_double_dot_escape_blocked",
+      "test_safe_path_in_workspace",
+      "test_safe_path_traversal_blocked"
+    ],
+    "from_keys": [
+      "detail",
+      "kind",
+      "name",
+      "range",
+      "selectionRange",
+      "uri"
+    ],
+    "has_fromRanges": true,
+    "fromRanges_len": 1,
+    "edge_keys": [
+      "from",
+      "fromRanges"
+    ]
+  },
+  "raw_result": [
+    {
+      "from": {
+        "name": "apply_patch_handler",
+        "kind": 12,
+        "detail": "(apply_patch.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/apply_patch.py",
+        "range": {
+          "start": {
+            "line": 638,
+            "character": 10
+          },
+          "end": {
+            "line": 638,
+            "character": 29
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 638,
+            "character": 10
+          },
+          "end": {
+            "line": 638,
+            "character": 29
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 723,
+            "character": 24
+          },
+          "end": {
+            "line": 723,
+            "character": 41
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "file_rw_handler",
+        "kind": 12,
+        "detail": "(file_rw.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/file_rw.py",
+        "range": {
+          "start": {
+            "line": 29,
+            "character": 10
+          },
+          "end": {
+            "line": 29,
+            "character": 25
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 29,
+            "character": 10
+          },
+          "end": {
+            "line": 29,
+            "character": 25
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 38,
+            "character": 20
+          },
+          "end": {
+            "line": 38,
+            "character": 37
+          }
+        },
+        {
+          "start": {
+            "line": 69,
+            "character": 24
+          },
+          "end": {
+            "line": 69,
+            "character": 41
+          }
+        },
+        {
+          "start": {
+            "line": 76,
+            "character": 24
+          },
+          "end": {
+            "line": 76,
+            "character": 41
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "list_files_handler",
+        "kind": 12,
+        "detail": "(list_files.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/list_files.py",
+        "range": {
+          "start": {
+            "line": 42,
+            "character": 10
+          },
+          "end": {
+            "line": 42,
+            "character": 28
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 42,
+            "character": 10
+          },
+          "end": {
+            "line": 42,
+            "character": 28
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 49,
+            "character": 17
+          },
+          "end": {
+            "line": 49,
+            "character": 34
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "view_image_handler",
+        "kind": 12,
+        "detail": "(view_image.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/view_image.py",
+        "range": {
+          "start": {
+            "line": 39,
+            "character": 10
+          },
+          "end": {
+            "line": 39,
+            "character": 28
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 39,
+            "character": 10
+          },
+          "end": {
+            "line": 39,
+            "character": 28
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 48,
+            "character": 20
+          },
+          "end": {
+            "line": 48,
+            "character": 37
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "test_normal_path_allowed",
+        "kind": 12,
+        "detail": "class TestSafeResolvePath (test_fixes.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+        "range": {
+          "start": {
+            "line": 9,
+            "character": 8
+          },
+          "end": {
+            "line": 9,
+            "character": 32
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 9,
+            "character": 8
+          },
+          "end": {
+            "line": 9,
+            "character": 32
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 14,
+            "character": 19
+          },
+          "end": {
+            "line": 14,
+            "character": 36
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "test_workspace_itself_allowed",
+        "kind": 12,
+        "detail": "class TestSafeResolvePath (test_fixes.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+        "range": {
+          "start": {
+            "line": 17,
+            "character": 8
+          },
+          "end": {
+            "line": 17,
+            "character": 37
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 17,
+            "character": 8
+          },
+          "end": {
+            "line": 17,
+            "character": 37
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 21,
+            "character": 15
+          },
+          "end": {
+            "line": 21,
+            "character": 32
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "test_sibling_prefix_traversal_blocked",
+        "kind": 12,
+        "detail": "class TestSafeResolvePath (test_fixes.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+        "range": {
+          "start": {
+            "line": 23,
+            "character": 8
+          },
+          "end": {
+            "line": 23,
+            "character": 45
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 23,
+            "character": 8
+          },
+          "end": {
+            "line": 23,
+            "character": 45
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 32,
+            "character": 12
+          },
+          "end": {
+            "line": 32,
+            "character": 29
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "test_double_dot_escape_blocked",
+        "kind": 12,
+        "detail": "class TestSafeResolvePath (test_fixes.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_fixes.py",
+        "range": {
+          "start": {
+            "line": 34,
+            "character": 8
+          },
+          "end": {
+            "line": 34,
+            "character": 38
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 34,
+            "character": 8
+          },
+          "end": {
+            "line": 34,
+            "character": 38
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 39,
+            "character": 12
+          },
+          "end": {
+            "line": 39,
+            "character": 29
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "test_safe_path_in_workspace",
+        "kind": 12,
+        "detail": "class TestSafePath (test_tools.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_tools.py",
+        "range": {
+          "start": {
+            "line": 68,
+            "character": 8
+          },
+          "end": {
+            "line": 68,
+            "character": 35
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 68,
+            "character": 8
+          },
+          "end": {
+            "line": 68,
+            "character": 35
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 70,
+            "character": 17
+          },
+          "end": {
+            "line": 70,
+            "character": 34
+          }
+        }
+      ]
+    },
+    {
+      "from": {
+        "name": "test_safe_path_traversal_blocked",
+        "kind": 12,
+        "detail": "class TestSafePath (test_tools.py)",
+        "uri": "file:///d%3A/codex_Projects/Aurora/tests/test_tools.py",
+        "range": {
+          "start": {
+            "line": 73,
+            "character": 8
+          },
+          "end": {
+            "line": 73,
+            "character": 40
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 73,
+            "character": 8
+          },
+          "end": {
+            "line": 73,
+            "character": 40
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 76,
+            "character": 12
+          },
+          "end": {
+            "line": 76,
+            "character": 29
+          }
+        }
+      ]
+    }
+  ]
+}

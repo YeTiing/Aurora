@@ -29,19 +29,12 @@ import logging
 logger = logging.getLogger("aurora")
 
 # ── Necessity 钩子（可选，默认关闭）─────────────────────────────
-# Necessity 已合并进本仓库（backend/necessity，见其 __init__ 的说明），
-# 所以这里是**本地导入**，不再需要外部路径。
-#
-# 默认关闭：未设 AURORA_NECESSITY=1 时 _nsk_hooks 为 None，
-# 所有挂载点直接跳过，宿主行为与未挂载时逐字节一致
-# （这是 I1「空操作挂载」的验收判据 —— 先证明钩子层不影响行为）。
-_nsk_hooks = None
-if os.environ.get("AURORA_NECESSITY", "").strip() in ("1", "true", "yes", "on"):
-    try:
-        from backend.necessity import adapter as _nsk_hooks
-    except Exception as e:
-        logger.warning("necessity hooks not loaded: %s", e)
-        _nsk_hooks = None
+# Necessity 已合并进本仓库（backend/necessity）。挂载点统一走 mount 层 ——
+# 它集中处理「是否启用 / 异常放行 / 超时统计」，宿主侧只需一行调用。
+# 未启用（AURORA_NECESSITY 未设或非真值）时全部是零开销直通，
+# 宿主行为与完全没有本模块时逐字节一致（I1 空操作挂载的验收判据）。
+from backend.necessity import mount as _nsk
+
 
 # 沙箱模式别名归一化。
 # 项目里存在三套取值：graph.py 只认 read-only / workspace-only；
@@ -59,6 +52,10 @@ _SANDBOX_ALIASES = {
     "danger-full-access": "full-access",
     "": "full-access",
 }
+
+
+def _normalize_sandbox_mode(mode: str) -> str:
+    return _SANDBOX_ALIASES.get((mode or "").strip().lower(), "full-access")
 
 
 def _normalize_sandbox_mode(mode: str) -> str:
@@ -244,6 +241,11 @@ class AgentGraph:
         self._pending_tasks.clear()
 
         state = AgentState(session_id=session_id, workspace=ws, agent_role=agent_role, reasoning_effort=reasoning_effort)
+
+        # Necessity: 任务开始（编译约束、准备 trace、重置会话状态）
+        _nsk.on_task_start({
+            "session_id": session_id, "input": user_input[:500], "workspace": ws,
+        })
 
         
 
@@ -495,6 +497,9 @@ class AgentGraph:
 
             await self._run_observer(state)
 
+            # Necessity: 每轮结束（Guard 后检在此触发 —— 越界检测靠它）
+            _nsk.on_turn_end(state.total_turns)
+
 
             if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
 
@@ -516,6 +521,22 @@ class AgentGraph:
         self.checkpoints.save(state, "final")
 
         await self.events.task_complete(session_id, state.final_response[:200])
+
+        # Necessity: 任务结束 —— 产出报告（冗余率 / 约束保持率 / 归因）
+        # 这是**指标的唯一出口**：不接它，四个能力的数字永远拿不到。
+        try:
+            from backend.necessity.hooks import TaskResult
+            _report = _nsk.on_task_end(TaskResult(
+                task_id=session_id,
+                ok=bool(state.final_response),
+                turns=state.total_turns,
+                tokens=getattr(self.llm, "_total_tokens", 0),
+                diff_stats={"plan": state.plan_progress()},
+            ))
+            if _report:
+                state.metadata["necessity_report"] = _report
+        except Exception:
+            logger.debug("necessity on_task_end failed", exc_info=True)
 
         # Process full turn + auto-record
         from backend.dual_memory import get_closed_loop
@@ -571,6 +592,11 @@ class AgentGraph:
         self._pending_tasks.clear()
 
         state = AgentState(session_id=session_id, workspace=ws, agent_role=agent_role, reasoning_effort=reasoning_effort)
+
+        # Necessity: 任务开始（编译约束、准备 trace、重置会话状态）
+        _nsk.on_task_start({
+            "session_id": session_id, "input": user_input[:500], "workspace": ws,
+        })
 
         
 
@@ -799,6 +825,9 @@ class AgentGraph:
 
             await self._run_observer(state)
 
+            # Necessity: 每轮结束（Guard 后检在此触发 —— 越界检测靠它）
+            _nsk.on_turn_end(state.total_turns)
+
 
             if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
 
@@ -827,6 +856,21 @@ class AgentGraph:
         final_plan = [p.to_dict() for p in state.plan]
 
         yield {"type": "codex/event/task_complete", "data": {"result": state.final_response[:200]}, "session_id": session_id}
+
+        # Necessity: 任务结束 —— 产出报告（流式路径的指标出口）
+        try:
+            from backend.necessity.hooks import TaskResult
+            _report = _nsk.on_task_end(TaskResult(
+                task_id=session_id,
+                ok=bool(state.final_response),
+                turns=state.total_turns,
+                tokens=getattr(self.llm, "_total_tokens", 0),
+                diff_stats={"plan": state.plan_progress()},
+            ))
+            if _report:
+                state.metadata["necessity_report"] = _report
+        except Exception:
+            logger.debug("necessity on_task_end failed", exc_info=True)
 
         yield {"type": "done", "response": state.final_response, "plan": final_plan}
 
@@ -964,22 +1008,20 @@ class AgentGraph:
 
                 args = dict(args); args["_approval_policy"] = state.approval_mode
 
-            # Necessity 预检：可拦截 / 改写（默认 allow，未挂载时直接跳过）
-            if _nsk_hooks is not None:
-                _nsk_d = _nsk_hooks.before_tool(name, args, state.total_turns)
-                if _nsk_d.action == "block":
-                    return {"success": False, "output": "", "error": _nsk_d.reason}
-                if _nsk_d.action == "modify" and _nsk_d.replacement is not None:
-                    name, args = _nsk_d.replacement.name, _nsk_d.replacement.arguments
+            # Necessity 预检：可拦截 / 改写（默认 allow，未启用时零开销）
+            _nsk_d = _nsk.before_tool(name, args, state.total_turns)
+            if _nsk_d.action == "block":
+                return {"success": False, "output": "", "error": _nsk_d.reason}
+            if _nsk_d.action == "modify" and _nsk_d.replacement is not None:
+                name, args = _nsk_d.replacement.name, _nsk_d.replacement.arguments
 
             _nsk_t0 = time.perf_counter()
             _nsk_result = await self.tool_handler(name, args, ws)
             # Necessity 后检 + 轨迹（只观察，不改结果）
-            if _nsk_hooks is not None:
-                _nsk_hooks.after_tool(
-                    name, _nsk_result, state.total_turns,
-                    duration_ms=(time.perf_counter() - _nsk_t0) * 1000,
-                )
+            _nsk.after_tool(
+                name, _nsk_result, state.total_turns,
+                duration_ms=(time.perf_counter() - _nsk_t0) * 1000,
+            )
             return _nsk_result
 
         await executor_node(state, handler, state.workspace)
@@ -1126,6 +1168,9 @@ class AgentGraph:
 
             await self._run_observer(state)
 
+            # Necessity: 每轮结束（Guard 后检在此触发 —— 越界检测靠它）
+            _nsk.on_turn_end(state.total_turns)
+
 
             if state.plan and all(p.status in ("completed", "failed", "skipped") for p in state.plan):
 
@@ -1137,6 +1182,18 @@ class AgentGraph:
         await self._run_synthesizer(state)
 
         self.checkpoints.save(state, "resume_final")
+
+        # Necessity: 续跑同样要产报告
+        try:
+            from backend.necessity.hooks import TaskResult
+            _report = _nsk.on_task_end(TaskResult(
+                task_id=state.session_id, ok=bool(state.final_response),
+                turns=state.total_turns, tokens=getattr(self.llm, "_total_tokens", 0),
+            ))
+            if _report:
+                state.metadata["necessity_report"] = _report
+        except Exception:
+            logger.debug("necessity on_task_end failed", exc_info=True)
 
         return state
 

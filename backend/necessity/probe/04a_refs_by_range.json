@@ -1,0 +1,13 @@
+{
+  "_probe_meta": {
+    "position_used": {
+      "line": 45,
+      "character": 0
+    },
+    "position_kind": "range.start",
+    "includeDeclaration": false,
+    "count": 0,
+    "files": []
+  },
+  "raw_result": null
+}

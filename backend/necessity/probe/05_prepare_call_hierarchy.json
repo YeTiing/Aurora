@@ -1,0 +1,47 @@
+{
+  "_probe_meta": {
+    "method": "textDocument/prepareCallHierarchy",
+    "position_used": {
+      "line": 45,
+      "character": 4
+    },
+    "position_kind": "selectionRange.start",
+    "count": 1,
+    "item_keys": [
+      "detail",
+      "kind",
+      "name",
+      "range",
+      "selectionRange",
+      "uri"
+    ]
+  },
+  "raw_result": [
+    {
+      "name": "safe_resolve_path",
+      "kind": 12,
+      "detail": "(base.py)",
+      "uri": "file:///d%3A/codex_Projects/Aurora/backend/tools/base.py",
+      "range": {
+        "start": {
+          "line": 45,
+          "character": 4
+        },
+        "end": {
+          "line": 45,
+          "character": 21
+        }
+      },
+      "selectionRange": {
+        "start": {
+          "line": 45,
+          "character": 4
+        },
+        "end": {
+          "line": 45,
+          "character": 21
+        }
+      }
+    }
+  ]
+}

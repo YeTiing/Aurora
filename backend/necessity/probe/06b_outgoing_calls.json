@@ -1,0 +1,327 @@
+{
+  "_probe_meta": {
+    "count": 7
+  },
+  "raw_result": [
+    {
+      "to": {
+        "name": "resolve",
+        "kind": 6,
+        "detail": "class Path (__init__.pyi) · Standard library",
+        "uri": "file:///c%3A/home/zenos/.npm-global/node_modules/pyright/dist/typeshed-fallback/stdlib/pathlib/__init__.pyi",
+        "range": {
+          "start": {
+            "line": 324,
+            "character": 8
+          },
+          "end": {
+            "line": 324,
+            "character": 15
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 324,
+            "character": 8
+          },
+          "end": {
+            "line": 324,
+            "character": 15
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 51,
+            "character": 25
+          },
+          "end": {
+            "line": 51,
+            "character": 32
+          }
+        },
+        {
+          "start": {
+            "line": 52,
+            "character": 29
+          },
+          "end": {
+            "line": 52,
+            "character": 36
+          }
+        }
+      ]
+    },
+    {
+      "to": {
+        "name": "Path",
+        "kind": 5,
+        "detail": "(__init__.pyi) · Standard library",
+        "uri": "file:///c%3A/home/zenos/.npm-global/node_modules/pyright/dist/typeshed-fallback/stdlib/pathlib/__init__.pyi",
+        "range": {
+          "start": {
+            "line": 153,
+            "character": 6
+          },
+          "end": {
+            "line": 153,
+            "character": 10
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 153,
+            "character": 6
+          },
+          "end": {
+            "line": 153,
+            "character": 10
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 51,
+            "character": 9
+          },
+          "end": {
+            "line": 51,
+            "character": 13
+          }
+        },
+        {
+          "start": {
+            "line": 56,
+            "character": 74
+          },
+          "end": {
+            "line": 56,
+            "character": 78
+          }
+        }
+      ]
+    },
+    {
+      "to": {
+        "name": "is_relative_to",
+        "kind": 6,
+        "detail": "class PurePath (__init__.pyi) · Standard library",
+        "uri": "file:///c%3A/home/zenos/.npm-global/node_modules/pyright/dist/typeshed-fallback/stdlib/pathlib/__init__.pyi",
+        "range": {
+          "start": {
+            "line": 112,
+            "character": 12
+          },
+          "end": {
+            "line": 112,
+            "character": 26
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 112,
+            "character": 12
+          },
+          "end": {
+            "line": 112,
+            "character": 26
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 54,
+            "character": 44
+          },
+          "end": {
+            "line": 54,
+            "character": 58
+          }
+        }
+      ]
+    },
+    {
+      "to": {
+        "name": "is_relative_to",
+        "kind": 6,
+        "detail": "class PurePath (__init__.pyi) · Standard library",
+        "uri": "file:///c%3A/home/zenos/.npm-global/node_modules/pyright/dist/typeshed-fallback/stdlib/pathlib/__init__.pyi",
+        "range": {
+          "start": {
+            "line": 115,
+            "character": 12
+          },
+          "end": {
+            "line": 115,
+            "character": 26
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 115,
+            "character": 12
+          },
+          "end": {
+            "line": 115,
+            "character": 26
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 54,
+            "character": 44
+          },
+          "end": {
+            "line": 54,
+            "character": 58
+          }
+        }
+      ]
+    },
+    {
+      "to": {
+        "name": "startswith",
+        "kind": 6,
+        "detail": "class str (builtins.pyi) · Standard library",
+        "uri": "file:///c%3A/home/zenos/.npm-global/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi",
+        "range": {
+          "start": {
+            "line": 623,
+            "character": 8
+          },
+          "end": {
+            "line": 623,
+            "character": 18
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 623,
+            "character": 8
+          },
+          "end": {
+            "line": 623,
+            "character": 18
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 56,
+            "character": 49
+          },
+          "end": {
+            "line": 56,
+            "character": 59
+          }
+        }
+      ]
+    },
+    {
+      "to": {
+        "name": "str",
+        "kind": 5,
+        "detail": "(builtins.pyi) · Standard library",
+        "uri": "file:///c%3A/home/zenos/.npm-global/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi",
+        "range": {
+          "start": {
+            "line": 486,
+            "character": 6
+          },
+          "end": {
+            "line": 486,
+            "character": 9
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 486,
+            "character": 6
+          },
+          "end": {
+            "line": 486,
+            "character": 9
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 56,
+            "character": 35
+          },
+          "end": {
+            "line": 56,
+            "character": 38
+          }
+        },
+        {
+          "start": {
+            "line": 56,
+            "character": 60
+          },
+          "end": {
+            "line": 56,
+            "character": 63
+          }
+        },
+        {
+          "start": {
+            "line": 56,
+            "character": 70
+          },
+          "end": {
+            "line": 56,
+            "character": 73
+          }
+        }
+      ]
+    },
+    {
+      "to": {
+        "name": "PermissionError",
+        "kind": 5,
+        "detail": "(builtins.pyi) · Standard library",
+        "uri": "file:///c%3A/home/zenos/.npm-global/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi",
+        "range": {
+          "start": {
+            "line": 2509,
+            "character": 6
+          },
+          "end": {
+            "line": 2509,
+            "character": 21
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 2509,
+            "character": 6
+          },
+          "end": {
+            "line": 2509,
+            "character": 21
+          }
+        }
+      },
+      "fromRanges": [
+        {
+          "start": {
+            "line": 58,
+            "character": 14
+          },
+          "end": {
+            "line": 58,
+            "character": 29
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "_probe_meta": {
+    "target": "backend/tools/base.py::safe_resolve_path (plain module-level function)",
+    "position_used": {
+      "line": 45,
+      "character": 4
+    },
+    "server_error": {
+      "method": "textDocument/implementation",
+      "detail": "{'code': -32601, 'message': 'Unhandled method textDocument/implementation'}"
+    },
+    "result_type": "NoneType",
+    "count": null
+  },
+  "raw_result": null
+}

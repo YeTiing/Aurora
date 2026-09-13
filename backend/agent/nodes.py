@@ -473,6 +473,15 @@ async def maybe_compact_context(
     if not cm.needs_compaction():
         return False
 
+    # Necessity: 压缩前快照文件状态表 —— 状态表**不得被压缩影响**。
+    # 这是 Context Paging 的核心主张：压缩吃掉文件内容后，
+    # 状态表仍要记住「读过什么、是否新鲜」，否则 Agent 只能重读。
+    try:
+        from backend.necessity import mount as _nsk
+        _nsk.before_compaction(list(cm.messages))
+    except Exception:
+        pass
+
     try:
         removed = await cm.compact_async(llm)
     except Exception:
@@ -480,6 +489,15 @@ async def maybe_compact_context(
         return False
     if removed <= 0:
         return False
+
+    # Necessity: 压缩后注入 file_state 索引（返回增强后的 summary）
+    try:
+        from backend.necessity import mount as _nsk
+        for _m in cm.messages:
+            if _m.get("role") == "system":
+                _m["content"] = _nsk.after_compaction(_m.get("content", "") or "")
+    except Exception:
+        pass
 
     # 压缩后的 dict 重建为 Message，保留 tool_calls / tool_call_id / name
     # 等配对字段，否则后续 LLM 调用会收到非法历史。

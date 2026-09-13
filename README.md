@@ -68,13 +68,21 @@ Aurora/
 │   ├── config/               # 三级配置 (global < user < project)
 │   ├── context/              # Token 预算追踪
 │   ├── observability/        # 日志/统计/追踪
-│   └── model_discovery.py    # 多Provider模型发现
+│   ├── model_discovery.py    # 多Provider模型发现
+│   └── necessity/            # Agent 改动质量保障层（可选启用）
+│       ├── hooks.py          #   钩子契约
+│       ├── capability.py     #   能力装配
+│       ├── adapter.py        #   宿主接入面
+│       ├── index/            #   代码结构图（LSP/符号/调用图/影响面）
+│       ├── context/ guard/ reduce/ attribution/   #   四个能力
+│       ├── eval/ cli/ mcp/   #   评测 / 命令行 / MCP
+│       └── docs/             #   设计文档（8 份）
 ├── desktop/                  # Electron + React + Vite 桌面端
 │   ├── src/main/             # Electron 主进程
 │   └── src/renderer/         # React 前端 (Chat / Diff / Terminal / FileTree)
 ├── plugins/                  # 内置插件 (auto-format)
 ├── skills/                   # 内置 Skill
-├── tests/                    # 516 个 pytest 测试
+├── tests/                    # 1025 个 pytest 测试
 ├── aurora.json               # 项目配置
 └── run_server.py             # 启动入口
 ```

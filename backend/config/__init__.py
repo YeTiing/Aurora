@@ -176,6 +176,35 @@ class Config:
         return self.get("rag.enabled", True)
 
     @property
+    def rag_persist_dir(self) -> str:
+        return self.get("rag.persist_dir", "./chroma_db")
+
+    # B8：嵌入可与 chat provider 解耦。未配置 rag.embedding_* 时回退到 llm.*，
+    # 这样 DeepSeek（无 embeddings 端点）用户可单独指向 OpenAI / 本地模型。
+    @property
+    def embedding_provider(self) -> str:
+        return self.get("rag.embedding_provider", self.get("llm.provider", "openai"))
+
+    @property
+    def embedding_model(self) -> str:
+        return self.get("rag.embedding_model", "text-embedding-3-small")
+
+    @property
+    def embedding_base_url(self) -> str:
+        return self.get("rag.embedding_base_url", self.llm_base_url)
+
+    @property
+    def embedding_api_key(self) -> str:
+        key = self.get("rag.embedding_api_key", "")
+        if not key:
+            key = self.llm_api_key
+        return key
+
+    def has_embedding_override(self) -> bool:
+        """是否显式配置了独立的嵌入来源（否则沿用调用方 client）。"""
+        return any(self.get(f"rag.embedding_{k}") for k in ("provider", "base_url", "api_key", "model"))
+
+    @property
     def skills_roots(self) -> list[str]:
         return self.get("skills.roots", ["./skills"])
 

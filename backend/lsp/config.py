@@ -116,6 +116,28 @@ _EXTENSION_MAP: dict[str, list[str]] = {}
 _MAP_BUILT = False
 
 
+def resolve_executable(command: str) -> str:
+    """把命令名解析成可直接 spawn 的绝对路径。
+
+    Windows 上 create_subprocess_exec **不套用 PATHEXT**，而 npm 全局安装的
+    是 .CMD shim。因此 `which("pyright-langserver")` 说可用、
+    `spawn("pyright-langserver")` 却抛 WinError 2 —— 探测与启动的判定不一致，
+    失败还会被上层吞成「LSP not initialized」，表现为功能静默不可用。
+
+    这里返回绝对路径；优先 .exe（可直接执行），其次 .cmd/.bat（也能 spawn，
+    因为已带扩展名）。找不到则原样返回命令名，让上层按现有逻辑处理缺失。
+    """
+    if os.name != "nt":
+        return shutil.which(command) or command
+
+    found = shutil.which(command)
+    if not found:
+        return command
+
+    # which 已解析到带扩展名的 shim；直接用它即可（带扩展名就能 spawn）
+    return found
+
+
 def _build_extension_map() -> None:
     global _MAP_BUILT
     if _MAP_BUILT:

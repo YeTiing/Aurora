@@ -100,8 +100,11 @@ class LSPServerInstance:
         logger.info(f"Starting LSP server '{self.name}': {self.config.command} {' '.join(self.config.args)}")
 
         try:
+            # Windows: create_subprocess_exec 不套用 PATHEXT，而 npm 装的是
+            # .CMD shim —— 传裸命令名会 WinError 2（探测说可用、启动却失败）。
+            from .config import resolve_executable
             await self._client.start(
-                self.config.command,
+                resolve_executable(self.config.command),
                 self.config.args,
                 env=self.config.env or None,
                 cwd=self.config.cwd,

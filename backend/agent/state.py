@@ -199,6 +199,15 @@ class AgentState:
         failed = sum(1 for p in self.plan if p.status == "failed")
         return {"total": total, "completed": completed, "failed": failed, "in_progress": total - completed - failed, "percentage": int(completed / max(total, 1) * 100)}
 
+    def plan_estimated_turns(self) -> int:
+        """按计划估算需要的轮次（各步骤 estimated_turns 之和）。
+
+        此前 estimated_turns 是死字段：planner 的提示词要求 LLM 输出它
+        （"Estimate complexity (1-3 turns per step)"），但全项目没有任何读取点，
+        等于白花 token。这里让它真正参与轮次预算。
+        """
+        return sum(max(1, int(getattr(p, "estimated_turns", 1) or 1)) for p in self.plan)
+
     def clone_for_checkpoint(self) -> "AgentState":
         """深拷贝用于快照存储"""
         return AgentState.from_dict(self.to_dict())

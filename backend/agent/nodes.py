@@ -27,8 +27,8 @@ PLANNER_PROMPT = """Analyze the following user request and break it down into a 
 Requirements:
 - Each step must be concrete and actionable
 - Order steps by dependency
-- Estimate complexity (1-3 turns per step)
-- Return ONLY a JSON array of objects with "step" (int), "description" (string), "tool" (string or null)
+- Estimate complexity as "estimated_turns" (int, 1-3 turns per step)
+- Return ONLY a JSON array of objects with "step" (int), "description" (string), "tool" (string or null), "estimated_turns" (int)
 
 User request: {user_input}
 
@@ -338,17 +338,33 @@ async def executor_node(
 
 # ══ Node 4: Observer — 观察 + 状态判断 ══
 async def observer_node(state: AgentState) -> dict:
-    """Node 4: 分析工具执行结果，决定是否继续"""
+    """Node 4: 分析工具执行结果，决定是否继续。
+
+    修复：此前只有 status == "in_progress" 的步骤才会被标记完成，而全项目
+    没有任何地方调用 PlanStep.start()（唯一把状态置为 in_progress 的方法），
+    于是没有步骤会进入 completed，主循环的退出条件
+    all(status in completed/failed/skipped) 永不成立，只能靠 max_turns 兜底。
+
+    现在的流转：本轮若有工具执行结果，就把当前步骤推进为 in_progress 并立即
+    标记完成（一个步骤对应一轮执行）；工具显式失败时标记 failed。显式失败
+    而不是一律算完成，是为了让退出条件能真实反映进度。
+    """
     if state.done:
         return {"done": True}
 
     if state.plan and state.current_step < len(state.plan):
         step = state.plan[state.current_step]
-        if step.status == "in_progress":
-            step.complete(
-                state.tool_results[-1].output[:200]
-                if state.tool_results else "Completed"
-            )
+        if step.status in ("pending", "in_progress"):
+            if state.tool_results:
+                last = state.tool_results[-1]
+                if last.success:
+                    if step.status != "in_progress":
+                        step.start()
+                    step.complete(last.output[:200])
+                else:
+                    step.fail((last.error or "tool failed")[:200])
+            # 本轮没有任何工具结果（例如纯文本回复），保持 pending 交给下一轮，
+            # 避免把没做过的步骤误标为完成。
         state.current_step += 1
         return {"current_step": state.current_step}
 

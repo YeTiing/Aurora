@@ -91,14 +91,55 @@ PLAN_UPDATE_SPEC = ToolSpec(
 
 
 async def plan_update_handler(arguments: dict, workspace: str = ".") -> ToolCallResult:
+    """真正更新执行计划，而不是只回一段文本。
+
+    此前该 handler 只拼接字符串返回，从未写入 state.plan。后果是链式的：
+    plan_update 不写状态 -> 没有步骤进入 in_progress -> observer_node 的
+    `if step.status == "in_progress"` 永不成立 -> 步骤永远停在 pending ->
+    主循环退出条件 all(status in completed/failed/skipped) 永不满足，
+    只能靠 max_turns / empty_turns 兜底停下。
+
+    计划的真实来源是 AgentState.plan（由 AgentGraph 逐轮同步进 plan_store），
+    此处按 session_id 写回，AgentGraph 在下一轮读取。
+    """
     step_id = arguments.get("step_id", 0)
     status = arguments.get("status", "completed")
     notes = arguments.get("notes", "")
     new_steps = arguments.get("new_steps", [])
+    session_id = str(arguments.get("session_id", "") or "")
 
-    lines = [f"Step {step_id}: {status}"]
+    from .plan_store import update_step, get_plan
+
+    ok, detail = update_step(session_id, step_id, status, notes, new_steps)
+
+    if not ok:
+        # 未命中时如实报告，不伪造成功 —— 调用方可据此发现 step_id 用错了
+        plan = get_plan(session_id)
+        listing = ", ".join(
+            f"{s.get('step')}:{str(s.get('description',''))[:30]}" for s in plan[:8]
+        )
+        return ToolCallResult(
+            id="", name="plan_update", output="", success=False,
+            error=f"plan update failed: {detail}."
+                  + (f" Current plan: {listing}" if listing else ""),
+        )
+
+    plan = get_plan(session_id)
+    done = sum(1 for s in plan if s.get("status") == "completed")
+    total = len(plan)
+
+    lines = [f"Step {step_id} -> {status}"]
     if notes:
         lines.append(f"  Note: {notes}")
     if new_steps:
-        lines.append(f"  Added {len(new_steps)} new steps")
+        lines.append(f"  Inserted {len(new_steps)} new step(s) after step {step_id}")
+    lines.append(f"Progress: {done}/{total} ({int(done / total * 100) if total else 0}%)")
+
+    # 同步 todo 视图，使 todo_write 与 plan_update 看到同一份进度
+    _todos[workspace] = [
+        {"id": str(s.get("step")), "content": s.get("description", ""),
+         "status": s.get("status", "pending"), "priority": "medium"}
+        for s in plan
+    ]
+
     return "\n".join(lines)

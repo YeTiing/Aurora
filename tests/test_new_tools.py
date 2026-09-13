@@ -2,11 +2,9 @@
 import sys, pytest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-
-from tools.todo_write import TODO_SPEC, todo_handler, PLAN_UPDATE_SPEC, plan_update_handler, get_current_todos
-from tools.code_exec import CODE_EXEC_SPEC, code_exec_handler, _validate_python, _validate_js
-from tools.base import ToolRegistry, tool_registry
+from backend.tools.todo_write import TODO_SPEC, todo_handler, PLAN_UPDATE_SPEC, plan_update_handler, get_current_todos
+from backend.tools.code_exec import CODE_EXEC_SPEC, code_exec_handler, _validate_python, _validate_js
+from backend.tools.base import ToolRegistry, tool_registry
 
 
 class TestTodoWrite:
@@ -48,20 +46,55 @@ class TestTodoWrite:
 
 
 class TestPlanUpdate:
+    """plan_update 现在写真实计划（此前只拼字符串返回）。
+
+    这些用例原先裸调 handler、不带 session_id —— 在旧实现下也能"通过"，
+    因为旧实现无脑返回 "Step 1: completed" 之类的文本。现在没有计划时会
+    如实失败，所以必须先把计划注入 plan_store 再调用。
+    """
+
+    @staticmethod
+    def _seed(session_id, n=2):
+        from backend.tools import plan_store
+        plan_store.set_plan(session_id, [
+            {"step": i, "description": f"step {i}", "status": "pending",
+             "tool": None, "estimated_turns": 1, "result": None}
+            for i in range(1, n + 1)
+        ])
+
     @pytest.mark.asyncio
     async def test_update_status(self):
-        result = await plan_update_handler({"step_id": 1, "status": "completed", "notes": "Done"})
+        self._seed("t-status")
+        result = await plan_update_handler(
+            {"step_id": 1, "status": "completed", "notes": "Done", "session_id": "t-status"}
+        )
         output = str(result)
         assert "Step 1" in output
         assert "completed" in output
 
+        from backend.tools import plan_store
+        assert plan_store.get_plan("t-status")[0]["status"] == "completed", "状态未真正写入"
+
     @pytest.mark.asyncio
     async def test_with_new_steps(self):
+        self._seed("t-newsteps")
         result = await plan_update_handler({
             "step_id": 2, "status": "in_progress",
-            "new_steps": [{"description": "Add auth"}, {"description": "Add DB"}]
+            "new_steps": [{"description": "Add auth"}, {"description": "Add DB"}],
+            "session_id": "t-newsteps",
         })
-        assert "2 new steps" in str(result)
+        assert "Inserted 2 new step" in str(result)
+
+        from backend.tools import plan_store
+        assert len(plan_store.get_plan("t-newsteps")) == 4
+
+    @pytest.mark.asyncio
+    async def test_without_plan_fails_honestly(self):
+        """没有计划时必须如实失败，不能编造成功文本。"""
+        result = await plan_update_handler({"step_id": 1, "status": "completed",
+                                            "session_id": "t-nonexistent"})
+        assert result.success is False
+        assert "plan is empty" in (result.error or "")
 
     def test_spec(self):
         assert PLAN_UPDATE_SPEC.name == "plan_update"

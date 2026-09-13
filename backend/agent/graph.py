@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio, logging, time, traceback
+import asyncio, logging, re, time, traceback
 
 from typing import Any, Literal, Callable
 
@@ -97,6 +97,8 @@ class AgentGraph:
         self.tools_schema = tools_schema
 
         self.max_turns = max_turns
+        # 可用计划估算动态放宽（见 _run_tool_select），默认等于 max_turns
+        self._effective_max_turns = max_turns
 
         self.max_empty_turns = max_empty_turns
 
@@ -390,7 +392,7 @@ class AgentGraph:
                 state.add_message(Message.system("Session cancelled by user."))
                 break
 
-            if state.total_turns >= self.max_turns:
+            if state.total_turns >= self._effective_max_turns:
 
                 state.add_message(Message.system(f"Reached max turns ({self.max_turns}). Stopping."))
 
@@ -685,7 +687,7 @@ class AgentGraph:
                 state.add_message(Message.system("Session cancelled by user."))
                 break
 
-            if state.total_turns >= self.max_turns: break
+            if state.total_turns >= self._effective_max_turns: break
 
             if state.empty_turns >= self.max_empty_turns: break
 
@@ -850,9 +852,69 @@ class AgentGraph:
         await planner_node(state, self.llm)
 
 
+    async def _sync_plan_in(self, state: AgentState):
+        """把 state.plan 同步进 plan_store，供 plan_update 工具读取。
+
+        工具 handler 的签名是 (arguments, workspace)，拿不到 AgentState，
+        因此需要一个按 session 索引的中转存储。没有这一步，plan_update
+        只能回一段文本，改不到真正的计划。
+        """
+        try:
+            from backend.tools.plan_store import set_plan
+            set_plan(state.session_id, [p.to_dict() for p in state.plan])
+        except Exception:
+            logger.debug("plan sync-in failed", exc_info=True)
+
+    def _sync_plan_out(self, state: AgentState) -> None:
+        """把 plan_update 工具写入的改动合并回 state.plan。
+
+        合并而非整体替换：state.plan 是本轮唯一的真相来源，工具只应改动
+        其中被显式指定的步骤；保留 PlanStep 实例也避免丢失 started_at 等
+        工具不感知的字段。
+        """
+        try:
+            from backend.tools.plan_store import get_plan
+            from backend.agent.state import PlanStep
+
+            incoming = get_plan(state.session_id)
+            if not incoming:
+                return
+
+            by_num = {int(d.get("step", -1)): d for d in incoming}
+            for step in state.plan:
+                d = by_num.get(int(step.step))
+                if not d:
+                    continue
+                step.status = d.get("status", step.status)
+                if d.get("result") is not None:
+                    step.result = d.get("result")
+
+            # 工具可插入新步骤（plan_update 的 new_steps）
+            known = {int(s.step) for s in state.plan}
+            for d in incoming:
+                if int(d.get("step", -1)) not in known:
+                    state.plan.append(PlanStep.from_dict(d))
+        except Exception:
+            logger.debug("plan sync-out failed", exc_info=True)
+
     async def _run_tool_select(self, state: AgentState):
 
+        # 用计划的 estimated_turns 校验轮次上限：计划声称需要更多轮时放宽，
+        # 否则复杂任务会被固定的 max_turns 提前截断。上限最多放宽到 2 倍，
+        # 避免 LLM 高估导致无限循环。这也是 estimated_turns 的唯一读取点。
+        try:
+            if state.total_turns == 0 and state.plan:
+                needed = state.plan_estimated_turns()
+                if needed > self.max_turns:
+                    self._effective_max_turns = min(needed, self.max_turns * 2)
+        except Exception:
+            logger.debug("estimated_turns lookup failed", exc_info=True)
+
+        await self._sync_plan_in(state)
+
         await tool_select_node(state, self.llm, self.tools_schema)
+
+        self._sync_plan_out(state)
 
 
     async def _run_executor(self, state: AgentState):
@@ -901,18 +963,67 @@ class AgentGraph:
     # 会改动工作区文件、需要可回滚的工具集合
     _FILE_MUTATING_TOOLS = frozenset({"apply_patch", "file_rw"})
 
-    def _checkpoint_for_tools(self, state: AgentState) -> bool:
-        """若本轮将执行文件变更工具，先落一个工作区快照。
+    # 从 unified diff 的 ---/+++ 头提取文件名
+    _DIFF_FILE_RE = re.compile(r"^(?:---|\+\+\+) [ab]/(.+)$", re.MULTILINE)
 
-        save_workspace_state 只记录轻量摘要（label + timestamp），不是全量文件快照，
-        因此每次文件写之前调用成本很低；缺失它则 undo 栈永远为空。
+    @classmethod
+    def _candidate_paths(cls, inv) -> list[str]:
+        """从工具调用参数里提取它将要改动的文件路径。
+
+        apply_patch 的目标路径写在 patch 文本内部（--- a/x / +++ b/x），
+        不在参数里；不解析 diff 就取不到目标，新建/删除文件也就无法回滚。
+        取不到路径时返回空列表，此时 undo 会如实报告"无可恢复内容"，
+        而不是假装成功。
+        """
+        args = getattr(inv, "arguments", None)
+        if not isinstance(args, dict):
+            return []
+
+        out: list[str] = []
+        for key in ("path", "file", "file_path", "filepath", "destination"):
+            v = args.get(key)
+            if isinstance(v, str) and v:
+                out.append(v)
+
+        # apply_patch: 目标路径藏在 diff 头里
+        patch_text = args.get("patch")
+        if isinstance(patch_text, str) and patch_text:
+            for m in cls._DIFF_FILE_RE.finditer(patch_text):
+                name = m.group(1).strip()
+                if name and name != "/dev/null":
+                    out.append(name)
+
+        return out
+
+    def _checkpoint_for_tools(self, state: AgentState) -> bool:
+        """本轮若将执行文件变更工具，先记录这些文件的当前内容以便回滚。
+
+        只快照被本次调用涉及的路径（不是整个工作区）—— 全量拷贝在大仓库上
+        不可接受。undo 依赖这份快照做真实还原；此前它只存 label 字符串，
+        导致 /checkpoint/undo 返回 undone=True 却不还原任何内容。
         返回是否落了快照（供测试断言）。
         """
-        if not any(inv.name in self._FILE_MUTATING_TOOLS for inv in state.tool_invocations):
+        targets: list[str] = []
+        for inv in state.tool_invocations:
+            if inv.name in self._FILE_MUTATING_TOOLS:
+                targets.extend(self._candidate_paths(inv))
+
+        if not targets:
             return False
+
+        # 去重，避免同一文件被多次读盘
+        seen: set[str] = set()
+        unique: list[str] = []
+        for t in targets:
+            if t not in seen:
+                seen.add(t)
+                unique.append(t)
+
         try:
             self.checkpoints.save_workspace_state(
-                label=f"pre_tool_{state.session_id}_{state.total_turns}"
+                label=f"pre_tool_{state.session_id}_{state.total_turns}",
+                paths=unique,
+                workspace=state.workspace,
             )
             return True
         except Exception:
@@ -943,7 +1054,7 @@ class AgentGraph:
                 state.add_message(Message.system("Session cancelled by user."))
                 break
 
-            if state.total_turns >= self.max_turns: break
+            if state.total_turns >= self._effective_max_turns: break
 
             if state.empty_turns >= self.max_empty_turns: break
 

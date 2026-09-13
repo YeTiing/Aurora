@@ -47,6 +47,7 @@ class BuildStats:
     edges: int = 0
     errors: list[dict] = field(default_factory=list)
     duration_sec: float = 0.0
+    estimated_sec: float = 0.0   # 开工前预估（大仓库会显著超预算）
     _t0: float = 0.0
 
     def to_dict(self) -> dict:
@@ -57,6 +58,7 @@ class BuildStats:
             "symbols": self.symbols,
             "edges": self.edges,
             "duration_sec": round(self.duration_sec, 2),
+            "estimated_sec": self.estimated_sec,
             "errors": self.errors[:20],
             "error_count": len(self.errors),
         }
@@ -178,6 +180,27 @@ async def build(
     index = build_symbol_index(all_symbols)
     targets = [s for s in all_symbols if s.kind in ("function", "method")]
     sem = asyncio.Semaphore(max(1, concurrency))
+
+    # ⚠️ 实测的规模特性：**每符号成本随仓库规模上升**。
+    #    32 文件  -> 35ms/符号
+    #    346 文件 -> 274ms/符号
+    #    整个仓库 -> 354ms/符号
+    # 原因是 pyright 每次 callHierarchy 都要在更大的项目图上解析。
+    # 并发只能加速到 ~8 路（再高无收益，实测 16/32 与 8 持平）。
+    #
+    # 因此大仓库的 build 会显著超时（346 文件实测 817s，合约 13.6 分钟）。
+    # 这里给出**开工前的预估**，避免用户盲目等待 —— 与文档
+    # 「100 文件 < 5 分钟」的验收标准对照，让偏差可见。
+    _scaled_ms = 35 + max(0, stats.files_scanned - 32) * 0.77
+    _est_sec = len(targets) * _scaled_ms / 1000 / max(1, concurrency)
+    if _est_sec > 300:
+        logger.warning(
+            "necessity build 预估 %.0fs（%.1f 分钟）超 300s 预算："
+            "%d 文件 / %d 符号。每符号成本随仓库规模上升（pyright 全项目解析），"
+            "建议缩小 --repo 范围或接受更长耗时。",
+            _est_sec, _est_sec / 60, stats.files_scanned, len(targets),
+        )
+    stats.estimated_sec = round(_est_sec, 1)
 
     async def _one(sym):
         async with sem:

@@ -368,3 +368,20 @@ class CheckpointManager:
     def stats(self) -> dict:
 
         return {"memory_count": len(self._memory), "storage_dir": str(self.storage_dir)}
+
+
+_checkpoint_manager: CheckpointManager | None = None
+
+
+def get_checkpoint_manager() -> CheckpointManager:
+    """进程级 CheckpointManager 单例。
+
+    undo/redo/workspace 栈全部是实例内存（见 __init__），若每个请求 new 一个，
+    路由看到的栈永远为空 —— 这正是 /checkpoint/undo 恒返回 "Nothing to undo" 的根因。
+    AgentGraph 默认也复用同一实例，这样执行期 save_workspace_state 落的快照，
+    路由才能读到。
+    """
+    global _checkpoint_manager
+    if _checkpoint_manager is None:
+        _checkpoint_manager = CheckpointManager()
+    return _checkpoint_manager

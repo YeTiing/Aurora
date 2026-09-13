@@ -54,8 +54,9 @@ async def list_mcp_servers():
 @router.post("/checkpoint/undo")
 async def undo_checkpoint():
     """Undo last checkpoint action."""
-    from backend.agent.checkpoint import CheckpointManager
-    mgr = CheckpointManager()
+    # 必须用进程级单例：栈是实例内存，每请求 new 一个会永远是空栈
+    from backend.agent.checkpoint import get_checkpoint_manager
+    mgr = get_checkpoint_manager()
     cid = mgr.undo()
     if cid is None:
         return {"undone": False, "message": "Nothing to undo"}
@@ -64,8 +65,8 @@ async def undo_checkpoint():
 @router.post("/checkpoint/redo")
 async def redo_checkpoint():
     """Redo last undone checkpoint action."""
-    from backend.agent.checkpoint import CheckpointManager
-    mgr = CheckpointManager()
+    from backend.agent.checkpoint import get_checkpoint_manager
+    mgr = get_checkpoint_manager()
     cid = mgr.redo()
     if cid is None:
         return {"redone": False, "message": "Nothing to redo"}
@@ -74,12 +75,39 @@ async def redo_checkpoint():
 @router.get("/checkpoint/list")
 async def list_checkpoints():
     """List checkpoint history."""
-    from backend.agent.checkpoint import CheckpointManager
-    mgr = CheckpointManager()
+    from backend.agent.checkpoint import get_checkpoint_manager
+    mgr = get_checkpoint_manager()
     history = mgr.list_history()
     undo_count = sum(1 for h in history if h["type"] == "undo_stack")
     redo_count = sum(1 for h in history if h["type"] == "redo_stack")
     return {"history": history, "count": len(history), "undo_count": undo_count, "redo_count": redo_count}
+
+class ResumeRequest(BaseModel):
+    checkpoint_id: str
+
+@router.post("/checkpoint/resume")
+async def resume_checkpoint(req: ResumeRequest):
+    """从指定检查点恢复并继续执行 Agent 循环。
+
+    此前 resume() 只有内部实现，没有任何 HTTP 入口，用户拿到 checkpoint_id 也无法续跑。
+    """
+    from backend.api.deps import get_graph_for
+    from backend.agent.checkpoint import get_checkpoint_manager
+
+    state = get_checkpoint_manager().load(req.checkpoint_id)
+    if state is None:
+        raise HTTPException(404, f"Checkpoint not found: {req.checkpoint_id}")
+
+    # 用状态里的 session_id 取该会话专属图，保证预算/model 与恢复会话一致
+    g = get_graph_for(state.session_id)
+    resumed = await g.resume(req.checkpoint_id)
+    if resumed is None:
+        raise HTTPException(404, f"Checkpoint not found: {req.checkpoint_id}")
+    return {
+        "session_id": resumed.session_id,
+        "final_response": resumed.final_response,
+        "plan": [p.to_dict() for p in resumed.plan],
+    }
 
 # ── Task Queue ──
 @router.get("/sessions")

@@ -48,7 +48,7 @@ Aurora/
 │   │   ├── nodes.py          # Planner / Executor / Observer / Synthesizer
 │   │   ├── llm_client.py     # LLM 客户端（多Provider复用）
 │   │   ├── state.py          # AgentState 状态管理
-│   │   └── checkpoint.py     # 检查点回滚
+│   │   └── checkpoint.py     # 检查点：状态快照 + 被改文件内容回滚
 │   ├── tools/                # 29 个工具实现（20 个分类）
 │   │   ├── shell_command.py  # 终端命令执行
 │   │   ├── apply_patch.py    # Diff/Patch 应用引擎
@@ -92,7 +92,7 @@ Aurora/
 | **模型发现** | 多 Provider 自动发现、基准测试、推荐 |
 | **Token 预算** | 会话级 Token 配额管理 |
 | **目标系统** | Goal 创建 + 预算追踪 + 状态管理 |
-| **检查点** | 执行回滚 / 恢复 |
+| **检查点** | 状态快照 + 文件内容回滚（改前记录受影响文件，undo 时写回） |
 | **桌面端** | Electron + React，会话管理、Diff面板、终端、文件树 |
 
 ## API 概览
@@ -109,7 +109,7 @@ Aurora/
 | **Models** | `/models` `/models/discover` `/models/test` `/models/recommend` |
 | **Sessions** | `/sessions` `/sessions/{id}/rollout` |
 | **Threads** | `/threads` `/threads/{id}/fork` `/threads/{id}/archive` |
-| **Checkpoint** | `/checkpoint` `/checkpoint/undo` `/checkpoint/redo` |
+| **Checkpoint** | `/checkpoint/undo` `/checkpoint/redo` `/checkpoint/resume` `/checkpoint/list`（undo 会真实还原文件，响应含 restored/removed/failed 统计） |
 | **Browser** | `/browser/navigate` `/browser/screenshot` `/browser/click` |
 | **Memory** | `/memory/semantic/index` `/memory/semantic/search` |
 | **Marketplace** | `/marketplace` `/marketplace/install` |

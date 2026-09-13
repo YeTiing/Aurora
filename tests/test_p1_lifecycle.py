@@ -186,9 +186,19 @@ def test_graph_pushes_workspace_snapshot_before_file_tool(tmp_path):
     state = AgentState(session_id="ws-1")
     assert g._checkpoint_for_tools(state) is False  # 无文件工具，不落快照
 
+    # 空参数解析不出目标文件 -> 不落快照（旧实现会落一个不含内容的空快照，
+    # 让 undo 返回成功却什么都不还原）。这里断言新语义：无路径则不快照。
     state.tool_invocations.append(ToolInvocation(id="c1", name="apply_patch", arguments={}))
+    assert g._checkpoint_for_tools(state) is False
+
+    # 给出可解析的 diff 头 -> 落快照，且快照内含真实文件内容
+    patch_text = "--- a/x.py\n+++ b/x.py\n@@ -1 +1 @@\n-a\n+b\n"
+    (tmp_path / "x.py").write_text("a", encoding="utf-8")
+    state.tool_invocations = [
+        ToolInvocation(id="c2", name="apply_patch", arguments={"patch": patch_text})
+    ]
+    state.workspace = str(tmp_path)
     assert g._checkpoint_for_tools(state) is True
-    assert len(mgr.list_history()) == 1
     assert mgr.undo() is not None  # 栈里确实有内容
 
 
@@ -199,18 +209,43 @@ async def test_checkpoint_routes_use_persistent_manager(tmp_path, monkeypatch):
     mgr = CheckpointManager(storage_dir=str(tmp_path))
     # 路由与图共用同一单例；若路由仍 new 实例，下面会拿到 "Nothing to undo"
     monkeypatch.setattr(checkpoint_mod, "_checkpoint_manager", mgr)
-    mgr.save_workspace_state("pre_tool_apply_patch")
+
+    # 造一个含真实文件内容的快照：undo 现在会实际还原文件，
+    # 目标文件不存在时 last_restore() 为 None，路由会如实回报"未还原任何内容"。
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    target = ws / "a.py"
+    target.write_text("原始", encoding="utf-8")
+    cid = mgr.save_workspace_state("pre_tool_apply_patch", paths=["a.py"], workspace=str(ws))
 
     listed = await sessions_routes.list_checkpoints()
     assert listed["count"] == 1
     assert listed["undo_count"] == 1
 
+    target.write_text("被改坏", encoding="utf-8")
     undone = await sessions_routes.undo_checkpoint()
     assert undone["undone"] is True
-    assert undone["checkpoint_id"]
+    assert undone["checkpoint_id"] == cid
+    assert undone["restored"] == 1
+    assert target.read_text(encoding="utf-8") == "原始", "路由层 undo 必须真的还原文件"
 
     redone = await sessions_routes.redo_checkpoint()
     assert redone["redone"] is True
+    assert target.read_text(encoding="utf-8") == "被改坏"
+
+
+@pytest.mark.asyncio
+async def test_undo_route_reports_honestly_when_no_snapshot(tmp_path, monkeypatch):
+    """无文件内容的快照：undo 必须回报 undone=False，而不是假称已回滚。"""
+    import backend.agent.checkpoint as checkpoint_mod
+
+    mgr = CheckpointManager(storage_dir=str(tmp_path))
+    monkeypatch.setattr(checkpoint_mod, "_checkpoint_manager", mgr)
+    mgr.save_workspace_state("legacy_without_paths")
+
+    result = await sessions_routes.undo_checkpoint()
+    assert result["undone"] is False
+    assert "未还原任何内容" in result["message"]
 
 
 # ══ B5: resume 路由 ══

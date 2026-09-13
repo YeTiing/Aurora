@@ -53,24 +53,56 @@ async def list_mcp_servers():
 
 @router.post("/checkpoint/undo")
 async def undo_checkpoint():
-    """Undo last checkpoint action."""
+    """回滚最近一次工作区改动。
+
+    响应如实回报实际还原了多少文件 —— 此前只要栈非空就返回 undone=True，
+    即使一个文件都没还原（那时 undo 只移动栈指针），是数据安全上的假象。
+    """
     # 必须用进程级单例：栈是实例内存，每请求 new 一个会永远是空栈
     from backend.agent.checkpoint import get_checkpoint_manager
     mgr = get_checkpoint_manager()
     cid = mgr.undo()
     if cid is None:
         return {"undone": False, "message": "Nothing to undo"}
-    return {"undone": True, "checkpoint_id": cid}
+
+    stats = mgr.last_restore()
+    if not stats:
+        return {
+            "undone": False,
+            "checkpoint_id": cid,
+            "message": "该检查点不含文件快照，未还原任何内容（仅移动了回滚指针）",
+        }
+    return {
+        "undone": True,
+        "checkpoint_id": cid,
+        "restored": stats.get("restored", 0),
+        "removed": stats.get("removed", 0),
+        "failed": stats.get("failed", 0),
+    }
 
 @router.post("/checkpoint/redo")
 async def redo_checkpoint():
-    """Redo last undone checkpoint action."""
+    """重做被上次 undo 撤销的改动。"""
     from backend.agent.checkpoint import get_checkpoint_manager
     mgr = get_checkpoint_manager()
     cid = mgr.redo()
     if cid is None:
         return {"redone": False, "message": "Nothing to redo"}
-    return {"redone": True, "checkpoint_id": cid}
+
+    stats = mgr.last_restore()
+    if not stats:
+        return {
+            "redone": False,
+            "checkpoint_id": cid,
+            "message": "该检查点无可重做内容（undo 时未能记录撤销前状态）",
+        }
+    return {
+        "redone": True,
+        "checkpoint_id": cid,
+        "restored": stats.get("restored", 0),
+        "removed": stats.get("removed", 0),
+        "failed": stats.get("failed", 0),
+    }
 
 @router.get("/checkpoint/list")
 async def list_checkpoints():

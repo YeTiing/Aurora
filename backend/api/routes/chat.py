@@ -20,6 +20,25 @@ from backend.config import config as _cfg_module
 from backend.agent.llm_client import LLMClient, LLMConfig
 from backend.api.path_security import resolve_allowed_path
 
+def _build_full_prompt(message: str) -> str:
+    """把 skills 触发结果与 RAG 检索上下文注入用户消息，返回完整提示词。
+
+    REST 与 WS 四条入口必须共用同一实现：此前只有 REST 端点做了注入，
+    而桌面端实际走 /ws/desktop（Electron ipcMain "agent:chat"），
+    导致产品形态下技能与 RAG 上下文永远不生效。输出格式与旧 REST 实现保持逐字节一致。
+    """
+    ensure_all()
+    skills_ctx = ""; rag_ctx = ""
+    if _deps._skills:
+        triggered = skills().match(message)
+        skills_ctx = skills().inject(triggered)
+    # 空向量库直接跳过检索：既省一次 embedding 调用，也沿用原有守卫语义
+    if _deps._rag and rag().vector_store.count() > 0:
+        chunks = rag().search(message, top_k=5, llm_client=_deps._llm)
+        if chunks: rag_ctx = rag().format_context(chunks)
+    return f"{skills_ctx}{rag_ctx}User: {message}" if (skills_ctx or rag_ctx) else message
+
+
 # Shared lazy deps
 @router.post("/soul")
 async def soul_update(req: dict):
@@ -39,42 +58,23 @@ async def health():
 @router.post("/chat")
 async def chat(req: ChatRequest):
     sid = req.session_id or f"session_{uuid.uuid4().hex[:8]}"
-    ensure_all()
-    skills_ctx = ""; rag_ctx = ""
-    if _deps._skills:
-        triggered = skills().match(req.message)
-        skills_ctx = skills().inject(triggered)
-    if _deps._rag and rag().vector_store.count() > 0:
-        chunks = rag().search(req.message, top_k=5, llm_client=_deps._llm)
-        if chunks: rag_ctx = rag().format_context(chunks)
-    full = f"{skills_ctx}\
-{rag_ctx}\
-User: {req.message}" if (skills_ctx or rag_ctx) else req.message
+    full = _build_full_prompt(req.message)
     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
     from backend.session_registry import track
     track(sid, req.workspace)
-    state = await graph().run(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history, agent_role=req.agent_role, reasoning_effort=req.reasoning_effort)
+    # 会话级图：token 预算/model/取消标记不能跨会话共享
+    state = await _deps.get_graph_for(sid).run(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history, agent_role=req.agent_role, reasoning_effort=req.reasoning_effort)
     return AgentResponse(session_id=sid, response=state.final_response, plan=[p.to_dict() for p in state.plan], diffs=state.diffs)
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest):
     sid = req.session_id or f"session_{uuid.uuid4().hex[:8]}"
-    ensure_all()
-    skills_ctx = ""; rag_ctx = ""
-    if _deps._skills:
-        triggered = skills().match(req.message)
-        skills_ctx = skills().inject(triggered)
-    if _deps._rag and rag().vector_store.count() > 0:
-        chunks = rag().search(req.message, top_k=5, llm_client=_deps._llm)
-        if chunks: rag_ctx = rag().format_context(chunks)
-    full = f"{skills_ctx}\
-{rag_ctx}\
-User: {req.message}" if (skills_ctx or rag_ctx) else req.message
+    full = _build_full_prompt(req.message)
     history2 = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (req.history or [])]
     from backend.session_registry import track
     track(sid, req.workspace)
     async def gen():
-        async for chunk in graph().run_with_stream(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history2, agent_role=req.agent_role, reasoning_effort=req.reasoning_effort):
+        async for chunk in _deps.get_graph_for(sid).run_with_stream(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history2, agent_role=req.agent_role, reasoning_effort=req.reasoning_effort):
             yield f"data: {json.dumps(chunk, ensure_ascii=False)}\
 \
 "
@@ -128,7 +128,9 @@ async def desktop_websocket(ws: WebSocket):
                 }, ensure_ascii=False))
                 
                 try:
-                    ensure_all(); graph = _deps._graph
+                    # 注入必须在取 graph 之前：_build_full_prompt 内部会 ensure_all()
+                    full = _build_full_prompt(user_text)
+                    graph = _deps.get_graph_for(session_id)
                     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (msg.get("history") or [])]
                     await thread_follower.start_turn(
                         thread_id=session_id,
@@ -142,7 +144,7 @@ async def desktop_websocket(ws: WebSocket):
                         ),
                     )
                     state = await graph.run(
-                        user_text,
+                        full,
                         session_id=session_id,
                         workspace=workspace,
                         sandbox_mode=sandbox_mode,
@@ -300,9 +302,11 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                     "data": {"content": user_text},
                 }, ensure_ascii=False))
                 try:
+                    # 与 REST / WS-desktop 保持同一注入路径（RAG + skills）
+                    full = _build_full_prompt(user_text)
                     history = [{"role": h.get("role","user"), "content": h.get("content","")} for h in (msg.get("history") or [])]
-                    state = await graph().run(
-                        user_text,
+                    state = await _deps.get_graph_for(session_id).run(
+                        full,
                         session_id=session_id,
                         workspace=msg.get("workspace","."),
                         sandbox_mode=sandbox_mode,
@@ -330,7 +334,10 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                     }, ensure_ascii=False))
             elif msg.get("type") == "cancel":
                 try:
-                    await graph().cancel(session_id)
+                    # 取消后释放该会话的图；注意 cancel 本身保留检查点，
+                    # 用户仍可经 /checkpoint/resume 续跑。
+                    await _deps.get_graph_for(session_id).cancel(session_id)
+                    _deps.drop_graph_for(session_id)
                 except Exception:
                     pass
                 await ws.send_text(json.dumps({"type": "codex/event/turn_aborted", "data": {"reason": "user_cancelled"}}))

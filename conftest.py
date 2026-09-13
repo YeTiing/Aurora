@@ -38,7 +38,7 @@ def _stub_llm_api_key(request, monkeypatch):
     只对确实需要它的测试模块生效：test_config 断言 llm_api_key 为空，
     全局注入会破坏该断言。
     """
-    needs_key = {"test_backend_closure", "test_api_security_boundaries"}
+    needs_key = {"test_backend_closure", "test_api_security_boundaries", "test_p1_ws_context"}
     if request.module.__name__.split(".")[-1] in needs_key:
         monkeypatch.setenv("AURORA_LLM_API_KEY", "test-placeholder-key")
     yield

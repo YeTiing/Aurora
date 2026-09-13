@@ -7,9 +7,10 @@ State machine: stopped → starting → running / error; running → stopping �
 
 from __future__ import annotations
 
-import asyncio
+import asyncio, os
 import logging
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Optional
@@ -90,13 +91,40 @@ class LSPServerInstance:
 
     # ── Lifecycle ───────────────────────────────────────────────
 
-    async def start(self) -> None:
-        """Start the LSP server and send initialize."""
+    async def start(self, root_path: str | os.PathLike | None = None) -> None:
+        """Start the LSP server and send initialize.
+
+        `root_path` 应该是**仓库根目录**。省略时退回 config.cwd（保持既有
+        调用方可用），但那正是原先的隐式依赖 —— 会打 warning。
+
+        ⚠️ 为什么必须传 rootUri / workspaceFolders（实测教训）：
+        原先两者都是 None/[]，pyright 无法确定项目根，跨文件解析静默退化 ——
+        `documentSymbol` 返回 **0 个符号且不报错**，references 与
+        callHierarchy 全部失效。靠 cwd 兜底是巧合，不是保证。
+        """
         if self._state == LspServerState.RUNNING:
             return
 
         self._state = LspServerState.STARTING
         self._last_error = None
+
+        # 解析工作区根：优先显式参数，其次 config.cwd
+        raw_root = root_path or self.config.cwd
+        repo_root: Path | None = None
+        if raw_root:
+            try:
+                candidate = Path(raw_root).resolve()
+                if candidate.is_dir():
+                    repo_root = candidate
+            except Exception:
+                repo_root = None
+        if repo_root is None:
+            logger.warning(
+                "LSP '%s' 启动时未提供有效的 root_path（config.cwd=%r）—— "
+                "rootUri/workspaceFolders 将缺失，跨文件解析会静默退化",
+                self.name, self.config.cwd,
+            )
+
         logger.info(f"Starting LSP server '{self.name}': {self.config.command} {' '.join(self.config.args)}")
 
         try:
@@ -107,13 +135,16 @@ class LSPServerInstance:
                 resolve_executable(self.config.command),
                 self.config.args,
                 env=self.config.env or None,
-                cwd=self.config.cwd,
+                cwd=str(repo_root) if repo_root else self.config.cwd,
             )
 
-            # Build initialize params
+            # Build initialize params —— rootUri/workspaceFolders 必须有值
+            root_uri = repo_root.as_uri() if repo_root else None
             init_params = {
-                "processId": None,  # Not a child of an editor
-                "rootUri": None,
+                "processId": os.getpid(),  # 让 server 感知父进程死亡
+                "clientInfo": {"name": "aurora", "version": "0.2.0"},
+                "rootUri": root_uri,
+                "rootPath": str(repo_root) if repo_root else None,
                 "capabilities": {
                     "textDocument": {
                         "diagnostic": {"dynamicRegistration": True},
@@ -122,14 +153,22 @@ class LSPServerInstance:
                         "definition": {"dynamicRegistration": True},
                         "references": {"dynamicRegistration": True},
                         "completion": {"dynamicRegistration": True},
+                        # 采符号必需：不声明则 documentSymbol 可能返回扁平结构
+                        "documentSymbol": {
+                            "dynamicRegistration": True,
+                            "hierarchicalDocumentSymbolSupport": True,
+                        },
                     },
                     "workspace": {
                         "configuration": True,
+                        "workspaceFolders": True,
                         "didChangeConfiguration": {"dynamicRegistration": True},
                     },
                 },
                 "initializationOptions": self.config.initialization_options or {},
-                "workspaceFolders": [],
+                "workspaceFolders": (
+                    [{"uri": root_uri, "name": repo_root.name}] if repo_root else []
+                ),
             }
 
             result = await self._client.initialize(init_params)

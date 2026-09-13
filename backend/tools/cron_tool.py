@@ -52,6 +52,7 @@ async def cron_handler(
 
 CRON_SPEC = ToolSpec(
     name="cron",
+    exposure="deferred",
     description=(
         "Schedule recurring tasks with natural language. "
         "Schedule examples: 'every 10 minutes', 'every 1 hour', 'daily at 08:00', 'daily at 18:30'. "

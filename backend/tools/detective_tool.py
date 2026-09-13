@@ -51,6 +51,7 @@ async def detective_handler(action: str = "", file: str = "", lines: str = "", b
 
 DETECTIVE_SPEC = ToolSpec(
     name="detective",
+    exposure="deferred",
     description="Bug forensics: trace bugs to root cause commit. Actions: analyze (full trace), blame (line-by-line commit history), bisect (automated git bisect).",
     parameters={
         "type": "object",

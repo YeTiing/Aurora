@@ -31,7 +31,7 @@ VIEW_IMAGE_SPEC = ToolSpec(
         "required": ["path"]
     },
     category="file_io",
-    exposure="direct",
+    exposure="deferred",
 )
 
 SUPPORTED_FORMATS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico", ".tiff", ".tif"}

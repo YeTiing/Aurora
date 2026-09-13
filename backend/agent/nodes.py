@@ -11,7 +11,72 @@ from backend.goal import goal_manager
 from backend.context.token_tracker import TokenBudget
 from backend.agent.integration_hooks import post_file_edit_hook, post_session_hook, post_edit_security_hook
 
+import logging
+
+logger = logging.getLogger("aurora.agent.nodes")
+
 SYSTEM_PROMPT = get_desktop_prompt()
+
+
+def _tools_digest(tools_schema: list[dict] | None, max_chars: int = 3000) -> str:
+    """把工具表压成**一行一个**的简报，用于提示词。
+
+    为什么必须压缩：工具 schema 已经通过原生 `tools=` 参数传给模型了，
+    再把它整份 `json.dumps(indent=2)` 塞进 prompt 是**重复**的。
+    实测 29 个工具 = 35,130 字符 ≈ 11,710 tokens，而每次 tool_select 的
+    prompt 合计约 14,584 tokens、会话预算是 24,000 —— 于是 Agent 只有
+    约 1 个可用轮次，第 2 轮就「预算耗尽」收工，任务必然做不完。
+    而模型在原生 schema 之外还看到一份 JSON 文本，也更容易改成输出文本。
+
+    这里只给「名字: 首行描述」，够模型挑工具；参数细节由原生 schema 提供。
+    """
+    lines: list[str] = []
+    for t in (tools_schema or []):
+        fn = t.get("function") if isinstance(t, dict) else None
+        if not isinstance(fn, dict):
+            continue
+        name = str(fn.get("name") or "")
+        if not name:
+            continue
+        desc = str(fn.get("description") or "").strip().split("\n")[0][:100]
+        lines.append(f"- {name}: {desc}" if desc else f"- {name}")
+    out = "\n".join(lines)
+    if len(out) > max_chars:
+        # 截断要**说明**，否则模型以为工具就这些
+        out = out[:max_chars] + f"\n...（另有 {len(lines)} 个工具，完整定义见原生工具参数）"
+    return out
+
+
+def _with_type(tool_calls: list[dict] | None) -> list[dict]:
+    """补齐 tool_calls 每项的 `type: "function"`（OpenAI 兼容接口的必需字段）。
+
+    为什么需要单独一个函数：写入历史的 tool_calls 是从 provider 响应
+    **逐项重建**出来的（只保留 id/name/arguments），丢掉了 `type`。
+    而请求体校验要求它存在，否则下一次调用返回 400：
+        messages[N]: missing field `type`
+    这在只调一次 LLM 的场景下不会暴露 —— 只有「先调工具、再把历史发回去」
+    时才触发，也就是**恰好每次 Agent 循环**。
+
+    幂等：已有 type 的项原样保留（provider 原样返回时不该被改写）。
+    """
+    out = []
+    for tc in (tool_calls or []):
+        if not isinstance(tc, dict):
+            continue
+        if "type" in tc:
+            out.append(tc)
+            continue
+        # 兼容两种形状：{"id","function":{...}} 与扁平的 {"id","name","arguments"}
+        if "function" in tc:
+            out.append({"type": "function", **tc})
+        else:
+            out.append({
+                "id": tc.get("id", ""),
+                "type": "function",
+                "function": {"name": tc.get("name", ""),
+                             "arguments": tc.get("arguments", "{}")},
+            })
+    return out
 
 
 def _system_prompt_for(state: AgentState) -> str:
@@ -29,6 +94,9 @@ Requirements:
 - Order steps by dependency
 - Estimate complexity as "estimated_turns" (int, 1-3 turns per step)
 - Return ONLY a JSON array of objects with "step" (int), "description" (string), "tool" (string or null), "estimated_turns" (int)
+
+Do NOT call tools in this step. Do NOT attempt to read files, run commands, or search the codebase.
+You have no tool access here — your ONLY job is to output the plan as JSON.
 
 User request: {user_input}
 
@@ -54,6 +122,11 @@ async def planner_node(state: AgentState, llm: LLMClient) -> dict:
         if hasattr(resp, 'total_tokens'):
             goal_manager.track_tokens(resp.total_tokens)
         plan_data = _parse_plan_json(content)
+        # 解析失败时把原始输出记下来 —— 上面的 except 会把它替换成一句
+        # 「Execute: ...」，原始内容就再也看不到了，而它正是定位问题的唯一线索。
+        if not _looks_like_plan(plan_data):
+            logger.warning("planner 未产出 JSON 计划，回退为单步。原始输出前 500 字: %s",
+                           (content or "")[:500])
         plan = [PlanStep(step=i+1, description=p.get("description", f"Step {i+1}"),
                          tool=p.get("tool"), estimated_turns=p.get("estimated_turns", 1))
                 for i, p in enumerate(plan_data)]
@@ -64,8 +137,28 @@ async def planner_node(state: AgentState, llm: LLMClient) -> dict:
     return {"plan": [p.to_dict() for p in plan]}
 
 
+# 模型把「工具调用」编成文本时的标记。出现这些说明它把 planner 当成了
+# 要动手干活的环节 —— 那整段文本**不能**当作一个计划步骤（实测踩过：
+# 计划变成单步 '<invoke name="shell_command">...'，随后整条循环崩坏）。
+_TOOL_MARKUP_RE = re.compile(r"<\s*(invoke|tool_calls?|antml:invoke|function_calls)\b", re.I)
+
+
+def _looks_like_plan(plan_data: Any) -> bool:
+    """判断解析结果是不是**真计划**（而不是一段工具调用文本）。"""
+    if not isinstance(plan_data, list) or not plan_data:
+        return False
+    first = plan_data[0]
+    if not isinstance(first, dict):
+        return False
+    desc = str(first.get("description") or "")
+    if _TOOL_MARKUP_RE.search(desc):
+        return False
+    # 真计划至少有一项带描述；纯文本回退项也算不合格
+    return bool(desc.strip())
+
+
 def _parse_plan_json(text: str) -> list[dict]:
-    text = text.strip()
+    text = (text or "").strip()
     if text.startswith("```"):
         text = re.sub(r"```\w*\n?", "", text).strip("` \n")
     try:
@@ -78,6 +171,12 @@ def _parse_plan_json(text: str) -> list[dict]:
             return [data]
     except json.JSONDecodeError:
         pass
+
+    # JSON 解析失败：模型多半输出了一段散文或工具标记。这里**不再**
+    # 把整段文本塞进一个步骤的描述里 —— 那会让计划看起来「有 1 步」，
+    # 掩盖「规划失败」这个事实，并让下游拿着一段工具标记当计划执行。
+    if _TOOL_MARKUP_RE.search(text):
+        return []
 
     steps = []
     for line in text.split("\n"):
@@ -136,7 +235,8 @@ async def tool_select_node(
         current_step=state.current_step,
         total_steps=len(state.plan),
         current_status=current_status,
-        tools_description=json.dumps(tools_schema, indent=2),
+        # 只给简报，完整 schema 由原生 tools= 提供（见 _tools_digest）
+        tools_description=_tools_digest(tools_schema),
     )
 
     messages = [
@@ -180,7 +280,19 @@ async def tool_select_node(
                 batch.append(inv)
             state.add_message(Message.assistant(
                 content=content or "Calling " + ", ".join(i.name for i in batch),
-                tool_calls=tool_calls,
+                # ⚠️ 必须补 `type: "function"`。provider 返回的 tool_calls 里
+                # 本来就带这个字段，但 `Message.assistant` 存的是从 provider
+                # 响应里**逐项重建**过的列表（只留了 id/name/arguments），于是
+                # 再序列化回请求体时缺 `type` —— 下一次调用直接 400：
+                #   "Failed to deserialize the JSON body into the target type:
+                #    messages[N]: missing field `type`"
+                # 后果是**灾难性的且难定位**：第一次工具调用之后的所有 LLM
+                # 调用全部失败 →
+                #   planner 落到 except（把原始文本当计划）
+                #   tool_select 落到 except（只塞一条 system 消息，丢掉 assistant 消息）
+                #   模型在畸形历史下退化成输出 XML 文本而不是 native tool_calls
+                #   → Agent 全程不写文件，却报 "Task completed."
+                tool_calls=_with_type(tool_calls),
             ))
             state.empty_turns = 0
         elif content and content.strip():

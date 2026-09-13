@@ -39,7 +39,7 @@ REQUEST_USER_INPUT_SPEC = ToolSpec(
         "required": ["questions"]
     },
     category="interaction",
-    exposure="direct",
+    exposure="deferred",
 )
 
 # 最近一次用户输入的存储

@@ -30,7 +30,7 @@ CODE_EXEC_SPEC = ToolSpec(
         "required": ["language", "code"]
     },
     category="execution",
-    exposure="direct",
+    exposure="deferred",
     timeout_ms=45000,
 )
 

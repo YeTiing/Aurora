@@ -56,6 +56,7 @@ _CONNECTOR_DESC = "connector_call lets you use connected external accounts as to
 
 CONNECTOR_CALL_SPEC = ToolSpec(
     name="connector_call",
+    exposure="deferred",
     description=_CONNECTOR_DESC,
     parameters={
         "type": "object",

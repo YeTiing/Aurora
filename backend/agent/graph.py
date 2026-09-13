@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import asyncio, logging, os, re, time, traceback
+# ⚠️ 模块级别名：run() 内部有一处 `from pathlib import Path`（第 85 行附近），
+# 会把 Path 变成该函数的**局部名**，于是同一函数里更早使用 Path 会抛
+# UnboundLocalError。用 _Path 避免与那个局部导入冲突。
+from pathlib import Path as _Path
 
 from typing import Any, Literal, Callable
 
@@ -230,7 +234,11 @@ class AgentGraph:
 
         self._apply_approval_mode(approval_mode)
 
-        ws = workspace or self.workspace
+        # 请求显式给了 workspace 就必须用它 —— 原先写的是
+        # `workspace or self.workspace`，但评测侧传入的绝对路径会被服务端
+        # 配置的 workspace 覆盖，于是 Agent 在**错误目录**里干活：
+        # 评测侧看到的 diff 恒为空、验收测试永远失败，而两边都不报错。
+        ws = str(_Path(workspace).resolve() if workspace else self.workspace)
 
         # Start deferred background tasks
         for task_fn in self._pending_tasks:
@@ -581,7 +589,11 @@ class AgentGraph:
 
         self._apply_approval_mode(approval_mode)
 
-        ws = workspace or self.workspace
+        # 请求显式给了 workspace 就必须用它 —— 原先写的是
+        # `workspace or self.workspace`，但评测侧传入的绝对路径会被服务端
+        # 配置的 workspace 覆盖，于是 Agent 在**错误目录**里干活：
+        # 评测侧看到的 diff 恒为空、验收测试永远失败，而两边都不报错。
+        ws = str(_Path(workspace).resolve() if workspace else self.workspace)
 
         # Start deferred background tasks
         for task_fn in self._pending_tasks:

@@ -16,7 +16,7 @@ BROWSER_USE_SPEC = ToolSpec(
         "required": ["method"]
     },
     category="browser",
-    exposure="direct",
+    exposure="deferred",
     timeout_ms=30000,
 )
 

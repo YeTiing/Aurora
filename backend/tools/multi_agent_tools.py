@@ -11,6 +11,7 @@ logger = logging.getLogger("aurora")
 
 SPAWN_AGENT_SPEC = ToolSpec(
     name="spawn_agent",
+    exposure="deferred",
     description=(
         "Spawn a sub-agent to work on a subtask in parallel. Returns an agent_id. "
         "After spawning, call wait_agents to collect results. Optionally pass a role "
@@ -34,6 +35,7 @@ SPAWN_AGENT_SPEC = ToolSpec(
 
 SEND_AGENT_MESSAGE_SPEC = ToolSpec(
     name="send_agent_message",
+    exposure="deferred",
     description="Send a message/instruction to a running sub-agent.",
     parameters={
         "type": "object",
@@ -49,6 +51,7 @@ SEND_AGENT_MESSAGE_SPEC = ToolSpec(
 
 WAIT_AGENTS_SPEC = ToolSpec(
     name="wait_agents",
+    exposure="deferred",
     description=(
         "Wait for one or more sub-agents to finish and return their results. "
         "Use after spawn_agent to collect parallel results."
@@ -70,6 +73,7 @@ WAIT_AGENTS_SPEC = ToolSpec(
 
 CLOSE_AGENT_SPEC = ToolSpec(
     name="close_agent",
+    exposure="hidden",
     description="Close/cleanup a sub-agent (cascade to children).",
     parameters={
         "type": "object",

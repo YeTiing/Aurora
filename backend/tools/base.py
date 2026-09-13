@@ -5,6 +5,29 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
+# 工具以**字符串**返回时的错误前缀。工具约定用 "Error: ..." 表示失败
+# （见 apply_patch / shell_command / file_rw 等），而 registry 此前对任何
+# 字符串一律记 success=True —— 于是
+#     "Error: Could not parse any file changes from the patch."
+# 被上层当成「补丁已应用」。Agent 以为改完了、实际文件没动，
+# 而 observer 的步骤流转、指标、diff 归因全部跟着错，且**不报错**。
+_ERROR_PREFIX_RE = re.compile(
+    r"^\s*(error|failed|failure|exception|traceback|patch (rejected|failed)|"
+    r"permission denied|command rejected|cannot |could not )\b",
+    re.I,
+)
+
+
+def _looks_like_error(text: str) -> bool:
+    """字符串返回值是否表示失败。
+
+    保守判定：只认**开头**的错误前缀。不用「包含 error」这种宽判据 ——
+    读文件的内容里出现 "error" 是常态，那会把成功误判成失败
+    （比漏判更糟：会让 Agent 无谓地重试）。
+    """
+    return bool(_ERROR_PREFIX_RE.match(text or ""))
+
+
 # ── 工具定义 ──
 @dataclass
 class ToolSpec:
@@ -103,17 +126,37 @@ class ToolRegistry:
     def unregister_mcp_server(self, server_name: str):
         self._mcp_tools.pop(server_name, None)
 
-    def list_tools(self, include_mcp: bool = True, category: str | None = None) -> list[ToolSpec]:
+    def list_tools(self, include_mcp: bool = True, category: str | None = None,
+                   exposures: tuple[str, ...] | None = None) -> list[ToolSpec]:
+        """列出工具。
+
+        `exposures` 按 `ToolSpec.exposure` 过滤（direct/deferred/hidden）。
+        为什么需要它：`exposure` 此前**声明了但全项目无人读取** ——
+        于是 29 个工具（含 computer_use / browser_use / spawn_agent 等
+        约 30 个不常用工具的完整 JSON Schema）每一轮都发给模型，
+        实测 35,130 字符 ≈ 11.7K tokens，占满 24K 会话预算的一轮，
+        导致 Agent 只跑 1~3 轮就「预算耗尽」收工。
+        """
         tools = list(self._tools.values())
         if include_mcp:
             for server_tools in self._mcp_tools.values():
                 tools.extend(server_tools)
         if category:
             tools = [t for t in tools if t.category == category]
+        if exposures is not None:
+            tools = [t for t in tools if t.exposure in exposures]
         return tools
 
-    def list_tools_openai(self, include_mcp: bool = True) -> list[dict]:
-        return [t.to_openai_function() for t in self.list_tools(include_mcp)]
+    def list_tools_openai(self, include_mcp: bool = True,
+                          exposures: tuple[str, ...] | None = ("direct",)) -> list[dict]:
+        """给模型的原生 tools= 用的 schema 列表。
+
+        默认**只发 direct**：deferred/hidden 的工具不占每轮上下文。
+        `deferred` 的语义是「需要时再给」——目前由 `_tools_digest` 在提示词里
+        列出名字让模型知道它们存在（完整 schema 暂不注入，见 list_tools 的说明）。
+        """
+        return [t.to_openai_function()
+                for t in self.list_tools(include_mcp, exposures=exposures)]
 
     def get_tool(self, name: str) -> ToolSpec | None:
         return self._tools.get(name)
@@ -157,10 +200,15 @@ class ToolRegistry:
                 else:
                     output_str = str(output)
                     truncated = len(output_str) > 65536
+                    is_err = _looks_like_error(output_str)
                     result = ToolCallResult(
                         id="", name=name,
                         output=truncate_output(output_str) if truncated else output_str,
-                        success=True, duration_ms=duration,
+                        # 字符串返回值必须**判别**是否错误，不能一律当成功 ——
+                        # 见 _looks_like_error 的说明。
+                        success=not is_err,
+                        error=output_str[:500] if is_err else None,
+                        duration_ms=duration,
                         metadata={"truncated": truncated}
                     )
             except PermissionError as e:

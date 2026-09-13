@@ -91,10 +91,19 @@ def _make_graph(llm) -> "AgentGraph":
     async def tool_handler(name, args, ws):
         result = await tool_registry.execute(name, args, ws)
         return {"success": result.success, "output": result.output, "error": result.error}
+    # 会话 token 预算来自配置（context.token_budget，默认 24000）。
+    # 此前 AgentGraph 内部硬编码 TokenBudget(24000)、配置项**无人读取** ——
+    # 配置里改了不生效，长任务因此总在「预算耗尽」处提前收工。
+    from backend.context.token_tracker import TokenBudget as _TB
+    try:
+        _budget = _TB(int(cfg.token_budget))
+    except Exception:
+        _budget = None
     return AgentGraph(
         llm=llm, tool_handler=tool_handler,
         tools_schema=tool_registry.list_tools_openai(),
         max_turns=cfg.max_turn_iter, workspace=".",
+        token_budget=_budget,
         # 与 checkpoint 路由共用同一管理器，undo/redo 才能看到执行期落的快照
         checkpoint_manager=get_checkpoint_manager(),
     )

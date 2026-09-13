@@ -95,6 +95,7 @@ async def skin_handler(
 
 SKIN_SPEC = ToolSpec(
     name="skin",
+    exposure="deferred",
     description=(
         "Manage Aurora themes/skins. "
         "Actions: list (show all), get (show details), apply (switch theme), "

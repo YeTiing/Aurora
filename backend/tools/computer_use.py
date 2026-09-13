@@ -58,7 +58,7 @@ COMPUTER_USE_SPEC = ToolSpec(
         "required": ["method"]
     },
     category="computer_use",
-    exposure="direct",
+    exposure="deferred",
     timeout_ms=30000,
 )
 

@@ -23,6 +23,9 @@ class AgentResponse(BaseModel):
     plan: list[dict] = []
     diffs: list[str] = []
     tokens: int = 0
+    # 真实消耗的轮次。评测侧（necessity EVAL §7.3 早停）依赖它；
+    # 此前没有该字段，消费者只能硬读并恒得 0，早停判据静默失效。
+    turns: int = 0
 
 
 class IndexRequest(BaseModel):

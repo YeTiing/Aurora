@@ -111,6 +111,7 @@ async def re_handler(action: str = "", session_id: str = "", url: str = "", file
 
 RE_SPEC = ToolSpec(
     name="re",
+    exposure="deferred",
     description=(
         "Reverse engineering toolkit. "
         "Actions: capture-start (begin traffic capture), capture-stop, capture-request (add flow), "

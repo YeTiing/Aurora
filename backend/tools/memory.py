@@ -108,6 +108,7 @@ async def memory_handler(
 
 MEMORY_SPEC = ToolSpec(
     name="memory",
+    exposure="deferred",
     description=(
         "Manage Aurora's persistent closed-loop memory across sessions. "
         "Dual-file memory: 'agent' (AGENT_MEMORY.md, 2200 chars) and 'user' (USER_PROFILE.md, 1375 chars). "

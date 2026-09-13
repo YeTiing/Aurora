@@ -32,6 +32,7 @@ async def session_export_handler(action: str = "", session_data: str = "", forma
 
 SESSION_EXPORT_SPEC = ToolSpec(
     name="session_export",
+    exposure="deferred",
     description="Export current session conversation to Markdown. Pass action='export' and session_data (JSON of the session).",
     parameters={"type":"object","properties":{"action":{"type":"string","enum":["export"]},"session_data":{"type":"string","description":"JSON serialized session data"},"format":{"type":"string","enum":["md","json"]}},"required":["action","session_data"]},
 )

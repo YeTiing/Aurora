@@ -64,7 +64,8 @@ async def chat(req: ChatRequest):
     track(sid, req.workspace)
     # 会话级图：token 预算/model/取消标记不能跨会话共享
     state = await _deps.get_graph_for(sid).run(full, session_id=sid, workspace=req.workspace, sandbox_mode=req.sandbox_mode, approval_mode=req.approval_mode, model=req.model, history=history, agent_role=req.agent_role, reasoning_effort=req.reasoning_effort)
-    return AgentResponse(session_id=sid, response=state.final_response, plan=[p.to_dict() for p in state.plan], diffs=state.diffs)
+    return AgentResponse(session_id=sid, response=state.final_response, plan=[p.to_dict() for p in state.plan], diffs=state.diffs,
+                         turns=int(getattr(state, "total_turns", 0) or 0))
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest):

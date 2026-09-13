@@ -58,3 +58,7 @@ aurora.json
 
 .vite
 
+
+# 覆盖率产物
+.coverage
+htmlcov/

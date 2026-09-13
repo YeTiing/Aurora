@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio, logging, re, time, traceback
+import asyncio, logging, os, re, time, traceback
 
 from typing import Any, Literal, Callable
 
@@ -27,6 +27,25 @@ from backend.goal import goal_manager
 from backend.context.token_tracker import TokenBudget
 import logging
 logger = logging.getLogger("aurora")
+
+# ── Necessity 钩子（可选，默认关闭）─────────────────────────────
+# 通过环境变量 AURORA_NECESSITY_PATH 指向 necessity 项目的根目录来启用。
+# 不硬编码路径：本仓库是公开的，把本地绝对路径写进版本历史既不可移植
+# 也会泄漏目录结构；而且 necessity 未发布，对其他人没有意义。
+# 未设置该变量时 _nsk_hooks 为 None，所有挂载点直接跳过 ——
+# 宿主行为与未挂载时逐字节一致（I1 空操作挂载的验收判据）。
+_nsk_hooks = None
+_nsk_path = os.environ.get("AURORA_NECESSITY_PATH", "").strip()
+if _nsk_path:
+    try:
+        import sys as _nsk_sys
+        if _nsk_path not in _nsk_sys.path:
+            _nsk_sys.path.insert(0, _nsk_path)
+        from adapter.aurora import hooks as _nsk_hooks
+    except Exception as e:
+        logger.debug("necessity hooks not loaded: %s", e)
+        _nsk_hooks = None
+
 
 
 # 沙箱模式别名归一化。
@@ -950,7 +969,23 @@ class AgentGraph:
 
                 args = dict(args); args["_approval_policy"] = state.approval_mode
 
-            return await self.tool_handler(name, args, ws)
+            # Necessity 预检：可拦截 / 改写（默认 allow，未挂载时直接跳过）
+            if _nsk_hooks is not None:
+                _nsk_d = _nsk_hooks.before_tool(name, args, state.total_turns)
+                if _nsk_d.action == "block":
+                    return {"success": False, "output": "", "error": _nsk_d.reason}
+                if _nsk_d.action == "modify" and _nsk_d.replacement is not None:
+                    name, args = _nsk_d.replacement.name, _nsk_d.replacement.arguments
+
+            _nsk_t0 = time.perf_counter()
+            _nsk_result = await self.tool_handler(name, args, ws)
+            # Necessity 后检 + 轨迹（只观察，不改结果）
+            if _nsk_hooks is not None:
+                _nsk_hooks.after_tool(
+                    name, _nsk_result, state.total_turns,
+                    duration_ms=(time.perf_counter() - _nsk_t0) * 1000,
+                )
+            return _nsk_result
 
         await executor_node(state, handler, state.workspace)
 

@@ -49,3 +49,30 @@ jobs:
         # 测试必须离线通过：conftest.py 将 AURORA_HOME 隔离到 tmp_path，
         # 无网络调用；若在无网环境失败，应作为真实缺陷上报而非跳过。
         run: python -m pytest tests/ -q
+
+  desktop:
+    name: desktop (vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install desktop deps
+        working-directory: desktop
+        run: npm ci
+
+      - name: Type-check main process
+        working-directory: desktop
+        run: npx tsc -p tsconfig.main.json --noEmit
+
+      - name: Test (vitest)
+        # 桌面端此前测试数为 0；这里守住新增的状态机/会话逻辑基线。
+        working-directory: desktop
+        run: npm run test

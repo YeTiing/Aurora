@@ -58,72 +58,30 @@ class LLMError(Exception):
 # Token 计数器
 # ═══════════════════════════════════════════════════════════════
 
+from backend.context.token_counter import (
+    TokenCounter as _CanonicalTokenCounter,
+    MODEL_ENCODINGS as _CANONICAL_MODEL_ENCODINGS,
+)
+
+
 class TokenCounter:
-    """基于 tiktoken 的Token计数，失败时回退到字符估算"""
+    """转发到 backend.context.token_counter.TokenCounter（唯一实现）。
 
-    _lock = threading.Lock()
-    _encoders: dict[str, Any] = {}
+    此前这里有一份独立实现，导致两套 MODEL_ENCODING_MAP 与两套统计口径，
+    且只有 context 那份做了离线兜底（tiktoken 不可用时回退字符估算）。
+    现改为委托，保留 TokenCounter 这个公开名字与类方法调用方式，
+    使既有调用点（LLMClient.count_tokens 等）无需改动。
+    """
 
-    MODEL_ENCODING_MAP = {
-        "gpt-4o": "o200k_base",
-        "gpt-4": "cl100k_base",
-        "gpt-4-turbo": "cl100k_base",
-        "gpt-4o-mini": "o200k_base",
-        "gpt-3.5-turbo": "cl100k_base",
-        "claude-": "cl100k_base",  # Claude 也用类似编码估算
-    }
-
-    @classmethod
-    def _get_encoder(cls, model: str):
-        with cls._lock:
-            if model in cls._encoders:
-                return cls._encoders[model]
-
-        encoding_name = "cl100k_base"
-        for prefix, name in cls.MODEL_ENCODING_MAP.items():
-            if model.startswith(prefix):
-                encoding_name = name
-                break
-
-        try:
-            import tiktoken
-            encoder = tiktoken.get_encoding(encoding_name)
-        except (ImportError, Exception):
-            encoder = None
-
-        with cls._lock:
-            cls._encoders[model] = encoder
-        return encoder
+    MODEL_ENCODING_MAP = _CANONICAL_MODEL_ENCODINGS
 
     @classmethod
     def count(cls, text: str, model: str = "gpt-4o") -> int:
-        if not text:
-            return 0
-        encoder = cls._get_encoder(model)
-        if encoder:
-            try:
-                return len(encoder.encode(text))
-            except Exception:
-                pass
-        return len(text) // 4  # 粗略估算
+        return _CanonicalTokenCounter(model).count(text)
 
     @classmethod
     def count_messages(cls, messages: list[dict], model: str = "gpt-4o") -> int:
-        """计算消息列表的Token数（含格式开销）"""
-        total = 0
-        for msg in messages:
-            total += 4  # 消息格式固定开销
-            for key, val in msg.items():
-                if isinstance(val, str):
-                    total += cls.count(val, model)
-                elif isinstance(val, list):
-                    for item in val:
-                        if isinstance(item, dict):
-                            total += cls.count(json.dumps(item, ensure_ascii=False), model)
-            if msg.get("role") == "tool":
-                total -= 2  # tool 消息开销稍低
-        total += 2  # 整体 prime
-        return total
+        return _CanonicalTokenCounter(model).count_messages(messages)
 
 
 # ═══════════════════════════════════════════════════════════════

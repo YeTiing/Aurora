@@ -92,7 +92,15 @@ class ToolMetrics:
         return call_id
 
     def record_end(self, tool_name: str, success: bool, error: str = "", output_size: int = 0) -> None:
-        """Record tool invocation result."""
+        """Record tool invocation result.
+
+        注意：error 允许为 None。成功结果的字典通常是
+        {"success": True, "output": ..., "error": None}，调用方写
+        result.get("error", "") 取到的仍是 None（键存在，默认值不生效）。
+        此处统一归一化，避免 error[:200] 抛 TypeError 把整次工具执行误判为失败
+        （该异常会被 _execute_one 的外层 except 吞掉并转为 success=False）。
+        """
+        error = error or ""
         now = time.time()
         with self._lock:
             stats = self._tools[tool_name]

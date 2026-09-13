@@ -239,10 +239,12 @@ async def _execute_one(inv, tool_handler: Callable, ws) -> ToolResult:
         except ImportError:
             pass
         output = str(result.get("output", ""))
+        # 统一走 truncate_tool_output：此前该函数被 import 却从未调用（死代码），
+        # 实际生效的是这里硬编码的 output[:8000] —— 头尾都保留的截断策略从未被使用。
         return ToolResult(
             invocation_id=inv.id,
             name=inv.name,
-            output=output[:8000],
+            output=truncate_tool_output(output, max_len=8000),
             success=result.get("success", False),
             error=result.get("error"),
             duration_ms=duration,

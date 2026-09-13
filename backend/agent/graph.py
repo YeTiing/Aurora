@@ -619,35 +619,9 @@ class AgentGraph:
             yield {"type": "done", "response": state.final_response}
             return
 
-        # URL Auto-detection: if user input looks like a browser request,  
-        # force-inject browser_use instruction to bypass model refusal training
-        import re
-        # URL Auto-detection: force browser_use for browser requests
-        _url_lower = user_input.lower()
-        _has_url = False
-        _extracted_url = ""
-        _m = re.search(r"https?://\S+", user_input)
-        if _m:
-            _has_url = True
-            _extracted_url = _m.group(0)
-        if not _has_url:
-            _m = re.search(r"www\.[a-zA-Z0-9-]+\.[a-z]{2,}", user_input)
-            if _m:
-                _has_url = True
-                _extracted_url = "https://" + _m.group(0)
-        if not _has_url:
-            _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|cn|net|org|io|dev|app)", user_input)
-            if _m:
-                _has_url = True
-                _extracted_url = "https://" + _m.group(0)
-        if not _has_url:
-            for _kw in ["打开", "访问", "浏览", "去", "上"]:
-                if _kw in _url_lower:
-                    _m = re.search(r"[a-zA-Z0-9][-a-zA-Z0-9]{1,20}", user_input)
-                    if _m:
-                        _has_url = True
-                        _extracted_url = "https://" + _m.group(0) + ".com"
-                        break
+        # URL 自动探测：复用 _detect_url，不再内联重写一份
+        # （此前 run_with_stream 把同一套正则抄了一遍，行为已与 run() 分叉）
+        _has_url, _extracted_url = self._detect_url(user_input)
 
         if _has_url:
             state.add_message(Message.system(

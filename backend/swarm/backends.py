@@ -13,7 +13,8 @@ class BackendKind(str, Enum):
     IN_PROCESS = "in_process"
     TERMINAL = "terminal"
     TMUX = "tmux"
-    REMOTE = "remote"
+    # 注：曾有 REMOTE 枚举值但无任何实现与注册，按枚举取值会得到 None。
+    # 远端执行已由 backend/remote_control.py 承担，不在此重复声明。
 
 @dataclass
 class BackendCapabilities:
@@ -207,3 +208,134 @@ class TerminalBackend(SwarmBackend):
         if sys.platform in ("win32", "darwin"): return True
         import shutil
         return any(shutil.which(t) for t in ["xterm","xfce4-terminal","gnome-terminal"])
+
+
+class TmuxBackend(SwarmBackend):
+    """在 tmux 会话中运行子 agent。
+
+    此前 BackendKind 声明了 TMUX 但没有任何实现，也没有注册 —— 调用方按枚举
+    取值会拿到 None。本实现与 TerminalBackend 的区别是：agent 跑在 tmux 会话里，
+    因此具备可重连、可附着（attach）的能力，适合长时间运行的 agent 与远端/无头环境。
+
+    tmux 不可用时 is_available() 返回 False，注册表会跳过它。
+    """
+
+    SESSION_PREFIX = "aurora"
+
+    def __init__(self, config=None):
+        super().__init__(config or BackendConfig(kind=BackendKind.TMUX))
+        self._agents: dict[str, dict] = {}   # agent_id -> {window, ctx_path}
+
+    @property
+    def kind(self): return BackendKind.TMUX
+
+    @property
+    def capabilities(self):
+        # tmux 会话可脱离进程存活并重新附着，故具备 reconnection
+        return BackendCapabilities(
+            independent_terminal=True, visual_layout=True, reconnection=True,
+        )
+
+    @staticmethod
+    def _tmux() -> str:
+        import shutil
+        return shutil.which("tmux") or ""
+
+    def is_available(self) -> bool:
+        return bool(self._tmux())
+
+    def _session_name(self, ctx) -> str:
+        # tmux 会话名不能含 . 或 :，agent_id 已是十六进制安全字符
+        safe = "".join(c for c in ctx.agent_id if c.isalnum() or c in "-_")
+        return f"{self.SESSION_PREFIX}-{safe}" if safe else f"{self.SESSION_PREFIX}-agent"
+
+    async def spawn(self, ctx, runner):
+        tmux = self._tmux()
+        if not tmux:
+            raise RuntimeError("tmux is not available on this host")
+
+        cwd = self.config.cwd or os.getcwd()
+        # 复用 TerminalBackend 的"上下文走临时 JSON 文件"策略，避免把
+        # task/name 拼进 shell 命令造成注入
+        import tempfile
+        ctx_fd, ctx_path = tempfile.mkstemp(prefix="aurora_ctx_", suffix=".json")
+        with os.fdopen(ctx_fd, "w", encoding="utf-8") as fh:
+            json.dump({
+                "agent_id": ctx.agent_id, "name": ctx.name, "task": ctx.task,
+                "parent_id": ctx.parent_id, "priority": ctx.priority,
+                "cwd": cwd, "role": ctx.metadata.get("role", "") if ctx.metadata else "",
+            }, fh, ensure_ascii=False)
+
+        aurora_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        boot_fd, boot_path = tempfile.mkstemp(prefix="aurora_agent_", suffix=".py")
+        with os.fdopen(boot_fd, "w", encoding="utf-8") as fh:
+            fh.write("\n".join([
+                "import sys, json, os, asyncio",
+                f"sys.path.insert(0, {json.dumps(aurora_root)})",
+                f"ctx_path = {json.dumps(ctx_path)}",
+                "with open(ctx_path, encoding='utf-8') as _f: ctx = json.load(_f)",
+                "print('Aurora Agent: %s (%s)' % (ctx['name'], ctx['agent_id']))",
+                "async def _run():",
+                "    from backend.api import deps",
+                "    from backend.agent.graph import AgentGraph",
+                "    from backend.tools import tool_registry",
+                "    llm = deps.get_llm()",
+                "    async def handler(name, args, ws=None):",
+                "        r = await tool_registry.execute(name, args, ws)",
+                "        return {'success': r.success, 'output': r.output, 'error': r.error}",
+                "    g = AgentGraph(llm=llm, tool_handler=handler,",
+                "        tools_schema=tool_registry.list_tools_openai(), max_turns=10,",
+                "        workspace=ctx.get('cwd','.'))",
+                "    st = await g.run(ctx.get('task',''), session_id=ctx.get('agent_id',''),",
+                "        workspace=ctx.get('cwd','.'), agent_role=ctx.get('role',''))",
+                "    print('=== AGENT RESULT ===')",
+                "    print((st.final_response or '(no final response)')[:4000])",
+                "asyncio.run(_run())",
+            ]) + "\n")
+
+        session = self._session_name(ctx)
+        # detached：不占用当前终端，agent 在后台 tmux 会话中运行，可随时 attach 查看
+        subprocess.run([tmux, "new-session", "-d", "-s", session, "-c", cwd],
+                       check=False, capture_output=True)
+        # 用 sh -lc 让 PATH/虚拟环境生效；两个路径均为受控临时文件，不拼用户数据
+        subprocess.run([tmux, "send-keys", "-t", session,
+                        f"{sys.executable} {boot_path}", "Enter"],
+                       check=False, capture_output=True)
+
+        self._agents[ctx.agent_id] = {
+            "session": session, "ctx_path": ctx_path, "boot_path": boot_path,
+        }
+        logger.info(f"TMUX agent: {ctx.agent_id} session={session}")
+        return {
+            "agent_id": ctx.agent_id, "backend": self.kind.value,
+            "session": session,
+            # 供调用方/用户附着查看
+            "attach": f"tmux attach -t {session}",
+        }
+
+    async def send_message(self, agent_id, message):
+        tmux = self._tmux()
+        info = self._agents.get(agent_id)
+        if not tmux or not info:
+            return
+        # tmux 会话内 agent 是独立进程，无法直接写其 stdin；改为投递到会话输入行
+        subprocess.run([tmux, "send-keys", "-t", info["session"], str(message), "Enter"],
+                       check=False, capture_output=True)
+
+    async def stop_agent(self, agent_id):
+        tmux = self._tmux()
+        info = self._agents.pop(agent_id, None)
+        if not info:
+            return
+        if tmux:
+            subprocess.run([tmux, "kill-session", "-t", info["session"]],
+                           check=False, capture_output=True)
+        for key in ("ctx_path", "boot_path"):
+            fp = info.get(key)
+            if fp:
+                try: os.unlink(fp)
+                except OSError: pass
+
+    async def shutdown(self):
+        for aid in list(self._agents):
+            await self.stop_agent(aid)

@@ -165,11 +165,47 @@ async def get_goal():
 # ══ Context Budget ══
 
 @router.get("/context/budget")
-async def get_context_budget():
+async def get_context_budget(session_id: str = ""):
+    """返回上下文预算与消耗。
+
+    此前 used 里的 system=1500 / tools=2000 / rag=0 是硬编码占位值，与实时
+    用量无关，且数据取自全局 tracker —— 多会话下数字没有意义。
+    现在：给定 session_id 时读取该会话 AgentGraph 的真实预算消耗；
+    未指定时回落全局，并明确标注哪些是实测、哪些只是预算分配值。
+    """
     from backend.context import TokenBudget as TokenAllocationBudget, tracker
+
     budget = TokenAllocationBudget()
-    used = {"system": 1500, "tools": 2000, "rag": 0, "conversation": tracker.stats.total_prompt}
+    scope = "global"
+    session_used = None
+
+    if session_id:
+        try:
+            from backend.api import deps
+            g = deps._session_graphs.get(session_id)
+            tb = getattr(g, "token_budget", None) if g is not None else None
+            if tb is not None:
+                session_used = {
+                    "limit": tb.limit(),
+                    "used": tb.used,
+                    "remaining": tb.remaining(),
+                    "ratio": round(tb.usage_ratio(), 4),
+                }
+                scope = "session"
+        except Exception:
+            session_used = None
+
+    # 全局口径：只有 conversation 来自 tracker 实测；system/tools 是预算分配值，
+    # 单独放在 estimated 下并注明，避免被当成真实消耗。
+    est_used = {
+        "conversation": tracker.stats.total_prompt,
+        "system": budget.system_prompt,
+        "tools": budget.tool_specs,
+        "rag": 0,
+    }
     return {
+        "scope": scope,
+        "session": session_used,
         "budget": {
             "total": budget.total,
             "system_prompt": budget.system_prompt,
@@ -177,8 +213,11 @@ async def get_context_budget():
             "conversation_history": budget.conversation_history,
             "output_reserve": budget.output_reserve,
         },
-        "used": used,
-        "available": budget.available(used),
+        "estimated": {
+            "note": "system/tools 为预算分配值而非实测消耗；仅 conversation 来自 tracker 实测计数。",
+            "used": est_used,
+            "available": budget.available(est_used),
+        },
         "tracker": tracker.summary(),
     }
 

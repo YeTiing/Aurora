@@ -1,7 +1,7 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="https://img.shields.io/badge/version-0.2.0-8b5cf6?style=flat-square">
-<img src="https://img.shields.io/badge/tests-391%2F391-brightgreen?style=flat-square">
+<img src="https://img.shields.io/badge/tests-436%2F436-brightgreen?style=flat-square">
 <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
 <img src="https://img.shields.io/badge/python-3.11%2B-3776ab?style=flat-square">
 
@@ -142,7 +142,7 @@ pytest tests/ -v
 ```
 
 ```
-391 passed in 28.86s ✅
+436 passed in 24.71s ✅
 ```
 
 ## 桌面端

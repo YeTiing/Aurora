@@ -20,3 +20,13 @@ imageio>=2.34.0
 imageio-ffmpeg>=0.5.0
 cryptography>=42.0.0
 httpx>=0.27.0
+
+# ── 修复：此前缺失的运行时依赖（干净环境可一键安装）──
+asyncssh>=2.14.0          # remote_control.py (SSH/WSL 远程)
+jsbeautifier>=1.15.1      # re_engine/deobfuscator.py (JS 反混淆)
+numpy>=1.26.0             # chronicle.py / memory/semantic.py
+Pillow>=10.0.0            # computer_use/gates.py
+psutil>=5.9.0             # computer_use/engine.py / process_manager
+sentry-sdk>=2.0.0         # api/routes/settings.py / system.py
+pytest>=8.0.0             # 测试运行
+pytest-asyncio>=0.23.0    # asyncio 测试支持

@@ -20,6 +20,27 @@ def _isolate_aurora_home(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_cwd(tmp_path, monkeypatch):
+    """把工作目录也钉在临时目录里 —— 隔离那些**按相对路径**写盘的代码。
+
+    为什么需要：只隔离 AURORA_HOME 不够。实测有两处会写到项目根，
+    而且**都不报错**：
+      - `necessity/mount.py` 的 `_get_trace()` 用 `Path.cwd()/".necessity"`
+        建轨迹库 —— 每跑一次测试就污染一次 `settings.json`（里面记着
+        "每次跑都会变"的状态）；
+      - 评测快照复制一度把整个仓库当源目录（`Path("")` == `Path(".")`），
+        因为相对路径解析到的是项目根而不是临时目录。
+
+    钉住 cwd 让「相对路径」这件事在测试里不再有歧义：想写就写到 tmp 里。
+    需要真实 cwd 的测试可以显式 `monkeypatch.chdir(...)` 覆盖。
+    """
+    workdir = tmp_path / "cwd"
+    workdir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.chdir(workdir)
+    yield workdir
+
+
+@pytest.fixture(autouse=True)
 def _clean_auth_env(monkeypatch):
     """清理认证相关环境变量，避免宿主机配置干扰测试。"""
     for key in ("AURORA_REQUIRE_AUTH", "AURORA_AUTH_API_KEY"):

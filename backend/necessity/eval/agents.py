@@ -85,6 +85,31 @@ class Behavior:
     error: str = ""
 
 
+def _task_id_from_session(session_id: str) -> str:
+    """从 `{task_id}-{arm}-{run_index}` 里取出 task_id。
+
+    ⚠️ 不能靠 `rsplit("-", 2)`：task_id 自身含连字符（如
+    `B-01-same-name-save`），而 arm 里有 `A_prime` 这种**带下划线**的。
+    这里按「最后两段分别是 run_index(int) 与 arm(已知集合)」来剥，
+    剥不动就返回空串，让调用方回退到目录名。
+    """
+    s = (session_id or "").strip()
+    if not s:
+        return ""
+    parts = s.split("-")
+    if len(parts) < 3:
+        return ""
+    try:
+        int(parts[-1])
+    except ValueError:
+        return ""
+    # 延迟导入：records 会 import 本模块的类型，顶层导入易成环
+    from backend.necessity.eval.records import ARMS
+    if parts[-2] not in ARMS:
+        return ""
+    return "-".join(parts[:-2])
+
+
 class ScriptedAgent:
     """按任务查表吐事件的假 Agent。**绝不用于真实跑分。**"""
 
@@ -103,7 +128,13 @@ class ScriptedAgent:
 
     def run(self, *, task_text: str, repo: Path, arm: str, run_index: int,
             session_id: str, hooks: Any, turn_limit: int = DEFAULT_TURN_LIMIT) -> AgentRunResult:
-        task_id = str(repo).replace("\\", "/").rstrip("/").split("/")[-1]
+        # task_id 优先从 session_id 取（形如 `{task_id}-{arm}-{run}`），
+        # 因为 `repo` 现在是**隔离工作目录**（`<tmp>/repo`）——
+        # 曾经这里用 `str(repo)` 的目录名当 task_id，于是快照隔离一上线，
+        # 每个任务的 id 都变成 "repo"，行为查表全部落回 default：
+        # 任务 A 跑出了任务 B 的行为，且**不报错**，只是数字全错。
+        task_id = _task_id_from_session(session_id) or \
+            str(repo).replace("\\", "/").rstrip("/").split("/")[-1]
         b = self.behavior_for(task_id)
         events = events_from_behavior(b, session_id)
         status, err = b.status, b.error

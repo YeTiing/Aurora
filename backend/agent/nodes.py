@@ -40,10 +40,23 @@ def _tools_digest(tools_schema: list[dict] | None, max_chars: int = 3000) -> str
             continue
         desc = str(fn.get("description") or "").strip().split("\n")[0][:100]
         lines.append(f"- {name}: {desc}" if desc else f"- {name}")
-    out = "\n".join(lines)
-    if len(out) > max_chars:
-        # 截断要**说明**，否则模型以为工具就这些
-        out = out[:max_chars] + f"\n...（另有 {len(lines)} 个工具，完整定义见原生工具参数）"
+
+    # 截断要按**整行**做，不能切在第 N 行中间。此前直接 `out[:max_chars]`，
+    # 会把最后一个工具的名字劈成两半（实测 `- close_agent: Close/cl`），
+    # 并且补的提示写成「另有 {len(lines)} 个」= 工具总数 —— 把**已列出**的
+    # 也数了进去，等于告诉模型它看到的比实际更少。两个都是静默误导。
+    kept: list[str] = []
+    used = 0
+    for ln in lines:
+        if kept and used + len(ln) + 1 > max_chars:
+            break
+        kept.append(ln)
+        used += len(ln) + 1
+    dropped = len(lines) - len(kept)
+    out = "\n".join(kept)
+    if dropped > 0:
+        out += (f"\n...（另有 {dropped} 个工具未列出；"
+                f"完整定义见原生工具参数，可直接调用）")
     return out
 
 

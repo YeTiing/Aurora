@@ -40,6 +40,16 @@ from pathlib import Path
 
 logger = logging.getLogger("necessity.eval.snapshot")
 
+
+def _remove_readonly(func, path, _exc_info) -> None:
+    """让 Windows 能删除 git 创建的只读对象，同时保持 cleanup 不抛错。"""
+    try:
+        Path(path).chmod(0o700)
+        func(path)
+    except OSError:
+        pass
+
+
 # 复制时排除：.git 会拖慢且评测不需要历史；缓存会带进陈旧字节码
 _SKIP = shutil.ignore_patterns(
     ".git", "__pycache__", "*.pyc", ".pytest_cache", ".mypy_cache",
@@ -68,7 +78,7 @@ class SandboxWorkspace:
     def cleanup(self) -> None:
         if self.kept:
             return
-        shutil.rmtree(self.root, ignore_errors=True)
+        shutil.rmtree(self.root, onerror=_remove_readonly)
 
     def keep(self) -> str:
         """保留现场（失败归因用），返回保留的路径。"""
@@ -82,6 +92,24 @@ class SandboxWorkspace:
         self.cleanup()
 
 
+def _attr_path(task, name: str) -> Path | None:
+    """取 task.<name> 的路径；缺失/为空时返回 None。
+
+    ⚠️ **绝不能用 `Path(getattr(task, name, ""))`**：`Path("")` 等于 `Path(".")`，
+    而 `Path(".").is_dir()` 是 True —— 于是「没有 tests/ 属性」会被当成
+    「tests/ 就是当前目录」，`copytree` 开始复制**整个仓库**，
+    而且会递归进自己刚建的临时目录，直到撑爆内存/磁盘。
+    实测：15 个走 run_one 的测试全部挂死 >600s，根因就是这一行。
+    """
+    raw = getattr(task, name, None)
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    return Path(s)
+
+
 def create(task, *, keep_on_failure: bool = False) -> SandboxWorkspace:
     """按任务快照建一个隔离工作目录。
 
@@ -89,8 +117,10 @@ def create(task, *, keep_on_failure: bool = False) -> SandboxWorkspace:
     验证：复制后必须能确实看到快照文件，否则抛错 ——
     「复制了个空目录」会让 Agent 在空气上干活，而那不是会被发现的那种错。
     """
-    src_repo = Path(getattr(task, "repo", ""))
-    src_tests = Path(getattr(task, "tests", ""))
+    src_repo = _attr_path(task, "repo")
+    src_tests = _attr_path(task, "tests")
+    if src_repo is None:
+        raise RuntimeError(f"任务快照 repo/ 不存在: {getattr(task, 'repo', '')!r}")
     if not src_repo.is_dir():
         raise RuntimeError(f"任务快照 repo/ 不存在: {src_repo}")
 
@@ -99,7 +129,7 @@ def create(task, *, keep_on_failure: bool = False) -> SandboxWorkspace:
     try:
         shutil.copytree(src_repo, repo_path, ignore=_SKIP)
         # tests/ 并进工作目录根部 —— 见模块头的说明
-        if src_tests.is_dir():
+        if src_tests is not None and src_tests.is_dir():
             shutil.copytree(src_tests, repo_path / "tests", ignore=_SKIP,
                             dirs_exist_ok=True)
     except Exception:

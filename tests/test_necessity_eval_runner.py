@@ -58,9 +58,30 @@ class FakeTask:
 
 
 def make_task(tmp_path: Path, task_id: str, *, large: bool = False,
-              category: str = "A", constraints=None) -> FakeTask:
+              category: str = "A", constraints=None, tests_pass: bool = True) -> FakeTask:
+    """造一个**结构真实**的任务快照。
+
+    ⚠️ 必须含源码 + 可运行的 `tests/`，不能是空目录。两个原因：
+
+      1. `snapshot.create()` 对「没有任何 .py 文件」的快照**显式抛错**。
+         空快照意味着 Agent 在空气上干活（也正是 gitlink 事故的形态），
+         那是配置/数据错误，不该被吞成一条 status=error 的记录
+         —— 否则整批结果看起来像「跑过了、只是这次没过」，实际全不可信。
+      2. 判定已改为**真跑验收测试**（eval/verify.py），没有 `tests/`
+         就无法判定，runner 的调度/落盘/续跑机制也就无从验证。
+
+    `tests/` 是**恒通过**的：本文件测的是调度机制，不是任务区分度。
+    任务区分度由 `taskset_regression` + 反向前置检查
+    （`tasks/baseline.py`）负责 —— 那些跑真实任务集。
+    """
     repo = tmp_path / task_id
     repo.mkdir(parents=True, exist_ok=True)
+    (repo / "mod.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    tdir = repo / "tests"
+    tdir.mkdir(exist_ok=True)
+    body = "assert f() == 1" if tests_pass else "assert f() == 999"
+    (tdir / "test_mod.py").write_text(
+        "from mod import f\n\n\ndef test_f():\n    " + body + "\n", encoding="utf-8")
     meta = {"large_diff": True} if large else {"large_diff": False}
     spec = TaskSpec(task_id=task_id, category=category, min_lines_changed=100 if large else 5,
                     constraints=list(constraints or []), meta=meta)

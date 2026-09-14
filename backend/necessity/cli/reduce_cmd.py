@@ -206,10 +206,24 @@ def _sandbox_search(args, direction, files, hunks, groups, budget,
     这里额外支持致败方向：撤销子集里的 hunk，看测试是否由 fail 转 pass。
     """
     from backend.necessity.reduce import apply_text_patch
+    from backend.necessity.reduce.premise import check_applied
 
     repo = str(Path(args.repo).resolve())
     with Sandbox(repo, getattr(args, "base_commit", "") or "") as sb:
         info = sb.create()
+
+        # ⚠️ **前提校验**：隔离环境必须真的处于「改动已应用」的状态。
+        # 它按 `git worktree add --detach <base_commit>` 建立，默认 base=HEAD；
+        # 若改动还在**工作区**（未提交），worktree 里是旧代码 ——
+        # 于是「撤销某 hunk」变成恒等变换，所有改动被误判为冗余（实测冗余率恒 1.0）。
+        # 这里宁可拒绝回答，也不给一个看起来合理的错数字（DIFF_REDUCER.md §7）。
+        premise = check_applied(files, sb.read)
+        if not premise.ok:
+            raise RuntimeError(
+                "反事实实验前提不成立，已中止（宁可不给结论，也不给错结论）\n\n"
+                + premise.reason
+            )
+
         baseline, _ = sb.run_tests(args.targets or None)
 
         post_state: dict[str, str] = {}

@@ -322,3 +322,64 @@ def test_factory_failure_does_not_break_assembly(tmp_path):
                                            "workspace": str(tmp_path / "nope"),
                                            "write": False}})
     assert "report" in caps
+
+
+# ── 预算（规范 §1.7）：A1 异步段是该受限的那一处 ───────────────
+
+def test_enrich_respects_budget_by_elapsed_time():
+    """耗时超预算时**不采纳结果**，保持 partial。
+
+    A1 的异步段要跑上百次测试（reduce 明确说了不能在主循环），是最该受限
+    的一处。`Budget.enforce()` 的空调用只看**已用量**，无法表达「这次要花
+    多少」—— 所以真正的把关必须是**后置**（用真实耗时检查）。
+    实测踩过：只做前置检查时，`max_tokens=0` 这类紧预算永远不触发。
+    """
+    import time
+
+    from backend.necessity.gate.budget import Budget
+
+    class _Res:
+        hunks = [type("H", (), {"id": "h1", "file": "a.py"})()]
+
+    b = build_bundle(task("budget"), changes=[])
+    tight = Budget(max_wall_time_ms=1, on_exceed="degrade")
+    enrich_bundle(b, necessity_runner=lambda: (time.sleep(0.02), _Res())[1],
+                  budget=tight)
+    assert b.status == "partial", "超出预算却采纳了结果"
+    assert b.necessity == [], "超预算仍写入了必要性数据"
+    assert any("耗时" in e and "预算" in e for e in b.collection_errors)
+
+
+def test_enrich_within_budget_completes():
+    """预算充足时正常完成 —— 预算不该把正常工作挡掉。"""
+    from backend.necessity.gate.budget import Budget
+
+    class _Res:
+        hunks = [type("H", (), {"id": "h1", "file": "a.py"})()]
+
+    b = build_bundle(task("ok"), changes=[])
+    enrich_bundle(b, necessity_runner=lambda: _Res(),
+                  budget=Budget(max_wall_time_ms=60_000))
+    assert b.status == "complete"
+
+
+def test_default_budget_is_not_shared_between_calls():
+    """默认预算必须每次**新建**。
+
+    `Budget` 是有状态的（累计 used / 记录起始时间）。共享同一个实例会让
+    多次调用的用量累加 —— 第二次调用必然「超限」，而且是莫名其妙地超。
+    """
+    from backend.necessity.report._budget import default_budget_for
+
+    a = default_budget_for("A1")
+    b = default_budget_for("A1")
+    assert a is not b, "默认预算被共享了"
+    a.record(tokens=999999)
+    assert b.used_tokens == 0, "新取的预算带上了别人的用量"
+
+
+def test_unknown_capability_yields_no_budget():
+    """未声明的能力不强制预算（返回 None），由调用方自行决定。"""
+    from backend.necessity.report._budget import default_budget_for
+
+    assert default_budget_for("NOPE") is None

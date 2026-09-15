@@ -22,6 +22,8 @@ import logging
 from dataclasses import replace
 from pathlib import Path
 
+from ._budget import default_budget_for
+from ._collect import _collect_security, _collect_unverified
 from .schema import (
     ChangeItem,
     CoverageItem,
@@ -120,78 +122,6 @@ def _collect_verification(bundle: EvidenceBundle, *, test_results) -> None:
     bundle.verification = out
 
 
-def _collect_security(bundle: EvidenceBundle, *, paths, scanner=None) -> None:
-    """安全证据。**「没扫」与「扫了没发现」必须区分**。
-
-    ⚠️ 这里只用 `scan_secrets`（**同步**）与逐文件遍历。
-
-    实测踩过：`SecurityScanner.scan()` 是 `async def`，且签名是**单个
-    filepath**（不是文件列表）。此前的写法同步调用它、拿回一个协程对象，
-    却把 `scanned=True` 写进报告 —— **未扫描却声称已扫描**。
-    这正是本模块最不该犯的错（「降低风险 ≠ 消除风险」，更不能假装扫过）。
-    同步段不能用它：`on_task_end` 在主循环内，起 event loop 会阻塞任务。
-    """
-    if not paths:
-        bundle.security = SecurityEvidence(
-            scanned=False, note="没有可扫描的改动路径")
-        return
-
-    try:
-        from backend.security_scanner import get_scanner
-        scanner = scanner or get_scanner()
-    except Exception as e:
-        bundle.security = SecurityEvidence(
-            scanned=False, note=f"安全扫描器不可用：{type(e).__name__}: {e}")
-        return
-
-    secrets_fn = getattr(scanner, "scan_secrets", None)
-    if not callable(secrets_fn):
-        bundle.security = SecurityEvidence(
-            scanned=False, note="扫描器没有同步 scan_secrets 接口，"
-                                "同步段不做安全扫描（不伪称已扫）")
-        return
-
-    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-    scanned = 0
-    for p in paths:
-        try:
-            for f in (secrets_fn(str(p)) or []):
-                sev = str(getattr(f, "severity", "")).lower()
-                if sev in counts:
-                    counts[sev] += 1
-            scanned += 1
-        except Exception as e:
-            bundle.collection_errors.append(f"密钥扫描失败 {p}: {type(e).__name__}: {e}")
-
-    if scanned == 0:
-        bundle.security = SecurityEvidence(
-            scanned=False, note="所有改动路径的扫描均失败（见采集失败项）")
-        return
-    bundle.security = SecurityEvidence(
-        scanned=True,
-        note=(f"仅密钥层（{scanned}/{len(paths)} 个文件）；"
-              "bandit/semgrep 层是异步的，未在同步段运行"),
-        **counts)
-
-
-def _collect_unverified(bundle: EvidenceBundle, *, requirements, verified) -> None:
-    """**「本次没验证什么」—— 规范标为核心的一条。**
-
-    算法（规范 §3.5）：需求项 − 验证项的差集。
-    没有需求项时**不能**返回空列表（那会被门禁判为可疑），
-    而是显式声明「本次没有可拆分的验收项」。
-    """
-    verified_names = {v.command for v in (verified or []) if v.passed}
-    if not requirements:
-        bundle.unverified = [
-            "（本次任务没有可机器判定的验收项 —— 不是「全部已验证」，"
-            "而是「无法判定覆盖」；人工需自行确认）"
-        ]
-        return
-    missing = [r for r in requirements if r not in verified_names]
-    bundle.unverified = missing or ["（无：全部验收项均有对应验证）"]
-
-
 # ── 同步段入口 ───────────────────────────────────────────────────
 
 def build_bundle(task_result, *, changes=None, store=None, symbols=None,
@@ -261,22 +191,65 @@ def _collect_staleness(bundle: EvidenceBundle, hooks) -> None:
 
 
 def enrich_bundle(bundle: EvidenceBundle, *, necessity_runner=None,
-                  timeout_ms: int = 0) -> EvidenceBundle:
+                  timeout_ms: int = 0, budget=None) -> EvidenceBundle:
     """异步段：补必要性证据，把 `status` 推进到 `complete`。
 
     ⚠️ 超时/失败时**保持 partial 并记录原因**，不得伪造 necessity 数据
     （规范 §3.6 硬性要求 3）。
+
+    `budget` 是规范 §1.7 的统一预算。A1 的异步段是最该受限的一处 ——
+    必要性要跑上百次测试（`reduce/` 明确说了不能在主循环），
+    没有上限时会跑很久。默认取 `CAPABILITY_BUDGETS["A1"]`
+    （10 分钟 / degrade）。超限按 `on_exceed` 处理：degrade 时**保持 partial**。
     """
     if necessity_runner is None:
         bundle.collection_errors.append(
             "必要性未生成（离线 reduce 未接入）；保持 partial")
         return bundle
+
+    budget = budget if budget is not None else default_budget_for("A1")
+
+    # 前置：预算已耗尽（此前累积的用量）就直接不跑。
+    # ⚠️ 这是 `enforce()` 的空调用，只看**已用量** —— 不能用来表达
+    # 「这次大约要花多少」，那需要调用方给出预估。所以真正的把关在**后置**。
+    if budget is not None:
+        try:
+            pre = budget.enforce()
+        except Exception as e:
+            bundle.collection_errors.append(
+                f"必要性分析超出预算（{e}）；保持 partial，未伪造数据")
+            return bundle
+        if not pre.allowed:
+            bundle.collection_errors.append(
+                f"必要性分析未执行（预算 {pre.action}：{pre.reason}）；保持 partial")
+            return bundle
+
+    import time
+    t0 = time.monotonic()
     try:
         result = necessity_runner()
     except Exception as e:
         bundle.collection_errors.append(
             f"必要性分析失败：{type(e).__name__}: {e}；保持 partial，数据未伪造")
         return bundle
+    elapsed_ms = (time.monotonic() - t0) * 1000.0
+
+    # 后置：用**真实耗时**检查 —— A1 的异步段唯一可观测的成本就是墙钟。
+    # 超限时按 `on_exceed` 处理，且**不采纳本次产物**（degrade 的语义是
+    # 「降级执行」，而 reduce 没有「跑一半」的形态；保留 partial 更诚实）。
+    if budget is not None:
+        try:
+            post = budget.enforce(elapsed_ms=elapsed_ms)
+        except Exception as e:
+            bundle.collection_errors.append(
+                f"必要性分析耗时 {elapsed_ms:.0f}ms 超出预算（{e}）；"
+                "结果未采纳，保持 partial")
+            return bundle
+        if not post.allowed:
+            bundle.collection_errors.append(
+                f"必要性分析耗时 {elapsed_ms:.0f}ms 超出预算"
+                f"（{post.action}：{post.reason}）；结果未采纳，保持 partial")
+            return bundle
 
     items: list[NecessityItem] = []
     for h in (getattr(result, "hunks", None) or getattr(result, "best", None) or []):

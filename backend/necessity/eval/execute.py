@@ -97,8 +97,14 @@ def run_once(task: Any, arm: str, run_index: int, agent,
 
 
 def run_and_measure(task: Any, arm: str, run_index: int, agent, *, turn_limit: int,
-                    verify_timeout: int, keep_failures: bool = False):
-    """`run_once` + 换算成 Attempt —— runner 只需要这一个入口。"""
+                    verify_timeout: int, keep_failures: bool = False,
+                    runtime_feed=None):
+    """`run_once` + 换算成 Attempt —— runner 只需要这一个入口。
+
+    `runtime_feed` 是可选注入（规范 §1.4 的「观测」段）：给了就把本次
+    `GateMetrics` 喂进运行时闭环，窗口满时判定退化。默认 `None` ——
+    单次运行与闭环解耦，测试与一次性跑分不必背上跨运行状态。
+    """
     from backend.necessity.eval.measure import measure
 
     started = time.time()
@@ -108,4 +114,14 @@ def run_and_measure(task: Any, arm: str, run_index: int, agent, *, turn_limit: i
     attempt = measure(task, arm, run_index, result, started, time.time())
     if verify_info:
         attempt.meta = {**(attempt.meta or {}), "verify": verify_info}
+
+    if runtime_feed is not None:
+        # 闭环判定失败**不能**影响本次运行的结果 —— 它是观测，不是判定者
+        try:
+            verdicts = runtime_feed.observe(attempt)
+            if verdicts:
+                attempt.meta = {**(attempt.meta or {}),
+                                "runtime_verdicts": verdicts}
+        except Exception as e:
+            logger.warning("运行时闭环观测失败（不影响本次结果）: %s", e)
     return attempt

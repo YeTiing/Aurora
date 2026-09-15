@@ -137,3 +137,9 @@ def add_parser(top) -> None:
     s.add_argument("attempts_file", help="eval/records.py 产出的 JSONL")
     s.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     s.set_defaults(fn=cmd_eval_summary)
+
+    # skill 子命令拆到独立模块（本文件已接近 300 行上限；
+    # 且「跑分汇总」与「Skill 准入」是两件寿命不同的事）
+    from backend.necessity.cli.skill_cmd import add_parser as add_skill
+
+    add_skill(esub)

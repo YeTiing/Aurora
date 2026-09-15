@@ -164,10 +164,16 @@ def build_bundle(task_result, *, changes=None, store=None, symbols=None,
         # 兜底：绝不留下空列表（门禁判为可疑）
         b.unverified = default_unverified()
 
+    # 陈旧度：**没有来源时也必须记一条**。
+    # 默认 `callgraph_fresh=True` 是「未知」的占位，不是「确认新鲜」——
+    # 不记录就会让报告说「影响面可靠」，而实际可能基于变更前的索引。
+    # 这与「没扫 ≠ 干净」是同一条纪律（见 _collect_security）。
     if bundle_hooks is not None:
         _safe("陈旧度", lambda: _collect_staleness(b, bundle_hooks), b, None)
-    if not b.staleness.stale_files and not b.staleness.callgraph_fresh:
-        pass  # 已由 hook 设置
+    else:
+        b.collection_errors.append(
+            "陈旧度未采集（未提供 freshness provider）；"
+            "影响面是否基于过期索引**未知**")
 
     b.status = "partial"
     b.pending = ["necessity"]

@@ -383,3 +383,62 @@ def test_unknown_capability_yields_no_budget():
     from backend.necessity.report._budget import default_budget_for
 
     assert default_budget_for("NOPE") is None
+
+
+# ── 陈旧度接线（规范 §1.5：不隐藏，必须传播）────────────────────
+
+def test_freshness_provider_feeds_bundle_staleness(tmp_path):
+    """`FreshnessGate` 的检查结果必须能进 A1 的报告。
+
+    规范 §1.5 的设计原则：「**stale 不是错误，是必须传播的事实**」。
+    A1 的处理是 `annotate`（保留数据 + 标注），而不是隐藏或清空。
+    """
+    from backend.necessity.gate.freshness import FreshnessGate
+    from backend.necessity.index.store import Store
+    from backend.necessity.report.staleness import StalenessProvider
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    db = Store(":memory:")
+    try:
+        db.put_file_content(str(ws), "a.py", "old")
+        gate = FreshnessGate(db, str(ws), total_files=5)
+        prov = StalenessProvider()
+        prov.update(gate.check({"a.py": "new"}))
+
+        from backend.necessity.report.hooks import ReportHooks
+        h = ReportHooks(workspace=str(ws), write=False, staleness=prov)
+        h.set_changes([FileChange(path="a.py", kind="modify", added=2, removed=1)])
+        h.on_task_end(task("fresh"))
+
+        b = h.last_bundle
+        assert b.staleness.stale_files == ["a.py"]
+        assert b.staleness.callgraph_fresh is False
+        # A1 的策略是标注而非隐藏：数据仍在，只是带警告
+        assert b.changes, "A1 不该因 stale 而清空改动清单"
+        assert "影响面可能过期" in render_markdown(b)
+    finally:
+        db.close()
+
+
+def test_missing_freshness_is_recorded_not_treated_as_fresh():
+    """拿不到陈旧度时必须**留下痕迹**，不能默认当作新鲜。
+
+    把未知当新鲜是最坏的选择：报告会说「影响面可靠」，而实际可能基于
+    变更前的索引。这与 A1 的「没扫 ≠ 干净」是同一条纪律。
+    """
+    from backend.necessity.report.hooks import ReportHooks
+
+    h = ReportHooks(write=False, staleness=None)
+    h.on_task_end(task("nostale"))
+    assert any("陈旧度未采集" in e for e in h.last_bundle.collection_errors)
+
+
+def test_staleness_provider_tolerates_missing_result():
+    """provider 收到 None 不该炸 —— 陈旧度是增强，不是前提。"""
+    from backend.necessity.report.staleness import StalenessProvider
+
+    prov = StalenessProvider()
+    prov.update(None)
+    assert prov.staleness.stale_files == []
+    assert prov.staleness.callgraph_fresh is True

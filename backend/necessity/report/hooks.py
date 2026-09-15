@@ -45,12 +45,15 @@ class ReportHooks:
     name = "report"
 
     def __init__(self, *, workspace: str = ".", write: bool = True,
-                 scanner=None, store=None) -> None:
+                 scanner=None, store=None, staleness=None) -> None:
         self.workspace = str(workspace or ".")
         self.write = bool(write)
         self.scanner = scanner
         self.store = store
         self.last_bundle: EvidenceBundle | None = None
+        # 陈旧度来源（规范 §1.5）。`StalenessProvider` 实例；
+        # 未注入时 `_collect_staleness` 会如实记「未采集」而不是当作新鲜。
+        self.staleness = staleness
 
     # ── 钩子 ─────────────────────────────────────────────────────
 
@@ -70,6 +73,10 @@ class ReportHooks:
             test_results=self._test_results(),
             requirements=self._requirements(),
             scanner=self.scanner,
+            # 陈旧度：provider 需要**有** `.staleness` 属性；
+            # 为 None 时 bundle 会记一条「未采集」——
+            # 那是正确的，把未知当新鲜是最坏的选择（规范 §1.5）。
+            bundle_hooks=self.staleness,
         )
         self.last_bundle = bundle
 

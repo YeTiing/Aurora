@@ -1,0 +1,2 @@
+# Pinned dependency is deliberate and reproducible.
+requests==2.31.0

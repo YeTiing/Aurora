@@ -23,6 +23,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
+# ⚠️ 必须放在模块顶部：`Attempt` 的 `field(default_factory=GateMetrics)`
+# 在**类定义时**就要求值，放到文件末尾会 NameError。
+from .gate_metrics import GateMetrics
+
 # ── 枚举取值（用字面量而非 Enum：JSONL 里可读，且跨版本稳定）────────
 
 Status = Literal["pass", "fail", "error", "timeout", "skipped"]
@@ -46,56 +50,6 @@ ARMS: dict[str, str] = {
 ARM_TASK_FILTER: dict[str, str] = {
     "D": "large_diff_only",
 }
-
-
-@dataclass
-class GateMetrics:
-    """每个 attempt 都要记录的 gate 指标（EVAL.md §4 各 gate 的输入）。
-
-    分开存而不是塞进 dict：这些字段是 gate 判据的直接来源，
-    拼错名字会让 gate 静默失效。
-    """
-    # Gate 0：重复读取率
-    reads_total: int = 0
-    reads_waste: int = 0
-    # Gate 2：Context Paging
-    tokens_total: int = 0
-    compaction_count: int = 0
-    # Gate 3：影响面可用性
-    impact_p95_ms: float = 0.0
-    # Gate 4：Diff Reducer
-    redundancy_ratio: float = 0.0
-    reduce_converged: bool = False
-    # Gate 5：Guard
-    constraint_rho: float = 0.0          # 约束保持率（归一化，跨任务可比）
-    constraint_survivals: int = -1       # 存活轮数 s（绝对，辅助展示），-1=无约束
-    constraint_violations: int = 0
-    # Gate 6：Attribution
-    attribution_primary: str = ""
-    attribution_unknown: bool = False
-
-    @property
-    def waste_ratio(self) -> float:
-        """R_waste / R（EVAL.md §2.4 的定义）。"""
-        return (self.reads_waste / self.reads_total) if self.reads_total else 0.0
-
-    def to_dict(self) -> dict:
-        d = {
-            "reads_total": self.reads_total,
-            "reads_waste": self.reads_waste,
-            "waste_ratio": round(self.waste_ratio, 6),
-            "tokens_total": self.tokens_total,
-            "compaction_count": self.compaction_count,
-            "impact_p95_ms": self.impact_p95_ms,
-            "redundancy_ratio": self.redundancy_ratio,
-            "reduce_converged": self.reduce_converged,
-            "constraint_rho": self.constraint_rho,
-            "constraint_survivals": self.constraint_survivals,
-            "constraint_violations": self.constraint_violations,
-            "attribution_primary": self.attribution_primary,
-            "attribution_unknown": self.attribution_unknown,
-        }
-        return d
 
 
 @dataclass
@@ -173,6 +127,24 @@ class Attempt:
             constraint_violations=int(g.get("constraint_violations", 0)),
             attribution_primary=str(g.get("attribution_primary", "")),
             attribution_unknown=bool(g.get("attribution_unknown", False)),
+            # 六项能力字段：**全部带默认值**。旧 JSONL 记录里没有这些键，
+            # 缺省读默认值即可 —— 历史评测数据不能因 schema 扩展而读不出来
+            # （那会让「扩展指标」变成「丢弃历史」）。
+            bundle_fields_filled=float(g.get("bundle_fields_filled", 0.0)),
+            bundle_impact_accuracy=float(g.get("bundle_impact_accuracy", 0.0)),
+            contracts_active=int(g.get("contracts_active", 0)),
+            contract_violations=int(g.get("contract_violations", 0)),
+            contract_false_blocks=int(g.get("contract_false_blocks", 0)),
+            autonomy_asks=int(g.get("autonomy_asks", 0)),
+            autonomy_overridden=int(g.get("autonomy_overridden", 0)),
+            autonomy_missed_risk=float(g.get("autonomy_missed_risk", 0.0)),
+            admissions_checked=int(g.get("admissions_checked", 0)),
+            admissions_rejected=int(g.get("admissions_rejected", 0)),
+            runtime_audit_events=int(g.get("runtime_audit_events", 0)),
+            skill_effect_size=float(g.get("skill_effect_size", 0.0)),
+            skill_p_value=float(g.get("skill_p_value", 0.0)),
+            candidate_diversity=float(g.get("candidate_diversity", 0.0)),
+            winner_vs_random_p=float(g.get("winner_vs_random_p", 1.0)),
         )
         return cls(
             attempt_id=d.get("attempt_id", ""),

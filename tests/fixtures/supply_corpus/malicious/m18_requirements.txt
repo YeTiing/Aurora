@@ -1,0 +1,2 @@
+# Typosquat-like dependency with a floating constraint.
+requests>=2.0

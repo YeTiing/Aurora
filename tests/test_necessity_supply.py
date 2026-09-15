@@ -245,3 +245,146 @@ def test_corpus_has_no_trivially_invalid_malicious_sample():
     dupes = [p.name for p in (CORPUS / "malicious").glob("*")
              if p.read_text(encoding="utf-8").strip() in benign_bodies]
     assert not dupes, f"这些恶意样本与正常样本内容相同，不构成对抗：{dupes}"
+
+
+# ── 准入钩子（规范 §6.2 的「入口门」）──────────────────────────
+
+def test_admission_defaults_to_observe_and_never_blocks():
+    """默认模式必须是 observe —— 只记录、**永不阻断**。
+
+    依据规范 §6.8：「检出率 < 90% → 默认关闭，仅作参考提示」。
+    当前语料实测 100%/0%，但语料是自造的（§6.11 警告过），
+    所以在真实语料验证之前不应该拦人 —— 拦住工作比漏报更糟。
+    """
+    from backend.necessity.supply import admission as A
+
+    A.reset()
+    d = as_extension({"x.py": "import os\nk = os.environ['VENDOR_API_KEY']\n"})
+    h = A.AdmissionHook(mode="observe", log_path=str(d.parent / "log.jsonl"))
+    r = h.check("evil", d)
+    assert r.allowed is True, "observe 模式不该阻断"
+    assert h.stats()["mode"] == "observe"
+
+
+def test_admission_off_mode_does_not_even_scan():
+    from backend.necessity.supply import admission as A
+
+    A.reset()
+    h = A.AdmissionHook(mode="off", log_path=str(as_extension({"a.py": "x=1\n"}).parent / "l.jsonl"))
+    r = h.check("any", as_extension({"a.py": "x=1\n"}))
+    assert r.allowed is True and h.scanned == 0
+
+
+def test_admission_enforce_blocks_risky_extension():
+    from backend.necessity.supply import admission as A
+
+    A.reset()
+    d = as_extension({"x.py": "import os\nk = os.environ['VENDOR_API_KEY']\n"})
+    h = A.AdmissionHook(mode="enforce", log_path=str(d.parent / "log.jsonl"))
+    assert h.check("evil", d).allowed is False
+
+
+def test_unreadable_extension_is_allowed_not_blocked():
+    """**「扫不到」不是「有风险」。**
+
+    实测踩过：enforce 模式下不存在的路径被判 `scan_error`(high) → ask → 拒绝，
+    而加载器会因为一个不存在的目录崩掉 —— 把**未知**当成了**危险**。
+    这与 `Tri` 三态的设计原则一致（规范 §6.5：把不确定说成「不需要」/
+    「不安全」同样危险）。
+    """
+    from backend.necessity.supply import admission as A
+
+    A.reset()
+    h = A.AdmissionHook(mode="enforce",
+                        log_path=str(Path(tempfile.mkdtemp()) / "log.jsonl"))
+    r = h.check("ghost", "/definitely/not/a/real/path")
+    assert r.allowed is True, "无法读取被判成了危险"
+    assert "未知" in r.reason
+
+
+def test_admission_failure_never_breaks_loading():
+    """准入自身故障必须放行（契约 2：质量组件不该让 Aurora 起不来）。"""
+    from backend.necessity.supply import admission as A
+
+    A.reset()
+
+    class Boom:
+        def check(self, *a, **k):
+            raise RuntimeError("boom")
+
+    A.set_hook(Boom())
+    r = A.check_extension("x", "/whatever")
+    assert r.allowed is True
+    A.reset()
+
+
+def test_admission_writes_observations_to_log(tmp_path):
+    """observe 模式的产出是**判定分布** —— 那是阶段 A 标定的输入（§0.3）。"""
+    from backend.necessity.supply import admission as A
+
+    A.reset()
+    log = tmp_path / "log.jsonl"
+    h = A.AdmissionHook(mode="observe", log_path=str(log))
+    h.check("a", as_extension({"a.py": "x=1\n"}))
+    assert log.is_file() and log.read_text(encoding="utf-8").strip()
+
+
+# ── 接线：加载器必须真的调用准入 ───────────────────────────────
+
+def test_skills_loader_calls_admission(monkeypatch, tmp_path):
+    """`SkillsManager._scan` 必须经过准入门（默认 observe 所以不改变行为）。
+
+    只断言函数存在不够 —— 这条测的是**真的接上了**：
+    用一个记录调用的假钩子，确认加载器在发现 SKILL.md 时问了准入。
+    """
+    from backend.necessity.supply import admission as A
+
+    calls = []
+
+    class Spy:
+        def check(self, ext_id, path, description=""):
+            calls.append(ext_id)
+            return A.AdmissionResult(extension_id=ext_id, allowed=True)
+
+    A.reset()
+    A.set_hook(Spy())
+    try:
+        skill_root = tmp_path / "skills"
+        d = skill_root / "demo_skill"
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(
+            "---\nname: demo_skill\ndescription: t\n---\n\nbody\n", encoding="utf-8")
+
+        from backend.skills import SkillManager
+        SkillManager(skill_roots=[str(skill_root)])._scan()
+        assert "demo_skill" in calls, "技能加载器没有调用准入钩子"
+    finally:
+        A.reset()
+
+
+def test_plugins_loader_calls_admission(monkeypatch, tmp_path):
+    """`PluginManager.discover` 同样必须经过准入门。"""
+    from backend.necessity.supply import admission as A
+
+    calls = []
+
+    class Spy:
+        def check(self, ext_id, path, description=""):
+            calls.append(ext_id)
+            return A.AdmissionResult(extension_id=ext_id, allowed=True)
+
+    A.reset()
+    A.set_hook(Spy())
+    try:
+        root = tmp_path / "plugins"
+        d = root / "myplugin"
+        (d / ".codex-plugin").mkdir(parents=True)
+        (d / ".codex-plugin" / "plugin.json").write_text(
+            '{"interface": {"displayName": "My", "shortDescription": "s"}}',
+            encoding="utf-8")
+
+        from backend.plugins import PluginManager
+        PluginManager(plugin_dirs=[str(root)]).discover()
+        assert "myplugin" in calls, "插件加载器没有调用准入钩子"
+    finally:
+        A.reset()

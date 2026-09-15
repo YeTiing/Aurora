@@ -130,6 +130,16 @@ class PluginManager:
             for item in p.iterdir():
                 if not item.is_dir():
                     continue
+                # A4 准入（规范 §6.2 的「入口门」）。默认 observe：
+                # 只扫描 + 记录，**永不阻断**。见 supply/admission.py 的说明。
+                # 插件是可执行第三方代码，比 Skill 危险等级更高，
+                # 但在真实语料验证前同样不该拦人。失败一律放行。
+                try:
+                    from backend.necessity.supply.admission import check_extension
+                    if not check_extension(item.name, item).allowed:
+                        continue
+                except Exception:
+                    pass
                 # .codex-plugin/plugin.json 优先
                 manifest_file = item / ".codex-plugin" / "plugin.json"
                 if not manifest_file.exists():

@@ -59,6 +59,17 @@ class SkillManager:
                 continue
             for md_file in root_path.rglob("SKILL.md"):
                 skill_dir = md_file.parent
+                # A4 准入（规范 §6.2 的「入口门」）。默认 observe 模式：
+                # 只扫描 + 记录，**永不阻断**。等真实语料上的检出率/误报率
+                # 被验证后才考虑 enforce —— 规范 §6.8 的门禁就是这么要求的：
+                # 「检出率 < 90% → 默认关闭，仅作参考提示」。
+                # 本调用失败一律放行（准入是质量组件，不该让 Aurora 起不来）。
+                try:
+                    from backend.necessity.supply.admission import check_extension
+                    if not check_extension(skill_dir.name, skill_dir).allowed:
+                        continue
+                except Exception:
+                    pass
                 try:
                     skill = self._parse_skill(md_file, skill_dir)
                     if skill and skill.name:

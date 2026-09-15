@@ -34,12 +34,14 @@ from .hooks import (
 
 logger = logging.getLogger("necessity.capability")
 
-# 四个能力的工厂函数名（各模块须以此为入口）
+# 能力的工厂函数名（各模块须以此为入口）
 FACTORY_NAMES = {
     "context": "build_context_hooks",
     "guard": "build_guard_hooks",
     "reduce": "build_reduce_hooks",
     "attribution": "build_attribution_hooks",
+    # A1 可验证补丁（规范 §3）。模块名是 `report`，概念名是 A1。
+    "report": "build_report_hooks",
 }
 
 # 能力的默认启用状态（INTEGRATION.md §8.1）
@@ -48,6 +50,9 @@ DEFAULT_ENABLED = {
     "guard": True,        # 默认 warn 模式（先观察违反频率）
     "reduce": False,      # 耗时，离线手动触发
     "attribution": False, # 分析用，不在主循环
+    # A1 默认关：它会**写盘**（.necessity/bundles/），而「未启用时宿主行为
+    # 逐字节一致」是 I1 的硬性验收要求。写文件有副作用，不能默认开。
+    "report": False,
 }
 
 
@@ -211,6 +216,9 @@ def load_capabilities(cfg: dict | None = None) -> dict[str, Any]:
         "guard": ("guard",),
         "reduce": ("reduce",),
         "attribution": ("attribution",),
+        # A1 用 `evidence` 作配置键：`report` 太泛，容易与
+        # `reduce/report.py`（冗余率报告）在配置里撞名。
+        "report": ("evidence", "report"),
     }
 
     for name, modname in FACTORY_NAMES.items():

@@ -42,6 +42,8 @@ FACTORY_NAMES = {
     "attribution": "build_attribution_hooks",
     # A1 可验证补丁（规范 §3）。模块名是 `report`，概念名是 A1。
     "report": "build_report_hooks",
+    # A3 不确定性执行（规范 §5）
+    "autonomy": "build_autonomy_hooks",
 }
 
 # 能力的默认启用状态（INTEGRATION.md §8.1）
@@ -53,6 +55,10 @@ DEFAULT_ENABLED = {
     # A1 默认关：它会**写盘**（.necessity/bundles/），而「未启用时宿主行为
     # 逐字节一致」是 I1 的硬性验收要求。写文件有副作用，不能默认开。
     "report": False,
+    # A3 默认关：它会影响**权限决策**（是否追问用户）。这类改变用户交互
+    # 行为的组件必须先经过阈值标定（规范 §0.3）才能默认开启 ——
+    # 误自动率 ≤2% 是外部参照的硬指标，未标定前不该替用户做决定。
+    "autonomy": False,
 }
 
 
@@ -219,6 +225,8 @@ def load_capabilities(cfg: dict | None = None) -> dict[str, Any]:
         # A1 用 `evidence` 作配置键：`report` 太泛，容易与
         # `reduce/report.py`（冗余率报告）在配置里撞名。
         "report": ("evidence", "report"),
+        # A3 不确定性执行。配置键与模块名一致。
+        "autonomy": ("autonomy",),
     }
 
     for name, modname in FACTORY_NAMES.items():

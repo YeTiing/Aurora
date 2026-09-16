@@ -87,7 +87,59 @@ def compile_constraints(
         result.accepted.append(cr.constraint)
 
     result.conflicts = detect_conflicts(result.accepted)
+    # 需求歧义判定（规范 §5.6）：**副产品**，零新增 LLM 调用点。
+    # compiler 本来就允许调 LLM（职责是 NL → 结构化约束），在它这里
+    # 顺带判定歧义不会违反「钩子不得调 LLM」的契约（§1.2 契约 3）。
+    result.ambiguous, result.ambiguity_notes = detect_ambiguity(result)
+    result.ambiguity_checked = True
     return result
+
+
+# ── 需求歧义（规范 §5.6，供 A3 消费）────────────────────────────
+
+# 含糊措辞：出现即说明需求可能有多种解释。刻意保守 —— 只列**明确**
+# 表示不确定的词，避免把正常需求都判成歧义（那会让 A3 一直 ask，
+# 而规范 §5.1 明确说「全问 → 用户养成无脑同意，**比不问更危险**」）。
+_VAGUE_WORDS = (
+    "可能", "大概", "也许", "尽量", "最好", "如果方便", "看情况", "适当",
+    "差不多", "类似", "等等", "之类的", "或者", "要么", "不一定",
+    "maybe", "perhaps", "if possible", "preferably", "similar",
+)
+
+
+def detect_ambiguity(result: CompileResult) -> tuple[bool, list[str]]:
+    """从**已编译出的约束**判定需求是否含糊。
+
+    三条判据（全部基于编译产物，不额外调用任何 LLM）：
+      1. 存在**冲突** —— 同一需求被编译出互相矛盾的约束，
+         这本身就是「有多种合理解释」的直接证据（§5.6 原话）。
+      2. 原文含含糊措辞 —— 说明用户在表达时自己也没确定。
+      3. 约束**全被拒绝**（有输入但 accepted 为空）—— 说明需求无法
+         转成可验证的约束，Agent 只能猜。
+
+    ⚠️ 判据刻意**不含**「约束条数少」。约束少是常见且正常的
+    （很多任务本来就没什么硬约束），把它当歧义会让 A3 大面积误报，
+    反而使「问」失去信息量。
+    """
+    notes: list[str] = []
+
+    if result.conflicts:
+        reasons = "；".join(str(c.get("reason", "")) for c in result.conflicts[:2])
+        notes.append(f"需求被编译出互相冲突的约束（{reasons}）—— 有多种合理解释")
+
+    texts = " ".join(str(getattr(c, "raw_text", "") or "")
+                     for c in list(result.accepted) + list(result.rejected))
+    lowered = texts.lower()
+    hit = [w for w in _VAGUE_WORDS if w in lowered]
+    if hit:
+        notes.append(f"需求含含糊措辞：{'、'.join(hit[:4])} —— 目标可能有多种解释")
+
+    if result.rejected and not result.accepted:
+        notes.append(
+            f"{len(result.rejected)} 条约束都无法转成可验证形式 —— "
+            "需求缺少可判定的验收标准")
+
+    return bool(notes), notes
 
 
 # ── LLM 路径 ────────────────────────────────────────────────────

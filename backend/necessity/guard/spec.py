@@ -111,6 +111,20 @@ class CompileResult:
     notes: list[str] = field(default_factory=list)
     used_llm: bool = False
 
+    # ── 需求歧义（规范 §5.6 的 v2 新增）──────────────────────────
+    # A3 需要「需求是否有多种合理解释」这个信号来判断权限档，
+    # 但 hooks 契约规定**钩子不得调 LLM**（§1.2 契约 3）。
+    # 规范 §5.6 的解法：把判定并入 compiler —— 它本来就允许调 LLM
+    # （职责就是 NL → 结构化约束），所以歧义判定是它的**副产品，零新增调用点**。
+    ambiguous: bool = False
+    ambiguity_notes: list[str] = field(default_factory=list)
+    # ⚠️ 「未检测」与「检测过、无歧义」是**不同**的事实。
+    # compiler 未启用（用户没配约束）时，ambiguity_checked=False，
+    # A3 必须把 requirement_ambiguous 视为**未知**而不是 False
+    # （规范 §5.6 原话：「标注为『未检测』而非『无歧义』」）。
+    # 把未知当已知是这套系统里反复出现的错误形态。
+    ambiguity_checked: bool = False
+
     @property
     def ok(self) -> bool:
         """无冲突即算编译成功（拒绝项不影响：它们本来就不该被保护）。"""

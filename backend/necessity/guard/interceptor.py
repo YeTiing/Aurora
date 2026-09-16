@@ -17,6 +17,7 @@ from typing import Any
 from backend.necessity.hooks import Decision, FileChange, TaskResult, ToolCall, ToolResult
 
 from .checker import CheckContext, Violation, check_constraints
+from .contracts_in import inject_contracts
 from .compiler import LLMClient, compile_from_task
 from .feedback import FeedbackLedger
 from .intent import contain, intent_paths, merge_changes, rel
@@ -83,6 +84,10 @@ class GuardHooks:
         self.rejected = [r.rejection() for r in res.rejected]
         self.conflicts = res.conflicts
         self.notes.extend(res.notes)
+        # A2 隐式契约注入（规范 §4.7 的三档策略）。
+        # 挖出的契约编译成 guard 已有类型后**并进同一个列表** ——
+        # 于是拦截/回滚/账本全部白送（§4.3 的「执行层不新建机制」）。
+        inject_contracts(self.constraints, self.notes, task or {})
         if res.rejected:
             # 拒绝项必须可见（§3.3）：进 on_task_end 报告，避免「以为有保护」
             self.notes.append(
@@ -289,7 +294,6 @@ class GuardHooks:
             elif line.startswith("-") and not line.startswith("---"):
                 removed += 1
         return FileChange(c.path, c.kind, added, removed, c.by_agent)
-
 
 def build_guard_hooks(cfg: dict | None = None) -> GuardHooks:
     """工厂 —— core/capability.py::FACTORY_NAMES 依赖这个名字。"""

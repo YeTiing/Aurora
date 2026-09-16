@@ -276,3 +276,130 @@ def test_verify_isolation_detects_dirty_workspace(tmp_path):
     (repo / "a.py").write_text("x = 2\n", encoding="utf-8")
     bad, why = verify_isolation(repo)
     assert bad is False and "未预期改动" in why
+
+
+# ── CLI 入口（此前 A6 只有库调用，无自动化入口）────────────────
+
+def test_compete_cli_registered():
+    """`necessity compete` 必须注册 —— 否则功能存在但没人用得上。"""
+    import subprocess
+    r = subprocess.run([sys.executable, "-m", "backend.necessity.cli.main", "--help"],
+                       cwd=str(ROOT), capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+    assert "compete" in r.stdout, "compete 子命令未注册"
+
+
+def _run_cli(cands, tmp_path):
+    import json
+    import subprocess
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps(cands, ensure_ascii=False), encoding="utf-8")
+    return subprocess.run(
+        [sys.executable, "-m", "backend.necessity.cli.main", "compete", "judge", str(p)],
+        cwd=str(ROOT), capture_output=True, text=True,
+        encoding="utf-8", errors="replace")
+
+
+def test_compete_cli_returns_zero_with_winner(tmp_path):
+    r = _run_cli([
+        {"id": "m1", "strategy": "minimal", "diff": "@@ a\n+x",
+         "metrics": {"tests_pass": True, "security_findings": 0, "impact_files": 1}},
+        {"id": "b1", "strategy": "backward_compatible", "diff": "@@ b\n+y",
+         "metrics": {"tests_pass": True, "security_findings": 1, "impact_files": 2}},
+    ], tmp_path)
+    assert r.returncode == 0
+    assert "胜者：m1" in r.stdout
+    assert "第 1 级" in r.stdout, "未说明在哪一级分出胜负"
+
+
+def test_compete_cli_exit_code_1_for_no_viable_candidate(tmp_path):
+    """**无可行候选退 1，与「输入错误」的 2 分开。**
+
+    前者是裁决结论（需要人来决定），后者是命令用错了。
+    混在一起会让自动化脚本无法判断该找人还是该改参数。
+    """
+    r = _run_cli([
+        {"id": "a", "strategy": "minimal", "diff": "@@ a\n+x",
+         "metrics": {"tests_pass": True, "violated_constraints": ["契约:软删除"]}},
+        {"id": "b", "strategy": "structural", "diff": "@@ b\n+z",
+         "metrics": {"tests_pass": True, "violated_constraints": ["契约:软删除"]}},
+    ], tmp_path)
+    assert r.returncode == 1
+    assert "无可行候选" in r.stdout
+    assert "不得选" in r.stdout
+
+
+def test_compete_cli_exit_code_2_for_bad_input(tmp_path):
+    r = _run_cli([], tmp_path)
+    assert r.returncode == 2
+    assert "没有候选" in r.stderr
+
+
+def test_compete_cli_warns_on_converged_candidates(tmp_path):
+    """多样性不达标时 CLI 必须告警 —— 否则「假竞争」会被当成真竞争。"""
+    r = _run_cli([
+        {"id": "a", "strategy": "minimal", "diff": "@@ same\n+x",
+         "metrics": {"tests_pass": True}},
+        {"id": "b", "strategy": "structural", "diff": "@@ same\n+x",
+         "metrics": {"tests_pass": True}},
+    ], tmp_path)
+    assert "多样性不达标" in r.stdout
+
+
+# ── A2 → Guard 的注入（§4.7 三档）──────────────────────────────
+
+def test_strong_contract_is_injected_with_warn_action():
+    """强证据契约注入 guard，且默认动作是 **warn**。
+
+    规范 §4.7：「自动注入的契约首次被违反 -> 不直接 block
+    （用户还没确认过它）」。默认 block 会拦住用户不知情的改动。
+    """
+    import tempfile
+    from pathlib import Path as _P
+
+    from backend.necessity.contract.schema import ContractCandidate, compute_confidence
+    from backend.necessity.guard.interceptor import GuardHooks
+
+    strong = ContractCandidate(
+        id="c-s", statement="删除必须软删除", sources=["tests", "callgraph"],
+        confidence=compute_confidence(["tests", "callgraph"], 3),
+        guard_type="symbol_scope",
+        guard_scope={"kind": "symbol", "pattern": "*delete*"})
+
+    h = GuardHooks({"workspace": str(_P(tempfile.mkdtemp())), "default_action": "warn"})
+    h.on_task_start({"id": "t", "contracts": [strong]})
+    injected = [c for c in h.constraints if c.id == "c-s"]
+    assert injected, "强证据契约未被注入"
+    assert injected[0].on_violation == "warn", "未确认的契约不该默认 block"
+
+
+def test_weak_contract_is_not_injected():
+    """低置信度契约不进 guard（规范 §4.7：<0.5 不提）。"""
+    import tempfile
+    from pathlib import Path as _P
+
+    from backend.necessity.contract.schema import ContractCandidate, compute_confidence
+    from backend.necessity.guard.interceptor import GuardHooks
+
+    weak = ContractCandidate(
+        id="c-w", statement="轨迹模式", sources=["trace"],
+        confidence=compute_confidence(["trace"], 1),
+        guard_type="call_chain",
+        guard_scope={"kind": "graph", "root": "a", "direction": "callees"})
+
+    h = GuardHooks({"workspace": str(_P(tempfile.mkdtemp())), "default_action": "warn"})
+    h.on_task_start({"id": "t", "contracts": [weak]})
+    assert not [c for c in h.constraints if c.id == "c-w"]
+
+
+def test_contract_injection_failure_does_not_break_guard():
+    """注入失败必须 fail-open —— 与所有钩子契约一致。"""
+    import tempfile
+    from pathlib import Path as _P
+
+    from backend.necessity.guard.interceptor import GuardHooks
+
+    h = GuardHooks({"workspace": str(_P(tempfile.mkdtemp())), "default_action": "warn"})
+    # 喂一个畸形契约（不是 dict 也不是 ContractCandidate）
+    h.on_task_start({"id": "t", "contracts": [object()]})
+    assert any("契约注入失败" in n for n in h.notes), "失败没留下痕迹"

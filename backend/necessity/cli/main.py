@@ -32,6 +32,24 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# ⚠️ **模块别名**：把 `cli.*` 与 `backend.necessity.cli.*` 指到同一批模块对象。
+#
+# 为什么必需：上面把 `backend/necessity` 加进 sys.path，于是同一份文件
+# 能通过两条路径导入 —— `cli.reduce_cmd` 和 `backend.necessity.cli.reduce_cmd`
+# 会成为**两个不同的模块对象**。
+#
+# 后果不是报错，是**测试的 monkeypatch 改不到真正在跑的代码**：
+#     monkeypatch.setattr("cli.reduce_cmd.INJECTED_RUNNER", ...)
+# 改的是 `cli.*` 那个副本，而 `main.py` 用完整包路径加载的是另一个副本 ——
+# 注入的判定器根本没生效，于是走了真实沙箱路径并触发前提校验而失败。
+# 实测：这条别名缺失导致 5 个 reduce CLI 测试回归。
+#
+# 修法是让两条路径指向同一对象，而不是强迫所有调用方改用一种写法 ——
+# 后者会破坏既有测试与外部集成方。
+import backend.necessity.cli as _cli_pkg  # noqa: E402
+
+sys.modules.setdefault("cli", _cli_pkg)
+
 DEFAULT_DB = str(ROOT / ".necessity" / "index.db")
 
 
@@ -190,14 +208,20 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--depth", type=int, default=2)
     i.set_defaults(fn=cmd_impact)
 
-    # ── reduce / attribution / eval（本层新增，实现在同包子模块）──
-    from cli.attribution_cmd import add_parser as add_attribution
-    from cli.eval_cmd import add_parser as add_eval
-    from cli.reduce_cmd import add_parser as add_reduce
+    # ── reduce / attribution / eval / compete（实现在同包子模块）──
+    # ⚠️ 用**完整包路径**而非 `from cli.X`：后者依赖调用方把
+    # `backend/necessity` 放进 sys.path（本模块顶部恰好这么做了），
+    # 换个入口（如从仓库根 `python -m backend.necessity.cli.main`）就会断。
+    # 完整路径在任何入口下都成立。
+    from backend.necessity.cli.attribution_cmd import add_parser as add_attribution
+    from backend.necessity.cli.compete_cmd import add_parser as add_compete
+    from backend.necessity.cli.eval_cmd import add_parser as add_eval
+    from backend.necessity.cli.reduce_cmd import add_parser as add_reduce
 
     add_reduce(top)
     add_attribution(top)
     add_eval(top)
+    add_compete(top)
     # 注意：这里**不注册** guard —— 理由见模块 docstring（§1.3）。
 
     return p

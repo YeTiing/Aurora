@@ -89,6 +89,38 @@
 | S6 | 能力 4：Failure Attribution | ✅ 已实现（效果待评测） |
 | S7 | 端到端评测 | ⏸ **阻塞：需要 LLM API key** |
 
+### 六项差异化能力（`Aurora_六项能力设计规范.md`）
+
+规范 v2 的 22 项接口声明已逐条核实（**22/22 为真**），六项能力全部落地。
+
+| 能力 | 模块 | 生产入口 | 默认 |
+|---|---|---|---|
+| **A1** 可验证代码补丁 | `report/` | `capability.py` 工厂（`evidence` 配置） | 关（会写盘） |
+| **A2** 隐式契约挖掘 | `contract/` | 注入 `guard/interceptor` | 关 |
+| **A3** 不确定性执行 | `autonomy/` | `capability.py` 工厂（`autonomy` 配置） | 关（改交互行为） |
+| **A4** 供应链安全 | `supply/` | `skills/` + `plugins/` 加载器 | **observe**（只记录不阻断） |
+| **A5** Skill 效果评测 | `eval/skill_arms.py` | `necessity eval skill` | 离线调用 |
+| **A6** 多方案竞争 | `compete/` | `necessity compete judge` | 离线调用 |
+
+**横切机制**（规范 §9 要求先于六项实现，否则各自为政）：
+
+| 机制 | 模块 | 接线点 |
+|---|---|---|
+| §1.4 运行时闭环 | `gate/runtime_gate.py` | `eval/runtime_feed.py` → `execute.run_and_measure` |
+| §1.5 索引新鲜度 | `gate/freshness.py` | `report/staleness.py` → A1 的 bundle |
+| §1.7 统一预算 | `gate/budget.py` | `enrich_bundle` 的耗时把关 |
+
+> **全部默认关闭或 observe 模式。** 理由：规范 §0.3 要求所有阈值在标定前
+> 不得作为验收依据，而六项能力都会改变行为（写盘 / 拦截 / 追问用户）。
+> A4 尤其如此 —— 它的检出率虽在自造语料上是 100%，但语料是自造的
+> （规范 §6.11 自己警告过「会虚高」），对抗硬样本实测只有 75%。
+> 在真实语料验证前不该拦人。
+
+> **关于「落地」的诚实说明**：本轮的多数修复针对的是同一类问题 ——
+> 模块存在、测试全过，但**没有任何东西调用它**。实测查出 6 个模块的
+> 「非测试调用方」计数为 0。现在六项能力都有可达入口，且每一项都做过
+> 端到端冒烟（见各能力的测试文件）。
+
 **评测框架已就绪**（`eval/`：8 对照臂、Wilcoxon 精确检验、Cliff's delta、
 任务集生成器 + 校验器），但跑出真实数字需要配置 LLM key ——
 `python -m backend.necessity.cli.main eval gate0` 会明确提示缺哪些环境变量，
